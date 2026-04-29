@@ -1,17 +1,16 @@
 # Sources récurrentes du tapage biduleur.
 # À ajuster une fois, ré-utilisable chaque mois.
 
-# === Sites web (1 entrée par site, scraper lié dans biduleur/connectors/web.py) ===
+# === Sites web (1 entrée par site ; le texte est extrait par Claude au moment
+# de la normalisation, pas de scraper dédié) ===
 websites:
   - name: leplongeoir
     url: https://leplongeoir-cirque.fr/agenda/
-    scraper: leplongeoir_v1
     needs_browser: false        # requests + BS4 suffit
     note: "Cirque — agenda saison"
 
   - name: superforma
     url: https://superforma.fr/agenda
-    scraper: superforma_v1
     needs_browser: true         # 403 sans bons headers → Playwright
     note: "SMAC — concerts (Le Scarron, Le Médiator)"
 
