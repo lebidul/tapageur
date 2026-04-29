@@ -49,16 +49,25 @@ Schéma des champs à extraire :
 Règles importantes :
 1. NE JAMAIS inventer un tarif. "?" si non trouvé.
 2. NE JAMAIS inventer une heure. Si absent, ne pas créer l'event.
-3. Regrouper les horaires multiples du même artiste/spectacle, même lieu, même
-   jour : un seul Event avec times=[...].
-4. Si plusieurs artistes au MÊME lieu MÊME date MÊME prix : un seul Event avec
+3. Si un spectacle est joué sur PLUSIEURS dates : génère UN Event PAR DATE,
+   chacun avec sa propre date_iso et ses propres times. NE JAMAIS regrouper
+   plusieurs dates dans un seul Event (même artiste, même lieu).
+4. Regrouper les horaires multiples du MÊME artiste/spectacle, MÊME lieu,
+   MÊME jour : un seul Event avec times=["16h00", "20h30"] (rendu plus tard
+   sous la forme "16h00 & 20h30" dans le CSV).
+5. Si plusieurs artistes au MÊME lieu MÊME date MÊME prix : un seul Event avec
    acts=[...] (jusqu'à 4).
-5. Filtrer hors mois cible (passé en user message). Retourne events=[] si rien
+6. Filtrer hors mois cible (passé en user message). Retourne events=[] si rien
    ne correspond.
-6. Exclure : ateliers, conférences, projections de films, expos sans dates
+7. Exclure : ateliers, conférences, projections de films, expos sans dates
    précises.
 
-Réponds par un objet {"events": [...]}. Liste vide si rien à extraire.
+Réponds UNIQUEMENT par un objet JSON valide de la forme :
+{"events": [{...}, {...}]}
+
+- AUCUN texte avant ou après le JSON.
+- PAS de markdown (pas de ```json…```).
+- Liste vide events=[] si rien à extraire.
 """
 
 
@@ -106,6 +115,19 @@ def _build_user_content(item: CollectedItem, month: str) -> list[dict]:
     return blocks
 
 
+def _extract_json(text: str) -> str:
+    """Extrait le bloc JSON de la réponse, en strippant un éventuel
+    fencing markdown ```json ... ```."""
+    text = text.strip()
+    if text.startswith("```"):
+        # ```json\n{...}\n```  ou  ```\n{...}\n```
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+    return text
+
+
 def _normalize_one(
     client: Anthropic,
     item: CollectedItem,
@@ -113,19 +135,29 @@ def _normalize_one(
     model: str,
     tapeur_email: str,
 ) -> list[Event]:
-    """Appelle Claude, valide, filtre par mois, injecte la métadonnée source."""
-    response = client.messages.parse(
+    """Appelle Claude, parse, valide, filtre par mois, injecte la métadonnée."""
+    response = client.messages.create(
         model=model,
         max_tokens=16000,
         thinking={"type": "adaptive"},
-        cache_control={"type": "ephemeral"},
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": _build_user_content(item, month)}],
-        output_format=_NormalizationOutput,
     )
 
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    if not text:
+        raise ValueError("Réponse Claude sans bloc text")
+
+    raw = _extract_json(text)
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"JSON invalide : {e}\n--- début réponse ---\n{raw[:500]}")
+
+    parsed = _NormalizationOutput.model_validate(data)
+
     events: list[Event] = []
-    for draft in response.parsed_output.events:
+    for draft in parsed.events:
         if not draft.date_iso.startswith(month):
             continue
         events.append(Event(
