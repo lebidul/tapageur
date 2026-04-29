@@ -73,7 +73,10 @@ def collect(month: str):
         except Exception as e:
             console.print(f"  [red]error: {e}[/red]")
 
-    out_path.write_text(json.dumps([i.model_dump() for i in all_items], indent=2, ensure_ascii=False))
+    out_path.write_text(
+        json.dumps([i.model_dump() for i in all_items], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     console.print(f"[green]✓[/green] {len(all_items)} items → {out_path}")
 
 
@@ -88,7 +91,7 @@ def normalize(month: str):
     if not raw_path.exists():
         raise click.UsageError(f"{raw_path} n'existe pas. Lance `tapageur collect` d'abord.")
 
-    items = [CollectedItem.model_validate(d) for d in json.loads(raw_path.read_text())]
+    items = [CollectedItem.model_validate(d) for d in json.loads(raw_path.read_text(encoding="utf-8"))]
     events = normalize_items(items, month, out_path)
 
     # Canonicalisation + dédup
@@ -96,7 +99,10 @@ def normalize(month: str):
     events = canonicalize(events, mappings)
     events = dedup(events)
 
-    out_path.write_text(json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False))
+    out_path.write_text(
+        json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
     console.print(f"[green]✓[/green] {len(events)} events normalisés → {out_path}")
 
 
@@ -111,7 +117,7 @@ def preview(month: str):
     if not norm_path.exists():
         raise click.UsageError(f"{norm_path} n'existe pas. Lance `tapageur normalize` d'abord.")
 
-    events = [Event.model_validate(d) for d in json.loads(norm_path.read_text())]
+    events = [Event.model_validate(d) for d in json.loads(norm_path.read_text(encoding="utf-8"))]
     export_csv(events, out_path)
     console.print(f"[green]✓[/green] ouvre {out_path} dans LibreOffice pour valider/corriger")
 
