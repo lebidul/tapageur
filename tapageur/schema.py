@@ -55,9 +55,12 @@ class Event(BaseModel):
     # Programmation : 1 à 4 acts (cols K-N, O-R, S-V, W-Z)
     acts: list[Act] = Field(..., min_length=1, max_length=4)
 
-    # Source tracking (pas dans le sheet, utile pour debug/dédup)
-    source_kind: Literal["outlook", "web", "pdf", "fb", "image"] = Field(..., exclude=True)
-    source_ref: str = Field(..., description="URL / message-id / chemin fichier", exclude=True)
+    # Source tracking (pas dans le sheet, utile pour debug/dédup).
+    # Pas exclu de model_dump() : on en a besoin pour rejouer le cache disque
+    # entre `normalize` et `preview`. Le CSV ne les inclut pas, car
+    # validate.event_to_row() construit la ligne champ par champ.
+    source_kind: Literal["outlook", "web", "pdf", "fb", "image"]
+    source_ref: str = Field(..., description="URL / message-id / chemin fichier")
 
     @field_validator("times")
     @classmethod
