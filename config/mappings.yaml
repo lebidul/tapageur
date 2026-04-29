@@ -1,0 +1,66 @@
+# Mappings canoniques pour le dédoublonnage.
+# À enrichir au fil des sessions de validation.
+
+# Format : "forme_canonique": [variantes...]
+
+venues:
+  "Le Plongeoir":
+    - "Plongeoir"
+    - "Plongeoir, Le"
+    - "le plongeoir"
+  "Le Chapiteau":
+    - "Chapiteau"
+    - "chapiteau Le Plongeoir"
+  "La Promenade, sous chapiteau":
+    - "Sous chapiteau Promenade"
+    - "Promenade chapiteau"
+  "La Promenade, promenade Newton":
+    - "Promenade Newton"
+    - "promenade Newton"
+  "Le Scarron":
+    - "Scarron"
+    - "Le Scarron Superforma"
+  "Abbaye de l'Épau":
+    - "Abbaye de l'Epau"
+    - "Epau"
+    - "Abbaye Epau"
+  "Hangar Créalab":
+    - "Hangar Crealab"
+    - "Crealab"
+  "Brasserie Septante Deux":
+    - "Septante Deux"
+    - "Septante 72"
+    - "Brasserie 72"
+
+artists:
+  "Delphine Joussein \"Calamity\"":
+    - "Delphine Joussein CALAMITY"
+    - "Delphine Joussein - Calamity"
+    - "Calamity (Delphine Joussein)"
+  # Ajouter au fil de l'eau
+
+festivals:
+  "Le Mans fait son cirque":
+    - "Le Mans Fait Son Cirque"
+    - "LMFSC"
+    - "festival cirque Le Mans"
+  "Festival Jazz Tangentes 2026":
+    - "Jazz Tangentes 2026"
+    - "Jazz Tangentes"
+
+# Genre canoniques (col K du sheet)
+genres:
+  "sv": # spectacle vivant
+    - "spectacle"
+    - "cirque"
+    - "théâtre"
+    - "danse"
+  "c":  # concert
+    - "concert"
+    - "musique"
+  "expo":
+    - "exposition"
+    - "expo"
+  "dj":
+    - "dj set"
+    - "soirée DJ"

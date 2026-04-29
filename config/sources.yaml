@@ -1,0 +1,55 @@
+# Sources récurrentes du tapage biduleur.
+# À ajuster une fois, ré-utilisable chaque mois.
+
+# === Sites web (1 entrée par site, scraper lié dans biduleur/connectors/web.py) ===
+websites:
+  - name: leplongeoir
+    url: https://leplongeoir-cirque.fr/agenda/
+    scraper: leplongeoir_v1
+    needs_browser: false        # requests + BS4 suffit
+    note: "Cirque — agenda saison"
+
+  - name: superforma
+    url: https://superforma.fr/agenda
+    scraper: superforma_v1
+    needs_browser: true         # 403 sans bons headers → Playwright
+    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+
+  # Ajouter au fil de l'eau :
+  # - name: lespommeshenry
+  # - name: les-saulnieres
+  # - name: ...
+
+# === Outlook (Microsoft 365 / live.fr / outlook.com via Graph API) ===
+outlook:
+  enabled: true
+  folders:                      # Outlook utilise des DOSSIERS, pas des labels comme Gmail
+    - "Bidul/Agendas"           # newsletters culturelles routées ici (sous-dossier de Bidul)
+    - "Bidul/CommuniquesPresse"
+  since_days: 60                # fenêtre de regard depuis le label (couvre 2 mois)
+
+# === PDFs saison (parsés une fois, ensuite cachés) ===
+season_pdfs:
+  - path: ./season_pdfs/saison_25_26_lemans.pdf
+    parsed_cache: ./cache/season_25_26_lemans.json
+    label: "Programme saison 25-26 — Le Mans"
+    # already_parsed: true → skippe le re-parsing si le cache existe
+
+# === Facebook (page Le Bidul uniquement — events des autres pages plus accessibles) ===
+facebook:
+  enabled: false                # à activer quand tu as le page access token
+  page_id: lebidul
+  kinds:
+    - events                    # events publiés par notre page
+
+# === Flyers / images du mois (à déposer manuellement) ===
+flyers:
+  base_dir: ./flyers
+  # Les images sont attendues dans ./flyers/<YYYY-MM>/
+  # OCR via PaddleOCR + Claude vision pour structurer.
+
+# === Filtre temporel ===
+filter:
+  # Mois ciblé est passé en CLI (--month YYYY-MM).
+  # Une marge de tolérance permet d'inclure les events à cheval mois précédent/suivant.
+  margin_days: 3

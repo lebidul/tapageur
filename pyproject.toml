@@ -1,0 +1,43 @@
+[project]
+name = "tapageur"
+version = "0.1.0"
+description = "Pipeline mensuel pour remplir le Google Sheet du tapage biduleur"
+requires-python = ">=3.11"
+dependencies = [
+    "anthropic>=0.40.0",
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "playwright>=1.40",          # fallback pour sites bloqués (Superforma etc.)
+    "pdfplumber>=0.10",
+    "msal>=1.26",                # OAuth Microsoft (Outlook via Graph API)
+    "gspread>=6.0",               # Google Sheets sortie (service account)
+    "paddleocr>=2.7",             # tu l'as déjà pour Bidul Indexer
+    "pandas>=2.0",                # CSV preview + manipulation
+    "python-dotenv>=1.0",
+    "click>=8.1",                 # CLI
+    "rich>=13.7",                 # logs lisibles
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "mypy>=1.7",
+]
+
+[project.scripts]
+tapageur = "tapageur.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["tapageur*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
