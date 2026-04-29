@@ -3,16 +3,17 @@
 
 # === Sites web (1 entrée par site ; le texte est extrait par Claude au moment
 # de la normalisation, pas de scraper dédié) ===
-# Désactivés temporairement pour smoke test PDF (Playwright non garanti dispo).
-websites: []
+websites:
+  - name: superforma
+    url: https://superforma.fr/agenda
+    needs_browser: true           # 403 sans bons headers → Playwright
+    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+
+  # À réactiver une fois superforma validé :
   # - name: leplongeoir
   #   url: https://leplongeoir-cirque.fr/agenda/
   #   needs_browser: false
   #   note: "Cirque — agenda saison"
-  # - name: superforma
-  #   url: https://superforma.fr/agenda
-  #   needs_browser: true         # 403 sans bons headers → Playwright
-  #   note: "SMAC — concerts (Le Scarron, Le Médiator)"
 
 # === Outlook (Microsoft 365 / live.fr / outlook.com via Graph API) ===
 outlook:
