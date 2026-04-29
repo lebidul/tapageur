@@ -21,10 +21,14 @@ class FacebookConnector(Connector):
     GRAPH_API = "https://graph.facebook.com/v18.0"
 
     def collect(self, month: str) -> Iterator[CollectedItem]:
-        if not self.config.get("enabled", False):
+        # Lit `facebook:` (et pas le top-level config). On garde l'ancien
+        # fallback pour rester souple si la signature change un jour.
+        fb_cfg = self.config.get("facebook", self.config)
+        if not fb_cfg.get("enabled", False):
             return
+            yield  # unreachable — force ce `def` à être un générateur
 
-        page_id = self.config["page_id"]
+        page_id = fb_cfg["page_id"]
         token = __import__("os").environ.get("FB_PAGE_ACCESS_TOKEN")
         if not token:
             print("[fb] FB_PAGE_ACCESS_TOKEN absent dans .env, skip")

@@ -21,7 +21,10 @@ from tapageur.schema import CollectedItem, Event
 from tapageur.validate import export_csv
 
 
-load_dotenv()
+# override=True : .env est source de vérité pour tapageur. Évite que des
+# variables vides héritées du shell parent (ex. ANTHROPIC_API_KEY="" injecté
+# par certains harnais) ne masquent les vraies valeurs.
+load_dotenv(override=True)
 console = Console()
 
 
