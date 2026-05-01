@@ -1,11 +1,16 @@
 """
 Connecteur web : fetch chaque URL configurée et yield le texte brut.
 
-Stratégie deux niveaux :
+Stratégie trois niveaux :
 - Page agenda (index) : parsée juste pour extraire les liens vers les pages
   event individuelles (sous-chemins stricts de l'URL d'agenda).
-- Pages event : 1 CollectedItem par page (raw text dump). Claude extrait au
-  moment de la normalisation. Pas de selector content-spécifique.
+- Pré-filtrage Claude : sur la liste candidate (souvent ~30-50 URLs sur 6
+  mois), demande à Claude lesquelles correspondent à des events DU MOIS
+  CIBLE depuis le texte d'agenda. Économise ~80% des fetch détail et
+  autant de calls Claude downstream. Désactivable avec
+  `prefilter_by_month: false` ou si `ANTHROPIC_API_KEY` absente.
+- Pages event retenues : 1 CollectedItem par page (raw text dump). Claude
+  extrait au moment de la normalisation. Pas de selector content-spécifique.
 
 Beaucoup de sites n'affichent les horaires/prix que sur les pages détaillées,
 pas sur l'agenda d'aperçu — d'où le suivi des liens.
@@ -14,6 +19,8 @@ Désactivable par site avec `follow_event_links: false` dans la config.
 """
 from __future__ import annotations
 
+import json
+import os
 from datetime import datetime
 from typing import Iterator
 from urllib.parse import urljoin, urlparse
@@ -29,6 +36,27 @@ USER_AGENT = (
     "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
+
+
+PREFILTER_MODEL = "claude-opus-4-7"  # même modèle que normalize, ~$0.05/site
+PREFILTER_SYSTEM = """\
+Tu es un router d'URLs. À partir d'un texte d'agenda et d'une liste d'URLs candidates \
+(chacune pointant vers une page event détaillée du même site), retourne UNIQUEMENT \
+les URLs dont l'event a lieu dans le mois cible.
+
+Heuristiques :
+- Chaque URL correspond à un event listé dans le texte d'agenda.
+- Le slug d'URL contient souvent un indice (nom artiste/spectacle).
+- Le texte d'agenda donne les dates des events (mois, parfois année).
+- En cas d'INCERTITUDE (date ambiguë, slug obscur, year manquante) : INCLURE
+  l'URL. Mieux vaut payer un fetch inutile qu'oublier un event.
+
+Réponds UNIQUEMENT par un JSON valide :
+{"urls": ["...", "..."]}
+
+- AUCUN texte avant ou après.
+- PAS de markdown.
+- Liste vide si aucune URL ne correspond avec certitude."""
 
 
 @register
@@ -62,7 +90,21 @@ class WebConnector(Connector):
 
             # Mode follow : parcours les pages event individuelles
             event_urls = _extract_subpages(html, base_url=url)
-            print(f"[web] {site_name}: {len(event_urls)} pages event à fetcher")
+            agenda_text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
+            print(f"[web] {site_name}: {len(event_urls)} URLs candidates")
+
+            # Pré-filtrage Claude (économise ~80% des fetch + calls downstream)
+            if site.get("prefilter_by_month", True) and event_urls:
+                if not os.environ.get("ANTHROPIC_API_KEY"):
+                    print(f"[web]   prefilter skip (ANTHROPIC_API_KEY absente)")
+                else:
+                    try:
+                        kept = _filter_urls_by_month(agenda_text, event_urls, month)
+                        print(f"[web]   {len(kept)}/{len(event_urls)} retenues pour {month}")
+                        event_urls = kept
+                    except Exception as e:
+                        print(f"[web]   prefilter échoué ({e}), fallback fetch all")
+
             for ev_url in event_urls:
                 try:
                     ev_html = _fetch(ev_url, needs_browser=needs_browser)
@@ -77,6 +119,50 @@ class WebConnector(Connector):
                     raw_text=ev_text,
                     raw_metadata={"site": site_name, "agenda_url": url},
                 )
+
+
+def _filter_urls_by_month(
+    agenda_text: str,
+    urls: list[str],
+    month: str,
+) -> list[str]:
+    """Pré-filtrage Claude : demande lesquelles des URLs candidates pointent
+    vers un event en `month` (YYYY-MM) en se basant sur le texte d'agenda.
+
+    Retourne un sous-ensemble strict de `urls` (Claude ne peut pas inventer
+    une URL qui n'était pas dans la liste — sanity check côté Python).
+    En cas d'erreur API/parse, lève l'exception : le caller décide du
+    fallback (typiquement : fetch all)."""
+    from anthropic import Anthropic
+
+    from tapageur.normalize import _extract_json
+
+    client = Anthropic()
+    user = (
+        f"Mois cible : {month}\n\n"
+        f"=== Agenda overview ===\n{agenda_text}\n\n"
+        f"=== URLs candidates ({len(urls)}) ===\n" + "\n".join(urls)
+    )
+    response = client.messages.create(
+        model=PREFILTER_MODEL,
+        max_tokens=4000,
+        system=PREFILTER_SYSTEM,
+        messages=[{"role": "user", "content": user}],
+    )
+    text = next((b.text for b in response.content if b.type == "text"), "")
+    if not text:
+        raise ValueError("réponse Claude sans bloc text")
+
+    raw = _extract_json(text)
+    data = json.loads(raw)
+    candidates = data.get("urls", [])
+    if not isinstance(candidates, list):
+        raise ValueError(f"format inattendu : urls={candidates!r}")
+
+    # Sanity : ne garde que les URLs réellement présentes dans l'input
+    # (évite les hallucinations / typos qui mèneraient à un 404).
+    valid = set(urls)
+    return [u for u in candidates if u in valid]
 
 
 def _extract_subpages(html: str, base_url: str) -> list[str]:
