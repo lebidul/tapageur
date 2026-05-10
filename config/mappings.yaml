@@ -1,66 +1,1329 @@
 # Mappings canoniques pour le dédoublonnage.
-# À enrichir au fil des sessions de validation.
-
+# - venues : généré par scripts/import_mappings.py depuis cache/_import/.
+# - artists / festivals / genres : édités manuellement.
 # Format : "forme_canonique": [variantes...]
 
 venues:
-  "Le Plongeoir":
-    - "Plongeoir"
-    - "Plongeoir, Le"
-    - "le plongeoir"
-  "Le Chapiteau":
-    - "Chapiteau"
-    - "chapiteau Le Plongeoir"
-  "La Promenade, sous chapiteau":
-    - "Sous chapiteau Promenade"
-    - "Promenade chapiteau"
-  "La Promenade, promenade Newton":
-    - "Promenade Newton"
-    - "promenade Newton"
-  "Le Scarron":
-    - "Scarron"
-    - "Le Scarron Superforma"
-  "Abbaye de l'Épau":
-    - "Abbaye de l'Epau"
-    - "Epau"
-    - "Abbaye Epau"
-  "Hangar Créalab":
-    - "Hangar Crealab"
-    - "Crealab"
-  "Brasserie Septante Deux":
-    - "Septante Deux"
-    - "Septante 72"
-    - "Brasserie 72"
-
+  14 hameau de verze: []
+  8 rue de Cyrus:
+  - 8, rue de Cyrus
+  Abbaye Royale de l'Epau:
+  - Abb. de l'Epau
+  - Abb. Epau
+  - Abbatiale, Abbaye de l'Epau
+  - Abbaye
+  - Abbaye de l'Epau
+  - Abbaye de l'Épau
+  - Abbaye royale de l'Épau
+  - Abbaye Royale de l’Epau
+  - Domaine de l’Épau
+  - Dortoir, Abbaye de l'Epau
+  - Sacristi, Abbaye de l'Epau
+  Allée des Prairies de Funay: []
+  Antarès: []
+  Arche de la Nature - Maison de la Prairie: []
+  Archives Musicales du Mans: []
+  Arrêt saint Martin: []
+  Au coeur des artistes:
+  - Au coeur des artistes, 14 rue Barbier
+  - Au Cœur des Artistes
+  - Au cœur des Artistes
+  Auberge: []
+  Aux 3 Brasseurs:
+  - 3 brasseurs
+  - café Les Brasseurs
+  - Les 3 brasseurs
+  - Les Trois Brasseurs
+  Baccara La Sirène: []
+  Bar de la Rotonde:
+  - Bar la Rotonde
+  - La Rotonde
+  Bar des sports: []
+  Bar l'Olivier: []
+  bar Le Corsaire: []
+  Bar à Z’Arts: []
+  Bars et restaurants: []
+  Base de loisirs: []
+  Bateau Lavoir Café:
+  - Bateau Lavoir
+  Beaux-Arts: []
+  Bibliotheque: []
+  Bibliothèque: []
+  Bibliothèque universitaire:
+  - Hall de la B.U université
+  Bibovino: []
+  Bistro Broc Café: []
+  Bières et Chopes:
+  - Bières É Chopes
+  Bld Winston Churchill: []
+  Blue Zinc: []
+  Boire du Bon: []
+  Bords de l'Huisne: []
+  Brasserie Mage Malte:
+  - Mage Malte
+  Brasserie Septante-Deux:
+  - Basserie Septante Deux
+  - Bras. Septante Deux
+  - BSD
+  Bât. H rue Maurice Ravel: []
+  Café Berlin: []
+  Café des Arts: []
+  Café des Brasseurs: []
+  Café du Centre: []
+  Café Folk: []
+  Café théatre Éolienne: []
+  Camion-théâtre: []
+  Campus de l'université:
+  - Campus Universitaire
+  - Campus universitaire
+  - Campus universitaire…
+  Carré Plantagenêt: []
+  Casa Minga: []
+  Cathédrale Saint-Julien:
+  - Cathédrale du Mans
+  - Cathédrale St Julien
+  Cave municipale: []
+  Caveau 105:
+  - Le Caveau 105
+  Centre Beaulieu: []
+  Centre Cial les Jacobins: []
+  Centre Culturel:
+  - C. Culturel
+  Centre Culturel Athéna:
+  - Athéna
+  - CC Athéna
+  - Centre Culturel Athena
+  - Espace Athena
+  - L'Athena
+  - l'Athéna
+  Centre Culturel Maurice Termeau:
+  - salle M. Termeau
+  Centre des Etangs-Chauds:
+  - Centre Les étangs chauds
+  - Les Étangs-Chauds
+  Centre des expositions:
+  - au parc des Expo
+  - C. des expositions du Mans
+  - C.des Expositions
+  - Centre des expo
+  - Centre des Expos
+  - Centre des expos
+  - Centre Expo
+  - Centre Expo du Mans
+  - Forum - Centre Expos
+  - Forum Centre Expo
+  - Forum des Expositions
+  - Le Forum
+  - Parc des Expos
+  - Parc Expo
+  Centre des Expositions Paul Courboulay:
+  - Salle Paul Courboulay
+  Centre hospitalier:
+  - Hôpital
+  Centre Musical International de Roussigny:
+  - Centre mus.Roussigny
+  Centre Social Gisèle Halimi:
+  - c. social Halimi
+  Centre Social Mazagran: []
+  Centre St Christophe: []
+  Centre Ville: []
+  Centre équestre: []
+  Chapelle de l'Oratoire:
+  - Chap. de l'Oratoire
+  - Chap. de l’Oratoire
+  - Chapelle de l'Oratoire du lycée Montesquieu
+  - Chapelle de l’oratoire (extérieur)
+  - Chapelle l'Oratoire
+  - Chapelle l'Oratoire - L. Montesquieu
+  - Chapelle l’oratoire
+  Chapelle Sainte Cécile: []
+  Chapiteau: []
+  Chapiteau bleu promenade Newton: []
+  Chapiteau bulle promenade Newton: []
+  Chapiteau du parc de Casablanca:
+  - Chapiteau, parc de Casablanca
+  Chapiteau promenade Newton: []
+  Chapiteau, parc de l'Epine:
+  - chapiteau parc de l'Epine
+  - Chapiteau parc de l'Épine
+  - Parc l'Epine (chapiteau)
+  Chapêlmêle: []
+  Chez Clara:
+  - bar Chez Clara
+  Chez Marcelle: []
+  Chez Rouillon: []
+  Chope et Compagnie:
+  - Chope & Cie
+  - Chopes et Compagnie
+  Chope et Compagnie Le Mans Nord: []
+  Chope et Compagnie Le Mans Sud: []
+  Chorus:
+  - Salle Chorus
+  CHS:
+  - CHSpécialisé Allonnes
+  CHS Etoc Demazy: []
+  Château de Courtanvaux: []
+  Château de la Forêterie: []
+  Cimetière de l’Ouest: []
+  Ciné-Poche:
+  - Ciné- Poche
+  Cinéma le Français:
+  - 26 rue Gambetta
+  - 26 rue Gambetta (ancien ciné le Français)
+  - Au Français (ancien cinéma)
+  - Le Français
+  Cinéma Le Kid: []
+  Cinéma le Royal:
+  - Le Royal
+  Cinéma Rex: []
+  Cinéma Zoom:
+  - cinéma zoom
+  Circuit Bugatti: []
+  Circuit des 24 heures:
+  - Circuit des 24 H du Mans
+  - Circuit des 24h
+  - circuit des 24Heures
+  - Circuit des 24Heures du Mans
+  Cirque Mimulus:
+  - Chapiteau Mimulus
+  - Cirque Mimulus (au chapiteau)
+  - Ecole de cirque Mimulus
+  - Mimulus
+  Cité du cirque & promenade Newton: []
+  Cité Plantagenêt: []
+  Club La Suite 72: []
+  Collège Notre Dame: []
+  Collégiale Saint-Pierre-la-Cour:
+  - C. St-Pierre-la-Cour
+  - Collégiale St Pierre
+  - Collégiale St-P.La-Cour
+  - Pierre la cour
+  - St Pierre de la Cour
+  Collégiale St: []
+  Comissariat: []
+  Comité des fêtes: []
+  Complexe culturel Atlantis:
+  - Atlantis
+  - Atlantis St Cosme en Vairais
+  - Centre Culturel Atlantis
+  - Complexe Atlantis
+  - complexe culturel Atlantis
+  - Salle Atlantis
+  Comédie Le Mans:
+  - Comédie, 37 rue nationale
+  Concession Harley Davidson: []
+  Conservatoire: []
+  Cour de École Jean Mermoz: []
+  Cour Ecole Descartes: []
+  Cour Ecole Saint-Jacques: []
+  CPFI:
+  - C.P.F.I. Le Mans
+  - CFPI
+  - CPFI (11 rue des Fr.Gréban)
+  Crafty Pub:
+  - Crafty Brewpub
+  Cri-Cri Plage: []
+  CTTM:
+  - '"Centre de transfert de technologie, 20 rue de Thalès de Milet"'
+  - Centre de transfert de technologie
+  Derrière le complexe R. Garnier: []
+  Domaine de l'Oiselière: []
+  Domaine de la Gandonnière: []
+  Domaine De Vaujoubert:
+  - Esp. Vaujoubert
+  - Espace Vaujoubert
+  Domaine du Gasseau: []
+  Dôme Sonore: []
+  Eglise: []
+  Eglise de Chevillé: []
+  Eglise Saint Guingalois: []
+  Eglise St Nicolas: []
+  EHPAD La reposance: []
+  Elastique à Musique:
+  - L'Elastique à Musique
+  ENSIM: []
+  Entre la place des Jacobins et la place de la République: []
+  EPSM de la Sarthe: []
+  ESAD TALM: []
+  Espace bis 18 rue St Martin: []
+  Espace Culturel: []
+  Espace culturel L'Orée du Bois: []
+  Espace des Rivauderies: []
+  Espace du Narais:
+  - Espace Le Narais
+  - Espace Narais
+  - Le Narais
+  Espace du Pont-Romain: []
+  Espace du Rôle: []
+  Espace Ephémère Centre Jacobins: []
+  Espace Faïence:
+  - Espace Faïence de Malicorne
+  - Musée de la Faïence
+  Espace George Sand:
+  - Esp. George Sand
+  Espace Henri Salvador:
+  - E. Salvador
+  - Esp. Cult Salvador
+  - Esp. culturel Henri Salvador
+  - Esp. H. Salvador
+  - Esp. Henri Salvador
+  - Esp. Salvador
+  - Esp.Salvador
+  - Espace Salvador
+  - Henri Salvador
+  - Henri Salvador Coulaines
+  - S. Henri Salvador
+  - Salvador
+  Espace Ronsard: []
+  Espace Saugonna:
+  - Saugonna
+  Espace Scélia:
+  - E. Scélia
+  - E.C. Scélia
+  - Espace cult. de Sargé-lès-le-Mans
+  - Espace culturel Scélia
+  - Espace Scélia Sargé
+  - Scelia
+  Espace Simone Signoret:
+  - Centre S. Signoret
+  - Centre S.Signoret
+  - Centre Signoret
+  - MJC S. Signoret
+  - MJC Simone Signoret
+  - S.Signoret
+  Espace Veron:
+  - Esp. Véron
+  Espace Vègre et Champagne:
+  - salle espace Vègre et Champagne
+  - salle Vègre Champagne
+  - Salle Vègre et Champagne
+  Esplanade de la Maison des Arts: []
+  Esplanade du Bicentenaire:
+  - Esplan. Bicentenaire
+  - Esplan. du Bicentenaire
+  Esplanade Nelson Mandela:
+  - esplanade N. Mandela
+  Esprit Barbara, café solidaire: []
+  EVE - Scène universitaire:
+  - Espace de Vie Etudiante
+  - Espace Vie Etudiante
+  - Eve
+  - EVE-Université du Maine
+  - Salle EVE
+  - salle EVE (Université)
+  Ferme des Alizées:
+  - Les Alizées
+  Ferme des Grues Rouges: []
+  FIAA Le Mans:
+  - FIAA
+  Forum FNAC:
+  - Fnac
+  - forum de la fnac
+  Forêt de Bercé rond de la Croix Marconnay: []
+  Foyer Rural: []
+  Foyer rural: []
+  Funky Toons Café:
+  - bar Le Funky Toons
+  Galerie Auchan: []
+  Galerie K: []
+  Gare TGV: []
+  Gite d'Asnières: []
+  Grand Atelier: []
+  Grape Bar: []
+  Guinguette: []
+  Guinguette de la Gèmerie: []
+  Gymnase: []
+  Gymnase A. Fournier: []
+  Gymnase André Malraux:
+  - Gymnase A. Malraux
+  Hall d'Antarès: []
+  Halle Villainoise: []
+  Halles: []
+  Hangar Créalab:
+  - Hangard Créalab
+  - Le Hangar 43
+  HangArt: []
+  Haras de brassé: []
+  Hops Store: []
+  Ibis hotel du centre: []
+  Il était une fois...:
+  - Il était une fois
+  Ile promenade Newton: []
+  Itemm:
+  - I'ltemm
+  - L'ltemm
+  Jardin des plantes:
+  - Jardins des Plantes
+  Jardin du Prieuré: []
+  Jardin Potager: []
+  Jardins de la cathédrale:
+  - Jardin de la cathédrale
+  Jardins de l’Officialité: []
+  Jardins des Plantes: []
+  Jim & Jump: []
+  Kiosque du jardin des Plantes:
+  - Kiosque au Jardin des Plantes
+  - Kiosque du Jardins des Plantes
+  - Kiosque Jardin des Plantes
+  - Kiosque à Musique
+  - Kiosque à Musique, Jardin des Plantes
+  - Le kiosque à musique, jardin des plantes
+  Kiosque Mozaïc:
+  - ESCAPADE Kiosque Mozaic
+  - Kiosque Mosaic
+  - Kiosque Mosaïc
+  - Kiosque Mozalc
+  L'Alambik MJC Ronceray:
+  - Centre Soc. Ronceray Glonnières
+  - Centre Social des Quartiers Sud
+  - Centre social Roncaray Glonnières
+  - Centre social Ronceray-Glonnières
+  - L'Alambic
+  - L'Alambik
+  - L'Alambik ! MJC Ronceray
+  - L’Alambik MJC Ronceray
+  - L’Alambik!
+  - MJC Plaine du Ronceray
+  - MJC Ronceray
+  L'Arena: []
+  L'Austral: []
+  L'Ebauche: []
+  L'Echappée: []
+  L'Elephant Pub:
+  - L'Éléphant
+  L'Endroit: []
+  L'Entracte:
+  - L'Entre'Acte
+  - L’Entracte
+  L'Envol: []
+  L'Epidaure:
+  - Centre Culturel Bouloire
+  - Centre Culturel Epidaure
+  - Théâtre Épidaure
+  - théâtreÉpidaure
+  L'Escale: []
+  L'Espal:
+  - IEspal
+  L'Herberie: []
+  l'ile aux sports: []
+  L'Inox: []
+  L'Instinct: []
+  L'Inventaire:
+  - L'Inventaire - MJC Jacques Prévert
+  - L'Inventaire, MJC Prévert
+  - L'InvertaicearchPrévert
+  - L’Inventaire
+  L'Oasis:
+  - '... l''Oasis'
+  - L’Oasis
+  - Salle Oasis
+  - Superforma/L'Oasis
+  - à l'Oasis
+  L'Olivier: []
+  L'Orange Bleue: []
+  L'Orée du bois: []
+  L'Union Jack:
+  - I'Union Jack
+  - The Union Jack
+  L'Utopitre:
+  - L'Uto'Pitre
+  - Salle Uto'pitre
+  - Uto'Pitre
+  - Uto'pitre
+  - Uto’pitre
+  L'Éolienne:
+  - Espace culturel l'Elolienne
+  - L'Eolienne - Arnage
+  - L’Eolienne
+  L'Épicerie sur le Zinc:
+  - L'Epic sur le Zinc
+  - L'Epic. sur le Zinc
+  - L'Epicerie sur le Zinc
+  - L'Épic. sur le Zinc
+  - L'Épicerie / le Zinc
+  - L'Épicerie / Zinc
+  - l’É. sur le Zinc
+  - l’Épicerie / Zinc
+  - L’Épicerie/ Zinc
+  - Épicerie sur Zinc
+  - Épicerie Zinc
+  - Épicerie/Zinc
+  L'Étable: []
+  L'Étoile des Saveurs: []
+  L'Étoile du Nord: []
+  L'île aux Planches:
+  - Ile aux Planche
+  - Île aux Planches
+  - Île aux planches
+  L'Îlot Co:
+  - L'Ilotco
+  - L'IlôtCo, Lieu-dit Le Gué Perroux
+  - L'ÎlotCo
+  L.n.c:
+  - inc
+  - lnc
+  La Belinoise:
+  - Salle Campanile
+  La bonne pioche: []
+  La Brass'vie:
+  - Le Brass'vie
+  La Bulle: []
+  La Capitainerie:
+  - Capitainerie
+  La Capsule: []
+  La Casa: []
+  La Castélorienne:
+  - Castelorienne
+  - La Casté
+  - La Castélo rienne
+  La Cave à Bières:
+  - Cave Le St Léo
+  - Cave à Bière de St. Léo
+  - Cave à bières le St Leo
+  - Cave à bières le St Léo
+  - Cave à Bières le St. Léo
+  - Cave à bières St Leo
+  - La Cave à Bières de St. Léo
+  - Le St. Léo
+  La Chaperie: []
+  La Chicane: []
+  La Citadelle des Anges: []
+  La Cité du cirque:
+  - Cité Cirque
+  - Cité du cirque
+  - La Cité du Cique
+  La Crémaillère: []
+  La Fabrique: []
+  La Faigne:
+  - La Faigne à Pontvallain
+  La flambée: []
+  La Fonderie: []
+  La Fosse jouanette: []
+  La grange Dimeresse: []
+  La guinguette des Tanneries:
+  - Guinguette des Tanneries
+  La Halte Mancelle: []
+  La Longère: []
+  La Maison Café: []
+  La P'tite Marie:
+  - Bar la P'tite Marie
+  - Bar La Petite Marie
+  La Passerelle: []
+  La pince à vélo: []
+  La Piraterie: []
+  La Pléiade: []
+  La Povostière: []
+  La Péniche Excelsior:
+  - L' Excelsior
+  - L'Excelsior
+  - La Peniche
+  - La Péniche
+  - L’Excelsior- Péniche
+  - Peniche
+  - PENICHE EXCELSIOR
+  - Peniche Excelsior
+  - Péniche
+  - Péniche Allonnes
+  - Péniche Excelsior
+  - Superforma/Péniche Excelsior
+  La Richardière: []
+  La Ruche: []
+  La Sandwicherie: []
+  La Saynète: []
+  La Sirène: []
+  La Source: []
+  La Tente:
+  - La Tente Site Robin des Bois
+  La Visitation: []
+  Lac de la Monnerie:
+  - Les Lacs de la Monnerie
+  Le 108:
+  - 108 - cent huit
+  Le 80:
+  - le 80
+  Le Bacchus: []
+  Le Backstage: []
+  Le Bakoua: []
+  Le Bar Aux Maîtres: []
+  Le Barouf:
+  - Lc Borouf
+  - Le Baouf
+  - Le Barout
+  - Le Brouf
+  Le Bohême Café:
+  - Bar bohème Café
+  Le bourg: []
+  Le Box Café: []
+  Le Café Crème: []
+  Le Café de la Gare: []
+  Le Café du Jet d’Eau: []
+  Le Café Noir: []
+  Le Caliméro: []
+  Le Capella:
+  - bar Le Capella
+  Le Carroi:
+  - Cour du Carroi
+  Le Caveau:
+  - Bar Le Caveau
+  - Caveau
+  - Le Caveau Le Mans
+  Le Celtic:
+  - au Celtic
+  - bar Le Celtic
+  - Bar Le Celtique
+  - Le Celt'hic
+  Le Chalet du Lac:
+  - Chalet du Lac
+  - Le chalet du lac
+  Le Chapeau Rouge: []
+  Le Chapiteau - Cité du cirque: []
+  Le chapiteau du Plongeoir:
+  - Café du chapiteau du Plongeoir
+  - Chap du Plongeoir
+  - Chapiteau du Plongeoir
+  - chapiteau du plongeoir
+  - Chapiteau le Plongeoir
+  - Chapiteau plongeoir
+  - Parvis du chapiteau du Plongeoir
+  Le Cheval Blanc:
+  - bar Le Cheval Blanc
+  Le Chicago:
+  - Le Chicago Bar
+  Le Chiquito: []
+  Le Circuit de la Bière:
+  - Circuit de la Biere
+  Le Clin d'œil:
+  - bar Le Clin d'Oeil
+  - bar Le Clin d'oeil
+  - bar Le Clin d'œil
+  Le Comptoir: []
+  Le Comptoir Des Papilles: []
+  Le Corvette's Café:
+  - bar Le Corvette's
+  Le Courmesnil:
+  - CC Le Courmesnil
+  - Le Cournesnil
+  Le Diabolo Menthe: []
+  Le Fer à Cheval:
+  - Le fer à cheval
+  Le Guest’s: []
+  Le Guet à Pintes: []
+  Le Happy Days: []
+  Le Havre:
+  - Bar Le Havre
+  Le jardin du Plongeoir: []
+  Le Jungle Café:
+  - au Jungle Café
+  - Bar Le Jungle
+  - Café Le Jungle
+  - Le Jungle
+  Le Kaléidoscope:
+  - centre social Le Kaléidoscope
+  Le Key West:
+  - bar Le Key West
+  - bar le Key West
+  Le La Ré Do:
+  - Laredo Café
+  - Le La Ré Dc
+  - Le Laredo
+  - Le Larédo - Sillé-Le-Guillaume
+  Le Labo Sonore:
+  - Labo Sonore
+  Le Lapin Blanc: []
+  Le LAUM:
+  - LAUM-Univ. du Mans
+  Le Lieu: []
+  Le Little Café: []
+  Le Local à Bières:
+  - Le Local A Bières
+  - Local à Bière
+  Le Loft: []
+  Le Lord's: []
+  Le lukel kean:
+  - Bar le Lukel'Kean
+  Le Lézard:
+  - Bar le Lezard
+  - bar le Lezard
+  - Le Léz
+  Le Mac Kinley:
+  - Pub Mac Kinley
+  Le Mackeson:
+  - au Mackesson
+  - LeMackeson
+  - Pub Mackesson Le Mans.
+  Le Manhattan Café: []
+  Le Mans Innovation:
+  - Le Mans Innovation (2ème étage), 57 Bd Demorieux
+  Le Mans plage: []
+  Le Milwaukee: []
+  Le Moloko: []
+  Le Mulligan:
+  - Mulligan’s
+  Le New Lord's: []
+  Le New York Coffee: []
+  Le Palace: []
+  Le Palais:
+  - Au Palais
+  - bar Le Palais
+  - Bar Le Palais Le Mans
+  - Le Palaic
+  - Le Palais Le Mans
+  Le Passeport:
+  - Bar le Passeport
+  - bar le Passeport
+  - Le P. du Cochon Vert
+  - Le P.C.V.
+  - Le Passeport Cochon Vert
+  - Le PCV
+  - le PCV
+  - P. du Cochon Vert
+  - P.C.V.
+  - P.C.V. Le Mans
+  - Passeport du CV
+  - PCV
+  Le Petit Pousset:
+  - bar Le Petit Poucet
+  - Le Petit Poucet
+  Le Pilier Rouge:
+  - bar du pilier rouge
+  Le Plongeoir:
+  - Le Plongeoir - Cité du Cirque
+  Le Port: []
+  Le Portland Pub:
+  - Le Portland
+  Le Poulpe à Vapeur: []
+  Le Pub Elysée: []
+  Le Pâtis:
+  - Cabaret Le Patis
+  - Le Patis
+  - Le Patis Le Mans
+  - Le Patis St Lazare
+  - le Patis St Lazare
+  - salle du Patis
+  Le Quai des Arts:
+  - Quai des Arts
+  Le Rabelais:
+  - Centre F. Rabelais
+  - Centre F.Rabelais
+  - Centre François Rabelais
+  Le RDV: []
+  Le Road House: []
+  Le Shaker: []
+  Le Silo: []
+  Le Soleil d'Or:
+  - bar Le Soleil d'Or
+  Le Spot:
+  - Skatepark Le Spot
+  Le St Barth: []
+  Le Stan: []
+  Le Sun Rock Avenue:
+  - Sun Rock
+  - SunRock
+  Le Terminus:
+  - pub Le Terminus
+  Le Val de Vray:
+  - C. Culturel Val-de-Vray
+  - Centre Culturel de St Saturnin
+  - Centre Culturel du Val de Vray
+  - centre culturel Val de Vray
+  - Centre Cultutel du Val De Vray
+  - Centre du Val de Vray
+  - Centre Val de Vraye
+  - Val 2 Vray
+  - Val Vray
+  Le Val'Rhonne:
+  - Bar du Val'Rhonne
+  - Centre Socio-Culturel Val' Rhonne
+  - Centre Socioculturel Le Val'Rhonne
+  - Centre Socioculturel Le Val'Rhonne Moncé en Belin
+  - Centre Val'Rhonne
+  - Centro socio-culturelle Val Rhoune Moncé-en-Belin
+  - Centro socio-culturelle Ye Rhoune Moncé-en-Belin
+  - CSC Val'Rhonne de Moncé en Belin
+  - Le Val Rhonne
+  - Le Val' Rhonne
+  - Le ValRhonne
+  - Le Val’Rhonne
+  - Salle du Val Rhonne
+  - Scène du Val'Rhonne
+  - Val Rhonne
+  - Val'Rhonne
+  Le Vaud':
+  - Le Vaud’
+  Le Verre Tige: []
+  Le Viking's:
+  - Aux Vicking's
+  - Aux Vickings
+  - Aux Vikings
+  - Aux Vikings'
+  - bar Aux Viking's
+  - bar Le Viking's
+  - Le Viking
+  Le Vintage:
+  - bar Le Vintage
+  Le Wagon: []
+  Le Witch's bar: []
+  Le Wiz: []
+  Le Zoo: []
+  Les 3 mousses: []
+  Les Allumés du jazz: []
+  Les Amazones: []
+  Les Atlantides: []
+  Les Cinéastes:
+  - Les Cineatses
+  Les Docks:
+  - Les Dock's
+  Les Ecuries: []
+  Les Filo Folie's:
+  - Filo Folie's
+  - Folie's
+  - Les Filo
+  Les Frères Mousse:
+  - bar Les Frères Mousse
+  Les Fêlés du Bocal: []
+  Les Jardins de Belle Garde:
+  - Jardins de Bellegarde
+  Les moulins de Paillard: []
+  Les Métairies:
+  - Les Hautes Métairies
+  Les Planches:
+  - S. Les Planches
+  - Salle Les Planches
+  - Théâtre des Planches
+  - Théâtre Les Planches
+  Les prés Marais: []
+  Les Quinconces:
+  - Les Quiconces Parvis
+  - Quinconce des Jacobins
+  - Quinconces des Jacobins
+  Les Quinconces - grand théâtre:
+  - théâtreLes Quinconces
+  Les Quinconces – petit Théâtre:
+  - Petit th. des Quinconces
+  - Pt th. des Quinconces
+  Les Saulnières:
+  - aux Saulnières
+  - Les Saunières
+  Les Subsistances:
+  - aux Subsistances
+  - Parc Les Subsistances
+  - parc Les Subsistances
+  Les Tourettes: []
+  Libertà: []
+  Librairie Thuard: []
+  Lieu-dit Asnières: []
+  Lieu-dit Le Buron: []
+  Local des As: []
+  Loiseau de la ferme: []
+  Luna Café: []
+  Lycée André Malraux: []
+  L’Arc en Ciel:
+  - bar l'Arc en Ciel
+  Macallan: []
+  Maine Saonnois: []
+  mairie: []
+  Maison Albert: []
+  Maison de l'Eau:
+  - Maison de l'Eaumaison de l'eau
+  Maison de quartier Barbara: []
+  Maison de quartier Charles Trénet: []
+  Maison de quartier Georges Moustaki:
+  - Mais. de quart. Moustaki
+  - Maison de qtr Georges-Moustaki
+  - Maison de quartier G. Moustaki
+  - Maison de quartier Moustaki
+  Maison de quartier l'Oiselière:
+  - L’oiselière
+  - Maison de qtr L’Oiselière
+  - maison quartier l'oiselière
+  Maison de quartier Les Aloès: []
+  Maison de quartier Les Ardriers:
+  - Maison de quartier Les Ardrières
+  Maison de quartier Les Bruyères:
+  - Maison de qtr Les Bruyères
+  - Maison de Quartier des Bruyères
+  Maison de quartier Pierre Guédou:
+  - M. de quart. P. Guédou
+  - Maison de qtr Pierre Guédou
+  - Maison de quartier P. Guédou
+  - Maison de quartier Pierre Guedou
+  - Maison quartier Pierre-Guédou
+  - Salle P. Guédou
+  - 'Salle P.Guedou:'
+  - salle Pierre Guedou
+  - Salle Pierre Guédou
+  - salle Pierre Guédou
+  Maison des arts: []
+  Maison des chemins creux: []
+  Maison des habitants: []
+  Maison du Temps Libre: []
+  Manoir de Rousson: []
+  Marché de la cité des Pins: []
+  Marché des jacobins: []
+  MJC Hervé Bazin:
+  - MJC Bazin
+  - MJC H. Bazin
+  MJC Jacques Brel:
+  - Centre J. Brel
+  - Centre J.Brel
+  - Centre Jacques Brel
+  MJC Prévert:
+  - Centre J. Prévert
+  - Cour MJC Prévert
+  - MJC J. Prevert
+  - MJC J. Prévert
+  - MJC J.Prevert
+  - MJC Jack Prévert
+  - MJC Jacques Prévert
+  - MJC Prévert Le Mans
+  Moulin de la Bruère: []
+  Moulin du Blaireau: []
+  MPT Jean Moulin:
+  - Maison pour Tous J.Moulin
+  - Maison pourTous J. Moulin
+  - MPT J. Moulin
+  - MPT J.Moulin
+  Mur plein champ Tessé: []
+  Musée de la musique mécanique:
+  - Musée de Musique de Dollon
+  - Musée de Musique Mécanique de Dollon
+  Musée de Tessé:
+  - Musée de Tessée
+  Musée Jean-Claude Boulard:
+  - Auditorium du Carré Plantagenêt
+  - Musée J.-C. Boulard
+  - Musée JC Boulard
+  - Musée JC boulart - carré plantagenet
+  Médiathèque: []
+  Médiathèque George Sand:
+  - Médiat. George Sand
+  - Médiathèque G. Sand
+  Médiathèque Louis Aragon:
+  - Médiat. Aragon
+  - Médiath. Aragon
+  - Médiathèque Aragon
+  - Médiathèque L. Aragon
+  - Médiatèque Aragon
+  Médiathèque modularium: []
+  Notre-Dame de la Couture:
+  - La Couture
+  O' Bistrot de So: []
+  Palais des Congrès:
+  - P. des Congrès
+  - P.C.C.
+  - PCC
+  Parc de l'Huisne: []
+  Parc de l'Épine:
+  - Parc de l'Épne
+  Parc de la Gironde: []
+  Parc de la mairie: []
+  Parc de la résidence autonomie: []
+  Parc de Tessé:
+  - Jardin de Tessé
+  Parc de Vaurouzé: []
+  Parc des 3 vallées: []
+  Parc des Carmes: []
+  Parc des Touches: []
+  Parc du château: []
+  Parc du Gué de Maulny:
+  - Gué de Maulny
+  - Parc Gué de Maulny
+  - parc Gué Maulny
+  Parc du Petit Train, rue Pierre Levegh: []
+  Parc face au chateau: []
+  Parc Gabriel Paillereau: []
+  Parc Jean du Bellay: []
+  Parc Théodore Monod:
+  - Parc Monod
+  Parking des Quinconces:
+  - Parking aérien des Quinconces
+  - Parking aérien Les Qinconces
+  Parking Quinconces: []
+  Parking rotonde du CROUS:
+  - p. rotonde du CLOUS
+  Parking rue de la mission: []
+  Partout en ville: []
+  Parvis de l'espace du Narais: []
+  Parvis de l'Espal: []
+  Parvis de la maison des Arts: []
+  Parvis des Quinconces:
+  - Parvis Quinconces
+  Passerelle des Atlantides:
+  - Passerelle des Atlandites
+  Pirate Café:
+  - bar Le Pirate
+  Place Carnot: []
+  Place d'Alger: []
+  Place de l'Eglise: []
+  Place de l'Europe: []
+  Place de l'église: []
+  Place de la Boussinière: []
+  Place de la gare: []
+  Place de la liberté: []
+  Place de la mairie: []
+  Place de la Mairie: []
+  Place de la paix: []
+  Place de la république:
+  - Pl de la République
+  - Place de la République (déambulation)
+  Place de la Sirène: []
+  Place des Comtes du Maine: []
+  Place des jacobins: []
+  Place des Quinconces: []
+  Place des Sablons: []
+  Place du Cardinal Grente:
+  - Place Cardinal Grente
+  - Place du C. Grente
+  Place du Jet d'eau: []
+  Place du Kiosque: []
+  Place du Mail:
+  - Parvis de la Mairie place du Mail
+  Place du marché: []
+  Place du marché au blé: []
+  Place du marché des Sablons: []
+  Place George Washington:
+  - Place de la Mission
+  Place Henri IV: []
+  Place Marie Pape Carpentier:
+  - Place pape-Carpenter
+  Place Saint Nicolas: []
+  place St Damien: []
+  Place St Michel:
+  - place Saint Michel/porche Royal
+  Place St Pierre: []
+  Plaine de Chaoué: []
+  Plaine de jeux: []
+  Plaine du Ronceray:
+  - MJC Plaine du Ronceray Le Mans
+  - Plaine Ronceray
+  Plaine du Val’Rhonne:
+  - Plaine Val'Rhonne
+  Plaine du verger: []
+  Plan d'eau: []
+  Pont romain: []
+  Port du Mans: []
+  Prairie du chateau: []
+  Prieuré de Mayenne:
+  - Prieuré de Mayanne
+  Prieuré de Vivoin: []
+  Promenade Newton:
+  - Camion-Théâtre promenade Newton
+  - Promenade de Newton et divers lieux
+  - promenade Newton (espace chapiteau)
+  Pôle culturel: []
+  Quai Louis Blanc: []
+  Quartier St Exupéry: []
+  R-Volt:
+  - R-Volt Club
+  Restaurant l'Éternel: []
+  Rey Gin's:
+  - Le Regin's bar
+  - Le Rey Gin's bar
+  - Le Rey Gin's Bar
+  - Rey Gin's bar
+  Route des Galopières:
+  - Rte des Galopières
+  Rue Claude Blondeau:
+  - rue blondeau
+  Rue de Belgique Sablons: []
+  Rue de la Piscine: []
+  Rue du Gué: []
+  Salle Aimée le Prilleux:
+  - salle A. Prilleux
+  - Salle Aimé Prilleux
+  - Salle Aimée Prilleux
+  Salle André Voisin:
+  - Salle A. Voisin
+  Salle associative: []
+  Salle Besnardeau: []
+  Salle Cattois Roncin: []
+  Salle Claircigny: []
+  Salle Communale: []
+  Salle Coppélia:
+  - Coppélia
+  - Salle Coppélia La Flèche
+  Salle de l'Horloge: []
+  Salle de Tresson: []
+  Salle des concerts:
+  - Salles des Concerts
+  Salle des fêtes:
+  - S. des fêtes
+  Salle des Fêtes: []
+  Salle des planches: []
+  Salle du Cloître:
+  - Salle du cloître
+  Salle du Foyer Loisirs de Parigné-L'Évêque:
+  - Foyer Loisirs de Parigné-L'Evêque
+  - Salle du Foyer Loisirs
+  Salle Edith Piaf: []
+  Salle G. Moquet: []
+  Salle Georges Brassens:
+  - sall. Brassens
+  - salle Brassens
+  - salle Brassens Yvré l'Evêque
+  - Salle G. Brassens
+  - salle G. Brassens
+  Salle Jean Carmet:
+  - Carmet
+  - Complex Jean Carmen Allonnes
+  - Complexe Jean Carmet
+  - Complexe Jean Carnict Allonnes 21
+  - Jean Carmet
+  - Jean. Carmet
+  - L'Excelsior-Salle Jean Carmet
+  - L’Excelsior-S.Jean Carmet
+  - S. Jean Carmet
+  - S.Carmet
+  - S.Jean Carmet
+  - Salle Jean Carment
+  - SJ.Carmet
+  Salle Jean de la Fontaine:
+  - S. de Jean de la Fontaine
+  Salle l'Eden:
+  - L'Eden
+  Salle Les Sources:
+  - les Sources
+  Salle Louise Labé:
+  - salle L. Labé - MPT
+  Salle Madeleine Marie:
+  - Espace Madeleine Marie
+  Salle Michel Berger:
+  - espace Michel Berger
+  - salle Berger Savigné l'E.
+  - salle M. Berger
+  Salle municipale: []
+  Salle Mélusine:
+  - S. Poly. Mélusine
+  Salle Paul Richard: []
+  Salle Polyvalente:
+  - S. Poly
+  Salle Printania: []
+  Salle St Christophe: []
+  Salle Théophile Plé: []
+  Salle Vauguélande: []
+  Salon Arthé: []
+  Salon de la rue des 3 Sonnettes:
+  - Le salon de la rue des sonnettes
+  - Rue des 3 Sonnettes
+  Scène Joël Le Theule:
+  - C. C.J.Le Theule
+  - C. culturel J.Le Theule
+  - C. J. Le Theule
+  - C. J.Le Theule
+  - C.C.J. Le Theule
+  - C.C.J.Le Theule
+  - C.C.Joel Le Theule
+  - C.Le Theule
+  - Centre cult. J.Le Theule
+  - Centre Culturel de Sablé
+  - Centre culturel J Le Theule
+  - Centre Culturel J. Le Theule
+  - Centre culturel J. Le Theule
+  - Centre culturel J.Le Theule
+  - Centre Culturel J.LeTheule
+  - Centre Culturel JLTheule
+  - Centre Culturel Joël Le Theule
+  - Centre Culturel Sablé-sur-Sarthe
+  - Centre J. Le Theule
+  - Centre J.Le Theule
+  - Centre J.LeTheule
+  - Centre Joël
+  - Centre Joël Le Theule
+  - Centre Le Theule
+  - Espace Joël Le Theule
+  - Le Theule
+  - Salle J. Le Theule
+  - Scène J. Le Theule
+  - Scène J.Le Theule
+  Secours catholique: []
+  Service Jeunesse: []
+  Site de la Salle des Fêtes: []
+  Square Dubois: []
+  Square Montreuil:
+  - Square Montreul
+  - square Montreul
+  Square Pierre Schilte: []
+  Square rue Galilée: []
+  Stade: []
+  Stade du collège: []
+  Stade Léon Bollée:
+  - Stade Léon Bolet
+  Studio 101: []
+  Studio de la Cie Marie Lenfant:
+  - Studio Cie Marie Lenfant
+  - Studio La Cie Marie Lenfant
+  - Studio Marie Lenfant
+  Sun 7 Bar:
+  - Le Sun Sept
+  - Sun 7
+  - Sun Sept Bar
+  - Sun7 Bar
+  Terrain de jeu: []
+  Tertre Rouge: []
+  The Hideout:
+  - Hide Out
+  - The Hide Out
+  - The Hideout Bar
+  The Lodge:
+  - Le Lodge
+  Théâtre de Chaoué:
+  - Chaoué
+  - L'Enfumeraie
+  - Th. Chaoué
+  - Th. de Chaoué
+  - Th. De Choué Port BelleEau
+  - Théâtre de Chaoué Port-Belle-Eau
+  - Théâtre de l'Enfumeraie
+  - Théâtre. de l'Enfumeraie
+  - Théâtre. de L'Enfumeraie
+  - théâtreChaoué
+  - théâtrede Chaoué
+  Théâtre de l'Acthalia:
+  - Acthalia
+  - L'Acthalia
+  - Th. Acthalia
+  - Th. L'Acthalia
+  - Théâtre de l’Acthalia
+  Théâtre de l'Enfumeraie: []
+  Théâtre de l'Écluse:
+  - L'&cluse
+  - L'Ecluse
+  - L'Écluse
+  - Th. 'écluse
+  - Th. de l'écluse
+  - Théâtre de I'&cluse
+  - Théâtre de l'&cluse
+  - Théâtre de l'Ecluse
+  - Théâtre de l’Écluse
+  - Théâtre L' Ecluse
+  Théâtre de l'Éphémère:
+  - Th. de l'Ephemere
+  - Th. de l'Éphémère
+  - Th. l'Éphémère
+  - Th. Éphémère
+  - Théâtre de l'Ephémère
+  Théâtre de la Bertoche:
+  - La Bertoche
+  Théâtre de la Halle-au-Blé:
+  - Halle au Blé
+  - La Halle-au-Blé
+  - Salons du Théâtre de la Halle-au-Blé
+  - Th. Halle au blé
+  - Th. la Halle au Blé
+  - Théâtre de la Halle aux Blés
+  - Théâtre de la Halle-auBlé
+  Théâtre de Mamers:
+  - Th. Municipal de Mamers
+  Théâtre des Quinconces: []
+  Théâtre des Récollets:
+  - Sall des fêtes Le Recollet
+  Théâtre du Passeur:
+  - Th. Passeur
+  - Théâtre du Passeur Le Mans
+  Théâtre du Petit Seux:
+  - Th. du Petit Seux
+  - théâtre du Petit Seux
+  Théâtre Municipal: []
+  Théâtre Paul Scarron:
+  - l'Ephémère
+  - Le Scarron
+  - Maison de la Biennale (théâtre Paul Scarron)
+  - Paul Scarron
+  - Scarron
+  - Th. P. Scorron
+  - th. Paul Scaron
+  - Th. Scarron
+  - Théâtre Paul Scarron)
+  - Théâtre Scarron
+  Théâtre Poche: []
+  Twin's Beer: []
+  Un Singe en Hiver:
+  - Au singe en hiver
+  - Le Singe en Hiver
+  Unik Music: []
+  Université: []
+  Université Amphi Extérieur Bât. Lettres: []
+  V&B:
+  - V and B
+  V&B Antarès: []
+  Vaurouzé - Université: []
+  Verre I Table: []
+  Vieux Mans: []
+  Véron fleurs: []
+  Washington DC:
+  - Le Washington DC
+  - Washington D.C
+  White-UNDR Club:
+  - White
+  - White - Club UNDR Club
+  - White Club
+  - WhiteUNDR Club
+  École Camille Claudel:
+  - École primaire Camille Claudel
+  École de l'Épau: []
+  École de musique de Saint Saturnin: []
+  École Garnier-Pagès: []
+  École Jean Mermoz: []
+  École Maternelle des Maillets: []
+  École Paul Langevin:
+  - Ecole P. Langevin
+  École Philippeaux:
+  - École Philppeaux
+  École primaire Montaigu: []
+  École Supérieure d'Art et de Design: []
+  Église: []
+  Église d'Arnage: []
+  Église de Bonnétable: []
+  Église de René: []
+  Église notre dame: []
+  Église notre dame du Pré:
+  - Eglise du Pré
+  Église Notre-Dame-de-Sainte-Croix:
+  - N.D de Ste Croix
+  - Église N.D. de Ste Croix
+  Église Saint Gilles: []
+  Église Saint Nicolas: []
+  Église Saint-Liboire: []
+  Église St. Aldric: []
+  Épicerie du Pré:
+  - Epicerie du Pré
+  - l’Epicerie du pré
+  Île aux Planches (pont de fer): []
+  Île de Moulinsart:
+  - Bal MoulinSart
+  - Bal-île MoulinSart
+  - Ile Moulin Sart
+  - Le Bal-île
+  - lle Moulin Sart
+  - Moulins'art à Fillé sur Sarthe
+  - Moulinsart
+  - Île Moulinsart
+  Ô Bord du Loir: []
 artists:
-  "Delphine Joussein \"Calamity\"":
-    - "Delphine Joussein CALAMITY"
-    - "Delphine Joussein - Calamity"
-    - "Calamity (Delphine Joussein)"
-  # Ajouter au fil de l'eau
-
+  Delphine Joussein "Calamity":
+  - Delphine Joussein CALAMITY
+  - Delphine Joussein - Calamity
+  - Calamity (Delphine Joussein)
 festivals:
-  "Le Mans fait son cirque":
-    - "Le Mans Fait Son Cirque"
-    - "LMFSC"
-    - "festival cirque Le Mans"
-  "Festival Jazz Tangentes 2026":
-    - "Jazz Tangentes 2026"
-    - "Jazz Tangentes"
-
-# Genre canoniques (col K du sheet)
+  Le Mans fait son cirque:
+  - Le Mans Fait Son Cirque
+  - LMFSC
+  - festival cirque Le Mans
+  Festival Jazz Tangentes 2026:
+  - Jazz Tangentes 2026
+  - Jazz Tangentes
 genres:
-  "sv": # spectacle vivant
-    - "spectacle"
-    - "cirque"
-    - "théâtre"
-    - "danse"
-  "c":  # concert
-    - "concert"
-    - "musique"
-  "expo":
-    - "exposition"
-    - "expo"
-  "dj":
-    - "dj set"
-    - "soirée DJ"
+  sv:
+  - spectacle
+  - cirque
+  - théâtre
+  - danse
+  c:
+  - concert
+  - musique
+  expo:
+  - exposition
+  - expo
+  dj:
+  - dj set
+  - soirée DJ
