@@ -72,6 +72,15 @@ class WebConnector(Connector):
             needs_browser = site.get("needs_browser", False)
             follow = site.get("follow_event_links", True)
 
+            # Détection PDF distant : extension d'URL ou Content-Type via HEAD.
+            # Route vers le parsing pdfplumber au lieu du fetch HTML.
+            if _is_pdf_url(url):
+                try:
+                    yield _fetch_pdf_url(url, site_name)
+                except Exception as e:
+                    print(f"[web] {site_name}: PDF fetch error: {e}")
+                continue
+
             try:
                 html = _fetch(url, needs_browser=needs_browser)
             except Exception as e:
@@ -208,3 +217,41 @@ def _fetch(url: str, needs_browser: bool = False) -> str:
     resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=15)
     resp.raise_for_status()
     return resp.text
+
+
+# ---------- PDF distant (la section season_pdfs ne gère plus les URLs) ----------
+
+def _is_pdf_url(url: str) -> bool:
+    """Détecte un PDF distant. Priorité : extension .pdf dans le path.
+    Fallback : HEAD request pour vérifier Content-Type application/pdf.
+    Si HEAD échoue (timeout, 405, etc.), retourne False (traité comme HTML)."""
+    if urlparse(url).path.lower().endswith(".pdf"):
+        return True
+    try:
+        h = requests.head(url, headers={"User-Agent": USER_AGENT}, timeout=8, allow_redirects=True)
+        return "application/pdf" in h.headers.get("content-type", "").lower()
+    except Exception:
+        return False
+
+
+def _fetch_pdf_url(url: str, site_name: str) -> CollectedItem:
+    """Télécharge un PDF distant et l'extrait via pdfplumber en mémoire."""
+    import io
+    import pdfplumber  # lazy import
+
+    resp = requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=60)
+    resp.raise_for_status()
+    with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+        n_pages = len(pdf.pages)
+        text = "\n\n".join((p.extract_text() or "") for p in pdf.pages)
+    return CollectedItem(
+        source_kind="pdf",
+        source_ref=url,
+        fetched_at=datetime.utcnow().isoformat() + "Z",
+        raw_text=text,
+        raw_metadata={
+            "url": url,
+            "site": site_name,
+            "n_pages": n_pages,
+        },
+    )
