@@ -28,16 +28,17 @@ outlook:
 
 # === Mailbox locale (bypass de l'API Outlook) ===
 # Drag-and-drop des mails utiles depuis Outlook Web (.eml) ou Outlook Desktop
-# (.msg) vers cache/mailbox_export/<YYYY-MM>/. Pas d'auth, pas de tenant.
-# Pièces jointes ignorées (mets les flyers dans flyers/<YYYY-MM>/ si besoin).
+# (.msg) vers sources/mailbox_export/<YYYY-MM>/. Pas d'auth, pas de tenant.
+# Pièces jointes images/PDF extraites automatiquement comme items distincts.
 mailbox:
-  base_dir: cache/mailbox_export
+  base_dir: sources/mailbox_export
 
 # === PDFs saison (parsés une fois, ensuite cachés) ===
-# `path` peut être un chemin local ou une URL — dans ce cas le PDF est
-# téléchargé dans ./season_pdfs/<basename>.pdf (gitignored).
+# Uniquement des chemins LOCAUX. Les PDFs distribués via URL doivent passer
+# par la section `websites` (le connecteur web détecte le Content-Type pdf
+# et route automatiquement).
 season_pdfs:
-  - path: "./season_pdfs/Programme Acthalia saison 2025-2026.pdf"
+  - path: "./sources/pdfs_saison/Programme Acthalia saison 2025-2026.pdf"
     parsed_cache: ./cache/pdf_acthalia_25_26.json
     label: "Programme saison 25-26 — Théâtre de l'Acthalia"
 
@@ -55,9 +56,10 @@ facebook:
   since_days: 60
 
 # === Flyers / images du mois (à déposer manuellement) ===
+# TODO (commit suivant) : rebaptiser flyers → docs et accepter PDF + paths list.
 flyers:
-  base_dir: ./flyers
-  # Les images sont attendues dans ./flyers/<YYYY-MM>/
+  base_dir: ./sources/docs
+  # Les images sont attendues dans ./sources/docs/<YYYY-MM>/
   # OCR via PaddleOCR + Claude vision pour structurer.
 
 # === Filtre temporel ===

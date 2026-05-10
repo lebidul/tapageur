@@ -20,8 +20,10 @@ sheets-sa.json
 # Cache & data
 cache/*
 !cache/.gitkeep
-flyers/*
-!flyers/.gitkeep
+# Sources (PDFs saison, docs du mois, mails exportés) — données user, pas trackées
+sources/**/*
+!sources/**/
+!sources/**/.gitkeep
 *.csv
 preview_*.xlsx
 

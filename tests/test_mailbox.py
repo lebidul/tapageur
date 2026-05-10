@@ -160,9 +160,9 @@ def test_connector_missing_month_dir_is_noop(tmp_path: Path):
 
 
 def test_connector_uses_default_base_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """Sans config explicite, lit cache/mailbox_export/<month>/."""
+    """Sans config explicite, lit sources/mailbox_export/<month>/."""
     monkeypatch.chdir(tmp_path)
-    month_dir = tmp_path / "cache" / "mailbox_export" / "2026-05"
+    month_dir = tmp_path / "sources" / "mailbox_export" / "2026-05"
     month_dir.mkdir(parents=True)
     _write_eml_plain(month_dir / "x.eml", "Default", "Default body content.")
 

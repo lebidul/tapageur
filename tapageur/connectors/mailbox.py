@@ -1,6 +1,6 @@
 """
 Connecteur mailbox : lit les emails exportés à la main dans
-`cache/mailbox_export/<YYYY-MM>/`.
+`sources/mailbox_export/<YYYY-MM>/`.
 
 Bypass complet de l'API Microsoft Graph (qui requiert un tenant Azure AD que
 Microsoft refuse de créer pour les comptes Microsoft personnels sans licence
@@ -55,7 +55,7 @@ class MailboxConnector(Connector):
 
     def collect(self, month: str) -> Iterator[CollectedItem]:
         base_dir = Path(
-            self.config.get("mailbox", {}).get("base_dir", "cache/mailbox_export")
+            self.config.get("mailbox", {}).get("base_dir", "sources/mailbox_export")
         )
         month_dir = base_dir / month
         if not month_dir.exists():

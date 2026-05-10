@@ -18,7 +18,7 @@ class ImagesConnector(Connector):
     name = "images"
 
     def collect(self, month: str) -> Iterator[CollectedItem]:
-        base = Path(self.config.get("flyers", {}).get("base_dir", "./flyers"))
+        base = Path(self.config.get("flyers", {}).get("base_dir", "./sources/docs"))
         month_dir = base / month
         if not month_dir.exists():
             return
