@@ -16,12 +16,22 @@ websites:
   #   note: "Cirque — agenda saison"
 
 # === Outlook (Microsoft 365 / live.fr / outlook.com via Graph API) ===
+# Désactivé : Microsoft a verrouillé la création d'App Registration pour les
+# comptes Microsoft personnels (live.fr) sans tenant Azure AD. Voir le
+# connecteur `mailbox` ci-dessous pour le bypass via export manuel.
 outlook:
-  enabled: false                # désactivé tant que MSAL_CLIENT_ID pas configuré
+  enabled: false
   folders:
     - "Bidul/Agendas"
     - "Bidul/CommuniquesPresse"
   since_days: 60
+
+# === Mailbox locale (bypass de l'API Outlook) ===
+# Drag-and-drop des mails utiles depuis Outlook Web (.eml) ou Outlook Desktop
+# (.msg) vers cache/mailbox_export/<YYYY-MM>/. Pas d'auth, pas de tenant.
+# Pièces jointes ignorées (mets les flyers dans flyers/<YYYY-MM>/ si besoin).
+mailbox:
+  base_dir: cache/mailbox_export
 
 # === PDFs saison (parsés une fois, ensuite cachés) ===
 # `path` peut être un chemin local ou une URL — dans ce cas le PDF est

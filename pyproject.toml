@@ -12,6 +12,7 @@ dependencies = [
     "playwright>=1.40",          # fallback pour sites bloqués (Superforma etc.)
     "pdfplumber>=0.10",
     "msal>=1.26",                # OAuth Microsoft (Outlook via Graph API)
+    "extract-msg>=0.48",          # parse .msg exportés depuis Outlook Desktop
     "gspread>=6.0",               # Google Sheets sortie (service account)
     "paddleocr>=2.7",             # tu l'as déjà pour Bidul Indexer
     "pandas>=2.0",                # CSV preview + manipulation
