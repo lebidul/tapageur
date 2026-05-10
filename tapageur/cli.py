@@ -52,17 +52,35 @@ def _cache_dir(month: str) -> Path:
     return p
 
 
-def _load_config() -> dict:
-    return yaml.safe_load(Path("config/sources.yaml").read_text(encoding="utf-8"))
+DEFAULT_CONFIG_PATH = Path("config/sources.yaml")
+
+
+def _load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict:
+    """Charge un fichier de config sources YAML. Défaut : config/sources.yaml."""
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 @main.command()
 @click.option("--month", default=None, help="YYYY-MM (défaut : mois courant)")
-def collect(month: str):
-    """Collecte les sources → cache/<month>/raw.json"""
+@click.option("-c", "--config", "config_path",
+              type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              default=DEFAULT_CONFIG_PATH,
+              show_default=True,
+              help="Fichier YAML des sources à utiliser. Convention possible : "
+                   "config/sources_<YYYY>_<MM>.yaml pour une config dédiée par mois.")
+def collect(month: str, config_path: Path):
+    """Collecte les sources → cache/<month>/raw.json
+
+    Par défaut lit config/sources.yaml. Pour un mois avec des sources
+    spécifiques, créer config/sources_2026_05.yaml et passer
+    `--config config/sources_2026_05.yaml`. La structure attendue est
+    identique au fichier par défaut (sections : websites, outlook, mailbox,
+    season_pdfs, facebook, flyers).
+    """
     month = _validate_month(month)
-    config = _load_config()
+    config = _load_config(config_path)
     out_path = _cache_dir(month) / "raw.json"
+    console.print(f"[dim]config: {config_path}[/dim]")
 
     all_items: list[CollectedItem] = []
     for connector_name in ["outlook", "mailbox", "web", "pdf", "fb", "images"]:
