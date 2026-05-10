@@ -38,7 +38,9 @@ USER_AGENT = (
 )
 
 
-PREFILTER_MODEL = "claude-opus-4-7"  # même modèle que normalize, ~$0.05/site
+# Sonnet 4.5 : router URL→mois est une tâche simple sur du texte d'agenda
+# court (quelques KB). Pas besoin d'Opus ici, ×5 moins cher.
+PREFILTER_MODEL = "claude-sonnet-4-5"
 PREFILTER_SYSTEM = """\
 Tu es un router d'URLs. À partir d'un texte d'agenda et d'une liste d'URLs candidates \
 (chacune pointant vers une page event détaillée du même site), retourne UNIQUEMENT \

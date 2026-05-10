@@ -26,6 +26,37 @@ from tapageur.cache import get_cached, set_cached
 from tapageur.schema import Act, CollectedItem, Event
 
 
+# Modèle Claude par type de source.
+#
+# Sonnet 4.5 ($3/$15 per MTok) suffit largement pour les sources simples :
+# pages event individuelles (texte court, format standard), emails de
+# newsletter (HTML stripped), FB reposts (déjà semi-structuré via Graph API).
+#
+# Opus 4.7 ($15/$75 per MTok) reste utile pour :
+# - PDFs saison : volume dense, paragraphes avec distinction subtile
+#   auteur/interprètes, regroupement multi-dates par spectacle.
+# - Images flyers : vision + OCR sur compositions chargées, typo créative.
+#
+# Économie attendue : ~80% sur les 3 sources passées en Sonnet (×5 moins cher).
+# Si une régression apparaît côté Sonnet, override possible via `model` param.
+MODEL_BY_KIND: dict[str, str] = {
+    "web": "claude-sonnet-4-5",
+    "outlook": "claude-sonnet-4-5",
+    "fb": "claude-sonnet-4-5",
+    "pdf": "claude-opus-4-7",
+    "image": "claude-opus-4-7",
+}
+DEFAULT_MODEL = "claude-opus-4-7"  # fallback si source_kind inconnu
+
+
+def _supports_adaptive_thinking(model: str) -> bool:
+    """Adaptive thinking est une feature Opus 4.x. Sonnet 4.5 ne le supporte
+    pas (l'API renvoie 400 "adaptive thinking is not supported on this model").
+    Pour les sources routées sur Sonnet (web/outlook/fb), thinking n'apporte
+    pas grand-chose de toute façon — extraction de texte structuré simple."""
+    return "opus" in model.lower()
+
+
 SYSTEM_PROMPT = """\
 Tu es un extracteur d'événements culturels pour Le Bidul (fanzine + radio Le Mans).
 
@@ -133,17 +164,28 @@ def _normalize_one(
     client: Anthropic,
     item: CollectedItem,
     month: str,
-    model: str,
+    model: str | None,
     tapeur_email: str,
 ) -> list[Event]:
-    """Appelle Claude, parse, valide, filtre par mois, injecte la métadonnée."""
-    response = client.messages.create(
-        model=model,
-        max_tokens=16000,
-        thinking={"type": "adaptive"},
-        system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _build_user_content(item, month)}],
-    )
+    """Appelle Claude, parse, valide, filtre par mois, injecte la métadonnée.
+
+    Si `model` est None : sélectionne automatiquement via MODEL_BY_KIND
+    selon `item.source_kind`. Passer un modèle explicite force l'override
+    (utile pour debug ou test de non-régression Sonnet→Opus).
+    """
+    if model is None:
+        model = MODEL_BY_KIND.get(item.source_kind, DEFAULT_MODEL)
+
+    kwargs: dict = {
+        "model": model,
+        "max_tokens": 16000,
+        "system": SYSTEM_PROMPT,
+        "messages": [{"role": "user", "content": _build_user_content(item, month)}],
+    }
+    if _supports_adaptive_thinking(model):
+        kwargs["thinking"] = {"type": "adaptive"}
+
+    response = client.messages.create(**kwargs)
 
     text = next((b.text for b in response.content if b.type == "text"), "")
     if not text:
@@ -174,7 +216,7 @@ def normalize_items(
     items: list[CollectedItem],
     month: str,
     out_path: Path,
-    model: str = "claude-opus-4-7",
+    model: str | None = None,
 ) -> list[Event]:
     """
     Normalise les items en Events filtrés sur le mois cible.
@@ -185,6 +227,10 @@ def normalize_items(
       re-run librement (ajout d'une source, retry, debug) sans tout repayer.
     - Le fichier `out_path` (cache/<month>/normalized.json) est toujours
       ré-écrit en sortie par le caller (la CLI ajoute canonicalize+dedup).
+
+    Modèle Claude : si `model=None` (défaut), sélection auto via MODEL_BY_KIND
+    selon le source_kind de chaque item (Sonnet pour web/outlook/fb, Opus pour
+    pdf/image). Forcer un modèle uniforme pour A/B testing.
     """
     console = Console()
     client = Anthropic()
