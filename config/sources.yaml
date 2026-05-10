@@ -55,12 +55,20 @@ facebook:
   page_id: me
   since_days: 60
 
-# === Flyers / images du mois (à déposer manuellement) ===
-# TODO (commit suivant) : rebaptiser flyers → docs et accepter PDF + paths list.
-flyers:
-  base_dir: ./sources/docs
-  # Les images sont attendues dans ./sources/docs/<YYYY-MM>/
-  # OCR via PaddleOCR + Claude vision pour structurer.
+# === Docs du mois (à déposer manuellement) ===
+# Accepte fichiers individuels ET/OU dossiers, mixte images + PDFs locaux.
+# Substitution `{month}` dans les paths : permet une config permanente
+# indépendante du mois cible. Hardcode (`sources/docs/2026-05/`) marche aussi.
+# Routage par extension :
+#   .jpg/.jpeg/.png/.webp/.gif → Claude vision (Opus)
+#   .pdf                        → pdfplumber + Claude (Opus)
+#   autre                       → skip silencieux
+docs:
+  paths:
+    - sources/docs/{month}/          # tous les fichiers du dossier mensuel
+    # Exemples :
+    # - sources/docs/2026-05/        # convention hardcodée par mois
+    # - sources/special/festival.pdf # fichier précis indépendant du mois
 
 # === Filtre temporel ===
 filter:

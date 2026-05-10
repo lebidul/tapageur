@@ -14,7 +14,7 @@ from rich.console import Console
 from tapageur.batch import retrieve_batch, submit_batch
 from tapageur.connectors import get_connector
 # Trigger registry registration via imports
-from tapageur.connectors import outlook, web, pdf, fb, images, mailbox  # noqa: F401
+from tapageur.connectors import outlook, web, pdf, fb, docs, mailbox  # noqa: F401
 from tapageur.dedup import canonicalize, dedup, load_mappings
 from tapageur.normalize import normalize_items
 from tapageur.push import push_csv
@@ -83,7 +83,7 @@ def collect(month: str, config_path: Path):
     console.print(f"[dim]config: {config_path}[/dim]")
 
     all_items: list[CollectedItem] = []
-    for connector_name in ["outlook", "mailbox", "web", "pdf", "fb", "images"]:
+    for connector_name in ["outlook", "mailbox", "web", "pdf", "fb", "docs"]:
         console.print(f"[bold]→ {connector_name}[/bold]")
         try:
             conn = get_connector(connector_name, config)
