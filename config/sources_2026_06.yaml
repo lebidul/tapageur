@@ -42,6 +42,17 @@ websites:
     url: https://www.lafonderie.fr/les-ouvertures-publiques/
     follow_event_links: false
 
+  - name: eldorado
+    url: https://www.helloasso.com/associations/eldorado-americana-festival/evenements/billetterie-festival-eldorado-2026
+    needs_browser: true              # HelloAsso renvoie 403 sur requests sans navigateur réel
+    follow_event_links: false
+
+  - name: popauparc
+    url: https://lentracte-sable.fr/pop-au-parc/
+    follow_event_links: true
+
+
+
   # Exemple — un PDF distribué via URL : décommente + adapte si applicable.
   # Le connecteur web détecte automatiquement Content-Type pdf et route en
   # source_kind="pdf" (Opus). Plus besoin de passer par season_pdfs.
@@ -58,7 +69,7 @@ outlook:
 # === Mailbox locale ===
 # Lit sources/mailbox_export/2026-06/*.eml|.msg
 mailbox:
-  base_dir: sources/mailbox_export
+  base_dir: sources/mailbox_export/2026-06/*.msg
 
 
 # === PDFs saison (locaux) ===

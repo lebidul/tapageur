@@ -203,13 +203,40 @@ def _extract_subpages(html: str, base_url: str) -> list[str]:
 
 
 def _fetch(url: str, needs_browser: bool = False) -> str:
-    """Fetch HTML : requests pour le simple, Playwright pour les sites bloqués."""
+    """Fetch HTML : requests pour le simple, Playwright pour les sites bloqués.
+
+    Mode Playwright :
+    - `wait_until="domcontentloaded"` (DOM prêt) plutôt que `networkidle` :
+      beaucoup de sites modernes ont des trackers qui ne s'arrêtent jamais et
+      networkidle timeout systématiquement.
+    - User-Agent navigateur réel + viewport standard.
+    - `playwright-stealth` si dispo : patches Chromium pour passer la
+      détection bot Cloudflare et consorts.
+    - `wait_for_timeout(5s)` après navigation : laisse les challenges JS
+      Cloudflare se résoudre (~3-5s en pratique).
+    """
     if needs_browser:
         from playwright.sync_api import sync_playwright
+        try:
+            from playwright_stealth import Stealth
+            has_stealth = True
+        except ImportError:
+            has_stealth = False
+
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, wait_until="networkidle", timeout=30_000)
+            context = browser.new_context(
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                ),
+                viewport={"width": 1280, "height": 800},
+            )
+            if has_stealth:
+                Stealth().apply_stealth_sync(context)
+            page = context.new_page()
+            page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+            page.wait_for_timeout(5000)  # laisse les challenges JS finir
             html = page.content()
             browser.close()
             return html

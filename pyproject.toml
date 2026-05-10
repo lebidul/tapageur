@@ -10,6 +10,7 @@ dependencies = [
     "requests>=2.31",
     "beautifulsoup4>=4.12",
     "playwright>=1.40",          # fallback pour sites bloqués (Superforma etc.)
+    "playwright-stealth>=1.0",    # bypass anti-bot Cloudflare (HelloAsso etc.)
     "pdfplumber>=0.10",
     "msal>=1.26",                # OAuth Microsoft (Outlook via Graph API)
     "extract-msg>=0.48",          # parse .msg exportés depuis Outlook Desktop
