@@ -11,6 +11,7 @@ import yaml
 from dotenv import load_dotenv
 from rich.console import Console
 
+from tapageur.batch import retrieve_batch, submit_batch
 from tapageur.connectors import get_connector
 # Trigger registry registration via imports
 from tapageur.connectors import outlook, web, pdf, fb, images  # noqa: F401
@@ -85,8 +86,15 @@ def collect(month: str):
 
 @main.command()
 @click.option("--month", default=None)
-def normalize(month: str):
-    """Normalise via Claude API → cache/<month>/normalized.json"""
+@click.option("--batch", "use_batch", is_flag=True, default=False,
+              help="Soumet via la Batch API (50% off, SLA 24h). "
+                   "Récupère ensuite avec `tapageur retrieve`.")
+def normalize(month: str, use_batch: bool):
+    """Normalise via Claude API → cache/<month>/normalized.json
+
+    Par défaut : mode synchrone (appels immédiats).
+    Avec --batch : soumet en différé et exit ; `tapageur retrieve` finalise.
+    """
     month = _validate_month(month)
     raw_path = _cache_dir(month) / "raw.json"
     out_path = _cache_dir(month) / "normalized.json"
@@ -95,9 +103,47 @@ def normalize(month: str):
         raise click.UsageError(f"{raw_path} n'existe pas. Lance `tapageur collect` d'abord.")
 
     items = [CollectedItem.model_validate(d) for d in json.loads(raw_path.read_text(encoding="utf-8"))]
+
+    if use_batch:
+        try:
+            submit_batch(items, month)
+        except RuntimeError as e:
+            raise click.UsageError(str(e))
+        return
+
     events = normalize_items(items, month, out_path)
 
     # Canonicalisation + dédup
+    mappings = load_mappings()
+    events = canonicalize(events, mappings)
+    events = dedup(events)
+
+    out_path.write_text(
+        json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    console.print(f"[green]✓[/green] {len(events)} events normalisés → {out_path}")
+
+
+@main.command()
+@click.option("--month", default=None)
+def retrieve(month: str):
+    """Finalise un batch soumis avec `normalize --batch` → normalized.json"""
+    month = _validate_month(month)
+    raw_path = _cache_dir(month) / "raw.json"
+    out_path = _cache_dir(month) / "normalized.json"
+
+    if not raw_path.exists():
+        raise click.UsageError(f"{raw_path} n'existe pas. Lance `tapageur collect` d'abord.")
+
+    items = [CollectedItem.model_validate(d) for d in json.loads(raw_path.read_text(encoding="utf-8"))]
+
+    try:
+        events = retrieve_batch(items, month)
+    except RuntimeError as e:
+        raise click.UsageError(str(e))
+
+    # Canonicalisation + dédup (même pipeline que normalize sync).
     mappings = load_mappings()
     events = canonicalize(events, mappings)
     events = dedup(events)
