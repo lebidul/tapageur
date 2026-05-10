@@ -22,6 +22,7 @@ from anthropic import Anthropic
 from pydantic import BaseModel
 from rich.console import Console
 
+from tapageur.cache import get_cached, set_cached
 from tapageur.schema import Act, CollectedItem, Event
 
 
@@ -177,26 +178,42 @@ def normalize_items(
 ) -> list[Event]:
     """
     Normalise les items en Events filtrés sur le mois cible.
-    Cache le résultat sur disque (rejouable sans frais Claude).
-    """
-    if out_path.exists():
-        cached = json.loads(out_path.read_text(encoding="utf-8"))
-        return [Event.model_validate(d) for d in cached]
 
+    Cache à 2 niveaux :
+    - Cache item-level (cache/normalize/<hash>.json) : seuls les items nouveaux
+      ou modifiés (content_hash) déclenchent un appel Claude. Permet de
+      re-run librement (ajout d'une source, retry, debug) sans tout repayer.
+    - Le fichier `out_path` (cache/<month>/normalized.json) est toujours
+      ré-écrit en sortie par le caller (la CLI ajoute canonicalize+dedup).
+    """
     console = Console()
     client = Anthropic()
     tapeur_email = os.environ.get("TAPEUR_EMAIL", "lebidul@live.fr")
 
+    n_hit = 0
+    n_miss = 0
     all_events: list[Event] = []
     for i, item in enumerate(items, 1):
         ref_short = item.source_ref[:60] + ("…" if len(item.source_ref) > 60 else "")
+
+        cached = get_cached(item, month)
+        if cached is not None:
+            n_hit += 1
+            console.print(f"  [{i}/{len(items)}] [dim]cache hit[/dim] {item.source_kind}:{ref_short} → {len(cached)} events")
+            all_events.extend(cached)
+            continue
+
+        n_miss += 1
         console.print(f"  [{i}/{len(items)}] {item.source_kind}:{ref_short}")
         try:
             events = _normalize_one(client, item, month, model, tapeur_email)
             console.print(f"    → {len(events)} events (mois {month})")
+            set_cached(item, month, events)
             all_events.extend(events)
         except Exception as e:
             console.print(f"    [red]error: {e}[/red]")
+
+    console.print(f"[dim]cache: {n_hit} hit, {n_miss} miss[/dim]")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(
