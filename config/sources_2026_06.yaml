@@ -1,0 +1,94 @@
+# =============================================================================
+# Sources de collecte — JUIN 2026
+# =============================================================================
+# Config mensuelle dédiée. Utiliser avec :
+#   tapageur collect --month 2026-06 -c config/sources_2026_06.yaml
+#
+# Différences vs config/sources.yaml (config "permanente") :
+# - Les paths sont hardcodés "2026-06" plutôt que "{month}" (explicite pour
+#   l'audit historique : un mois plus tard, on voit exactement ce qui a été
+#   collecté pour juin).
+# - Les sites web ajoutés ad-hoc pour le mois sont inline (pas besoin de les
+#   mettre dans la config permanente s'ils ne sont pas récurrents).
+#
+# Workflow :
+# 1. Drag-and-drop dans sources/docs/2026-06/ et sources/mailbox_export/2026-06/
+# 2. Lancer `tapageur collect --month 2026-06 -c config/sources_2026_06.yaml`
+# 3. `tapageur normalize --month 2026-06`
+# 4. `tapageur preview --month 2026-06` puis valider à la main
+# 5. `tapageur push --month 2026-06`
+# =============================================================================
+
+
+# === Sites web ===
+websites:
+  # Sources récurrentes (déjà dans la config permanente)
+  - name: superforma
+    url: https://superforma.fr/agenda
+    needs_browser: true
+    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+
+  # Sources testées en mai 2026 (à valider sur juin avant de promouvoir
+  # éventuellement dans config/sources.yaml comme permanentes)
+  - name: bistrobroccafe
+    url: https://bistrobroccafe.e-monsite.com/
+    follow_event_links: false
+
+  - name: musiquesmagiques
+    url: https://www.musiquesmagiques.fr/Agenda/index.php
+    follow_event_links: false
+
+  - name: lafonderie
+    url: https://www.lafonderie.fr/les-ouvertures-publiques/
+    follow_event_links: false
+
+  # Exemple — un PDF distribué via URL : décommente + adapte si applicable.
+  # Le connecteur web détecte automatiquement Content-Type pdf et route en
+  # source_kind="pdf" (Opus). Plus besoin de passer par season_pdfs.
+  # - name: prog_blue_zinc_juin
+  #   url: https://www.bluezinc.fr/wp-content/uploads/PROG-JUIN-2026.pdf
+
+
+# === Outlook (Microsoft Graph API) ===
+# Toujours désactivé : tenant Azure non disponible sur le compte MSA.
+outlook:
+  enabled: false
+
+
+# === Mailbox locale ===
+# Lit sources/mailbox_export/2026-06/*.eml|.msg
+mailbox:
+  base_dir: sources/mailbox_export
+
+
+# === PDFs saison (locaux) ===
+# Acthalia couvre toute la saison 2025-26 (donc juin inclus). Le parsed_cache
+# JSON est partagé entre tous les mois — l'extraction pdfplumber ne tourne
+# qu'une fois, ensuite c'est du JSON ; Claude n'est rappelé par mois cible
+# que pour filtrer par date_iso (cache item-level par month).
+season_pdfs:
+  - path: "./sources/pdfs_saison/Programme Acthalia saison 2025-2026.pdf"
+    parsed_cache: ./cache/pdf_acthalia_25_26.json
+    label: "Programme saison 25-26 — Théâtre de l'Acthalia"
+
+
+# === Facebook ===
+# Désactivé (Meta cache les events repostés cross-page, voir commit 796f4d0).
+facebook:
+  enabled: false
+
+
+# === Docs du mois (images + PDFs déposés manuellement) ===
+# Hardcodé sur "2026-06" pour ce fichier mensuel. Pour ajouter des fichiers
+# spécifiques hors du dossier mensuel, les lister un par un sous paths:.
+docs:
+  paths:
+    - sources/docs/2026-06/
+    # Exemples possibles d'ajouts ponctuels :
+    # - sources/special/festival_FNAC_2026.pdf
+    # - sources/affiches/concert_unique.jpg
+
+
+# === Filtre temporel ===
+filter:
+  margin_days: 3
