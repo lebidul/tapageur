@@ -41,14 +41,18 @@ season_pdfs:
     parsed_cache: ./cache/pdf_acthalia_25_26.json
     label: "Programme saison 25-26 — Théâtre de l'Acthalia"
 
-# === Facebook (page Le Bidul uniquement — events des autres pages plus accessibles) ===
-# Lit les posts (et reposts d'events) de la page Le Bidul via Graph API.
-# Setup : Page Access Token long-lived dans .env (FB_PAGE_ACCESS_TOKEN).
-# Renouvellement ~tous les 60 jours via developers.facebook.com.
+# === Facebook (page Le Bidul) ===
+# DÉSACTIVÉ : Meta cache le contenu des events repostés d'autres pages (limite
+# 2018+, et le scraping de la page publique facebook.com/events/<id>/ renvoie
+# une erreur 400 depuis ~2020). Le connecteur ne capture donc que les events
+# créés par Le Bidul lui-même + les posts texte, ce qui est largement redondant
+# avec les autres sources (mailbox, web, flyers/images).
+# Le code reste en place dans tapageur/connectors/fb.py au cas où Meta
+# rouvrirait l'accès, ou pour réactivation manuelle ponctuelle.
 facebook:
-  enabled: true
-  page_id: me                   # "me" résout au token-holder (la page Le Bidul)
-  since_days: 60                # fenêtre temporelle des posts à fetch
+  enabled: false
+  page_id: me
+  since_days: 60
 
 # === Flyers / images du mois (à déposer manuellement) ===
 flyers:
