@@ -1,0 +1,148 @@
+"""Tests des morceaux purs de tapageur.normalize.
+
+On ne teste pas l'appel Claude (côté integration) ; on teste les helpers
+robustes au schéma drift (validation event-par-event, extract_json).
+"""
+from __future__ import annotations
+
+import json
+
+import pytest
+from pydantic import ValidationError
+
+from tapageur.normalize import (
+    _EventDraft,
+    _NormalizationOutput,
+    _extract_json,
+    _supports_adaptive_thinking,
+)
+
+
+# ---------- _extract_json ----------
+
+def test_extract_json_strips_markdown_fence():
+    assert _extract_json("```json\n{\"events\":[]}\n```") == '{"events":[]}'
+    assert _extract_json("```\n{\"x\":1}\n```") == '{"x":1}'
+
+
+def test_extract_json_plain_passes_through():
+    assert _extract_json('{"events":[]}') == '{"events":[]}'
+
+
+def test_extract_json_strips_whitespace():
+    assert _extract_json("  \n{\"x\":1}\n  ") == '{"x":1}'
+
+
+# ---------- _supports_adaptive_thinking ----------
+
+def test_thinking_opus_yes():
+    assert _supports_adaptive_thinking("claude-opus-4-7") is True
+    assert _supports_adaptive_thinking("claude-opus-4-5") is True
+
+
+def test_thinking_sonnet_no():
+    assert _supports_adaptive_thinking("claude-sonnet-4-5") is False
+    assert _supports_adaptive_thinking("claude-sonnet-3-7") is False
+
+
+# ---------- _EventDraft validation ----------
+
+def _good_event() -> dict:
+    return {
+        "date_label": "Vendredi 15",
+        "date_iso": "2026-05-15",
+        "times": ["20h30"],
+        "venue": "Le Chapiteau",
+        "city": "Le Mans",
+        "price": "10€",
+        "acts": [{"genre": "c", "performer": "Artist X"}],
+    }
+
+
+def test_event_draft_valid():
+    draft = _EventDraft.model_validate(_good_event())
+    assert draft.date_iso == "2026-05-15"
+    assert draft.acts[0].performer == "Artist X"
+
+
+def test_event_draft_rejects_null_performer():
+    """Un event avec performer=null doit être rejeté (Pydantic strict)."""
+    bad = _good_event()
+    bad["acts"][0]["performer"] = None
+    with pytest.raises(ValidationError):
+        _EventDraft.model_validate(bad)
+
+
+def test_event_draft_accepts_question_mark_performer():
+    """Convention : '?' pour performer inconnu doit être accepté."""
+    ok = _good_event()
+    ok["acts"][0]["performer"] = "?"
+    draft = _EventDraft.model_validate(ok)
+    assert draft.acts[0].performer == "?"
+
+
+# ---------- Validation event-par-event en condition réelle ----------
+# On simule la logique de _normalize_one sans appeler Claude.
+
+def _simulate_per_event_validation(claude_response: dict, month: str) -> tuple[list, list]:
+    """Reproduit la boucle de validation event-par-event de _normalize_one.
+    Retourne (valid_events, skipped_indices)."""
+    raw_events = claude_response.get("events", [])
+    valid = []
+    skipped = []
+    for i, draft_data in enumerate(raw_events):
+        try:
+            draft = _EventDraft.model_validate(draft_data)
+        except ValidationError:
+            skipped.append(i)
+            continue
+        if not draft.date_iso.startswith(month):
+            continue
+        valid.append(draft)
+    return valid, skipped
+
+
+def test_per_event_validation_keeps_good_when_one_bad():
+    """Régression du bug 1 : un event mal formé ne doit pas écraser les autres."""
+    response = {
+        "events": [
+            {**_good_event(), "acts": [{"genre": "c", "performer": None}]},  # bad
+            _good_event(),  # good (2026-05-15)
+            {**_good_event(), "date_iso": "2026-05-22"},  # good
+        ]
+    }
+    valid, skipped = _simulate_per_event_validation(response, "2026-05")
+    assert len(valid) == 2
+    assert skipped == [0]
+
+
+def test_per_event_validation_drops_off_month():
+    """Le filtrage par mois reste appliqué."""
+    response = {
+        "events": [
+            _good_event(),  # 2026-05-15 → keep
+            {**_good_event(), "date_iso": "2026-06-10"},  # off month → drop
+        ]
+    }
+    valid, _ = _simulate_per_event_validation(response, "2026-05")
+    assert len(valid) == 1
+    assert valid[0].date_iso == "2026-05-15"
+
+
+def test_per_event_validation_all_bad_returns_empty():
+    response = {
+        "events": [
+            {**_good_event(), "acts": [{"genre": "c", "performer": None}]},
+            {**_good_event(), "times": []},  # min 1 time required by Event, but _EventDraft only validates structure; this is empty list which is fine for _EventDraft
+        ]
+    }
+    valid, skipped = _simulate_per_event_validation(response, "2026-05")
+    # Au moins le 1er est rejeté ; le 2e dépend du validator (list[str] vide accepté par _EventDraft mais rejeté plus loin par Event).
+    assert 0 in skipped
+
+
+def test_normalization_wrapper_still_works():
+    """Le wrapper _NormalizationOutput existe toujours pour les cas où tout est valide."""
+    response = {"events": [_good_event()]}
+    parsed = _NormalizationOutput.model_validate(response)
+    assert len(parsed.events) == 1

@@ -93,6 +93,10 @@ Règles importantes :
    ne correspond.
 7. Exclure : ateliers, conférences, projections de films, expos sans dates
    précises.
+8. Si l'artiste / compagnie d'un acte n'est pas identifiable dans le contenu,
+   mets "?" comme performer (même convention que pour price). NE PAS omettre
+   l'event — le tapeur complètera à la main. performer doit toujours être une
+   chaîne non vide (jamais null).
 
 Réponds UNIQUEMENT par un objet JSON valide de la forme :
 {"events": [{...}, {...}]}
@@ -197,10 +201,27 @@ def _normalize_one(
     except json.JSONDecodeError as e:
         raise ValueError(f"JSON invalide : {e}\n--- début réponse ---\n{raw[:500]}")
 
-    parsed = _NormalizationOutput.model_validate(data)
+    # Validation event-par-event (au lieu du model_validate global) : si un
+    # event est mal formé (ex. performer null), on log et on skip CET event,
+    # mais on garde les autres. Sinon, un seul event défectueux gâcherait
+    # tout le mail/PDF.
+    raw_events = data.get("events", [])
+    if not isinstance(raw_events, list):
+        raise ValueError(f"format inattendu : events={raw_events!r}")
+
+    from pydantic import ValidationError  # local import (eviter dep top-level)
 
     events: list[Event] = []
-    for draft in parsed.events:
+    for i, draft_data in enumerate(raw_events):
+        try:
+            draft = _EventDraft.model_validate(draft_data)
+        except ValidationError as e:
+            # Log condensé du premier champ fautif (typique : performer null).
+            first = e.errors()[0] if e.errors() else {}
+            field = ".".join(str(p) for p in first.get("loc", []))
+            msg = first.get("msg", str(e))
+            print(f"    [warn] event {i + 1} invalide ({field}: {msg}), skip")
+            continue
         if not draft.date_iso.startswith(month):
             continue
         events.append(Event(
