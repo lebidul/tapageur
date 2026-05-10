@@ -56,6 +56,25 @@ tapageur collect --month 2026-06 -c config/sources_2026_06.yaml
 
 Voir [sources.md](sources.md) pour la structure des configs et comment en créer une.
 
+### Mode sélectif (re-collecter une source précise)
+
+Quand un seul connecteur ou site a besoin d'être re-fetché (typiquement : tu viens de fixer la config d'un site, ou tu veux refresher juste une source qui change vite), passe `--connector` ou `--site` au lieu de tout relancer :
+
+```bash
+# Re-fetch uniquement le site "eldorado" (le reste de raw.json est préservé)
+tapageur collect --month 2026-06 -c config/sources_2026_06.yaml --site eldorado
+
+# Re-fetch uniquement le connecteur mailbox (par ex après un nouveau drop de .msg)
+tapageur collect --month 2026-06 --connector mailbox
+
+# Re-fetch les pages web ET les flyers du mois, mais pas le reste
+tapageur collect --month 2026-06 --connector web --connector docs
+```
+
+**Sémantique merge** : en mode sélectif, le `raw.json` existant est lu, les nouveaux items remplacent les anciens (matching par `source_ref` = URL / Message-ID / chemin), et les items hors sélection restent intacts. Le full re-collect (sans flag) écrase tout.
+
+**Flags répétables** : `--connector` et `--site` peuvent être passés plusieurs fois. `--site X` implique automatiquement `--connector web,pdf` (un site peut être un PDF URL).
+
 ### Ce qui se passe sous le capot
 
 Pour chaque connecteur actif :

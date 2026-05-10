@@ -60,6 +60,9 @@ def _load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+ALL_CONNECTORS = ("outlook", "mailbox", "web", "pdf", "fb", "docs")
+
+
 @main.command()
 @click.option("--month", default=None, help="YYYY-MM (défaut : mois courant)")
 @click.option("-c", "--config", "config_path",
@@ -68,32 +71,83 @@ def _load_config(path: Path = DEFAULT_CONFIG_PATH) -> dict:
               show_default=True,
               help="Fichier YAML des sources à utiliser. Convention possible : "
                    "config/sources_<YYYY>_<MM>.yaml pour une config dédiée par mois.")
-def collect(month: str, config_path: Path):
+@click.option("--connector", "selected_connectors", multiple=True,
+              type=click.Choice(ALL_CONNECTORS),
+              help="Re-collecter uniquement ces connecteurs (répétable). "
+                   "Mode merge : items des autres connecteurs préservés dans raw.json.")
+@click.option("--site", "selected_sites", multiple=True,
+              help="Re-collecter uniquement les entrées websites avec ces `name:` "
+                   "(répétable). Implique --connector web,pdf. Mode merge actif.")
+def collect(month: str, config_path: Path,
+            selected_connectors: tuple[str, ...], selected_sites: tuple[str, ...]):
     """Collecte les sources → cache/<month>/raw.json
 
-    Par défaut lit config/sources.yaml. Pour un mois avec des sources
-    spécifiques, créer config/sources_2026_05.yaml et passer
-    `--config config/sources_2026_05.yaml`. La structure attendue est
-    identique au fichier par défaut (sections : websites, outlook, mailbox,
-    season_pdfs, facebook, flyers).
+    \b
+    Modes :
+    1. Full (défaut, sans --connector ni --site) : tous les connecteurs
+       actifs sont exécutés et raw.json est ré-écrit complètement.
+    2. Sélectif (avec --connector et/ou --site) : seuls les connecteurs/sites
+       sélectionnés sont exécutés. Les nouveaux items remplacent les anciens
+       (matching par source_ref) ; les items hors sélection restent intacts
+       dans raw.json. Utile pour re-fetcher une source précise sans relancer
+       les autres (ex : `--site eldorado` après un fix du connecteur web).
     """
     month = _validate_month(month)
     config = _load_config(config_path)
     out_path = _cache_dir(month) / "raw.json"
     console.print(f"[dim]config: {config_path}[/dim]")
 
-    all_items: list[CollectedItem] = []
-    for connector_name in ["outlook", "mailbox", "web", "pdf", "fb", "docs"]:
+    is_selective = bool(selected_connectors or selected_sites)
+
+    if is_selective:
+        # Filtre websites par name si --site passé
+        if selected_sites:
+            selected_sites_set = set(selected_sites)
+            kept_websites = [
+                w for w in config.get("websites", [])
+                if w.get("name") in selected_sites_set
+            ]
+            missing = selected_sites_set - {w.get("name") for w in config.get("websites", [])}
+            if missing:
+                console.print(f"  [yellow]sites inconnus dans la config: {sorted(missing)}[/yellow]")
+            config = {**config, "websites": kept_websites}
+            # --site implique web + pdf (un site peut être un PDF URL)
+            selected_connectors = tuple(set(selected_connectors) | {"web", "pdf"})
+
+        connectors_to_run = set(selected_connectors)
+        console.print(f"[dim]mode sélectif : connecteurs={sorted(connectors_to_run)}"
+                      + (f", sites={list(selected_sites)}" if selected_sites else "")
+                      + "[/dim]")
+    else:
+        connectors_to_run = set(ALL_CONNECTORS)
+
+    new_items: list[CollectedItem] = []
+    for connector_name in ALL_CONNECTORS:
+        if connector_name not in connectors_to_run:
+            continue
         console.print(f"[bold]→ {connector_name}[/bold]")
         try:
             conn = get_connector(connector_name, config)
             items = list(conn.collect(month))
             console.print(f"  collected: {len(items)} items")
-            all_items.extend(items)
+            new_items.extend(items)
         except NotImplementedError as e:
             console.print(f"  [yellow]skip ({e})[/yellow]")
         except Exception as e:
             console.print(f"  [red]error: {e}[/red]")
+
+    if is_selective and out_path.exists():
+        # Merge : on garde les items existants dont source_ref n'apparait pas
+        # dans new_items (= ne pas dupliquer), puis on append les nouveaux.
+        existing_raw = json.loads(out_path.read_text(encoding="utf-8"))
+        existing = [CollectedItem.model_validate(d) for d in existing_raw]
+        new_refs = {it.source_ref for it in new_items}
+        preserved = [it for it in existing if it.source_ref not in new_refs]
+        all_items = preserved + new_items
+        console.print(f"[dim]merge : {len(preserved)} items préservés, "
+                      f"{len(new_items)} re-collectés/ajoutés[/dim]")
+    else:
+        all_items = new_items
 
     out_path.write_text(
         json.dumps([i.model_dump() for i in all_items], indent=2, ensure_ascii=False),
