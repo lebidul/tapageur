@@ -82,8 +82,9 @@ websites:
     url: https://www.les-garennes.fr/
     needs_browser: true            # page chargée en JavaScript
     follow_event_links: false
-    mode: festival_onliner    # 1 seul jour (4 juillet 2026, Souligné-sous-ballon),
-                              # entrée gratuite, programmation à compléter à la main
+    # Page accueil = date + lieu + prix (4 juillet 2026, Souligné-sous-ballon,
+    # entrée gratuite). Les noms d'artistes sont sur /programmation et seront
+    # à compléter à la main dans le preview.csv.
 
   - name: pianoctambule
     url: https://www.pianoctambule.com/pianoaujardin
