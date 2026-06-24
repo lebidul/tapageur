@@ -71,12 +71,19 @@ class WebConnector(Connector):
             site_name = site.get("name", url)
             needs_browser = site.get("needs_browser", False)
             follow = site.get("follow_event_links", True)
+            # mode : flag opt-in propagé jusqu'à normalize via raw_metadata.
+            # Valeur supportée pour l'instant : "festival_onliner" (cf. commit
+            # festival mode). Absent ou autre = mode classique.
+            mode = site.get("mode")
 
             # Détection PDF distant : extension d'URL ou Content-Type via HEAD.
             # Route vers le parsing pdfplumber au lieu du fetch HTML.
             if _is_pdf_url(url):
                 try:
-                    yield _fetch_pdf_url(url, site_name)
+                    item = _fetch_pdf_url(url, site_name)
+                    if mode:
+                        item.raw_metadata["mode"] = mode
+                    yield item
                 except Exception as e:
                     print(f"[web] {site_name}: PDF fetch error: {e}")
                 continue
@@ -90,12 +97,15 @@ class WebConnector(Connector):
             if not follow:
                 # Mode mono-page : dump l'agenda lui-même
                 text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
+                meta = {"site": site_name}
+                if mode:
+                    meta["mode"] = mode
                 yield CollectedItem(
                     source_kind="web",
                     source_ref=url,
                     fetched_at=datetime.utcnow().isoformat() + "Z",
                     raw_text=text,
-                    raw_metadata={"site": site_name},
+                    raw_metadata=meta,
                 )
                 continue
 
@@ -123,12 +133,15 @@ class WebConnector(Connector):
                     print(f"[web]   {ev_url}: {e}")
                     continue
                 ev_text = BeautifulSoup(ev_html, "html.parser").get_text("\n", strip=True)
+                meta = {"site": site_name, "agenda_url": url}
+                if mode:
+                    meta["mode"] = mode
                 yield CollectedItem(
                     source_kind="web",
                     source_ref=ev_url,
                     fetched_at=datetime.utcnow().isoformat() + "Z",
                     raw_text=ev_text,
-                    raw_metadata={"site": site_name, "agenda_url": url},
+                    raw_metadata=meta,
                 )
 
 

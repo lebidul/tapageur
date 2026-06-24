@@ -35,8 +35,14 @@ class PdfConnector(Connector):
             if not cache_path.exists():
                 self._parse_and_cache(entry, cache_path)
             data = json.loads(cache_path.read_text(encoding="utf-8"))
+            # mode propagé dynamiquement depuis la config (sans re-parser
+            # le PDF si l'utilisateur ajoute/change le flag).
+            mode = entry.get("mode")
             for item_dict in data.get("items", []):
-                yield CollectedItem(**item_dict)
+                item = CollectedItem(**item_dict)
+                if mode:
+                    item.raw_metadata["mode"] = mode
+                yield item
 
     def _parse_and_cache(self, entry: dict, cache_path: Path) -> None:
         """

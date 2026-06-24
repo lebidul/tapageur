@@ -40,13 +40,23 @@ def _content_hash(item: CollectedItem) -> str:
 
 
 def cache_key(item: CollectedItem, month: str) -> str:
-    """Clé déterministe : source_ref + hash contenu + mois cible."""
+    """Clé déterministe : source_ref + hash contenu + mois cible (+ mode si non-classique).
+
+    Le `mode` (ex. "festival_onliner") est ajouté à la clé UNIQUEMENT si
+    présent dans raw_metadata. Mode classique (mode absent) garde donc la
+    clé historique → préserve les entrées cache déjà calculées avant
+    l'introduction du flag mode.
+    """
     h = hashlib.sha256()
     h.update(item.source_ref.encode("utf-8"))
     h.update(b"|")
     h.update(_content_hash(item).encode("ascii"))
     h.update(b"|")
     h.update(month.encode("ascii"))
+    mode = (item.raw_metadata or {}).get("mode")
+    if mode:
+        h.update(b"|mode=")
+        h.update(str(mode).encode("ascii"))
     return h.hexdigest()[:24]
 
 

@@ -107,6 +107,57 @@ Réponds UNIQUEMENT par un objet JSON valide de la forme :
 """
 
 
+# Prompt alternatif pour les sources marquées `mode: festival_onliner` dans la
+# config. Au lieu d'extraire N events (1 par concert/spectacle), produit UN
+# SEUL Event qui résume le festival entier en onliner. Le CSV biduleur le
+# rendra dans une section dédiée "Festivals" (cf. PR lebidul/biduleur#106).
+FESTIVAL_SYSTEM_PROMPT = """\
+Tu es un extracteur d'événements culturels pour Le Bidul (fanzine + radio Le Mans).
+
+MODE FESTIVAL ACTIVÉ : ce contenu décrit UN festival. Au lieu d'extraire
+N events (1 par concert/spectacle), produis UN SEUL Event qui résume le
+festival entier en onliner.
+
+Champs à renseigner :
+- is_festival : true (OBLIGATOIRE)
+- festival : nom court du festival (ex. "Festival Eldorado Americana")
+- festival_style : description 1-2 phrases incluant le type de festival, la
+  fourchette de dates, le lieu, et un résumé de la programmation.
+  Ex. "Festival americana, du 26 au 28 juin au Parc du Château de Sablé.
+       Charlie Winston, Tiwayo, Keefaz et 4 autres artistes."
+- date_label : libre, ex. "27-28 juin" (PAS utilisé par le CSV, pour info)
+- date_iso : date du PREMIER jour au format YYYY-MM-DD (utilisé pour
+  filtrer par mois cible côté Python)
+- times : ["?"] (ignoré par le CSV en mode festival, mais doit être non vide)
+- venue : "" (le festival n'a pas de lieu précis ; la VILLE le porte)
+- city : ville du festival (obligatoire)
+- price : tarif global si dispo, sinon "voir site" ou "?"
+- acts : EXACTEMENT 1 acte, structuré comme :
+  - genre : "sv" (générique pour festival)
+  - title : URL de référence du festival (lien web, billetterie...) ou null
+  - performer : résumé du contenu, ex. "15 spectacles", "8 concerts", ou
+    le nom du festival si pas de chiffre. NE JAMAIS null/vide.
+  - style : style musical/artistique dominant (ex. "Americana", "Jazz",
+    "Cirque", "Pluridisciplinaire")
+
+Règles importantes :
+1. Filtre par mois cible (passé en user message) sur la base de date_iso.
+   Si le festival est entièrement HORS du mois cible, retourne events=[].
+2. UN SEUL event dans events=[...] (jamais 0 si dans le mois cible, jamais
+   plus de 1).
+3. Si tu n'es pas certain que le contenu décrit UN festival (vs un agenda
+   de concerts indépendants), retourne quand même 1 event avec is_festival=
+   true en faisant de ton mieux pour résumer.
+
+Réponds UNIQUEMENT par un objet JSON valide de la forme :
+{"events": [{...}]}
+
+- AUCUN texte avant ou après le JSON.
+- PAS de markdown.
+- Liste vide events=[] uniquement si le festival est hors mois cible.
+"""
+
+
 class _EventDraft(BaseModel):
     """Event sans les champs métadonnées (source_kind, source_ref, tapeur_email).
     Ces champs sont setter côté Python en post-processing."""
@@ -181,10 +232,20 @@ def _normalize_one(
     if model is None:
         model = MODEL_BY_KIND.get(item.source_kind, DEFAULT_MODEL)
 
+    # Sélection du prompt selon le mode déclaré dans raw_metadata (propagé
+    # depuis la config YAML par le connecteur). Mode classique (mode absent)
+    # = SYSTEM_PROMPT historique. "festival_onliner" = prompt dédié qui
+    # demande à Claude de compresser en 1 seul Event avec is_festival=true.
+    mode = (item.raw_metadata or {}).get("mode")
+    if mode == "festival_onliner":
+        system_prompt = FESTIVAL_SYSTEM_PROMPT
+    else:
+        system_prompt = SYSTEM_PROMPT
+
     kwargs: dict = {
         "model": model,
         "max_tokens": 16000,
-        "system": SYSTEM_PROMPT,
+        "system": system_prompt,
         "messages": [{"role": "user", "content": _build_user_content(item, month)}],
     }
     if _supports_adaptive_thinking(model):
