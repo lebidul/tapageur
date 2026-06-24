@@ -48,7 +48,7 @@ websites:
 
   - name: ofcourselemans
     url: https://msj.world/ofcourselemans/86
-    follow_event_links: false
+    follow_event_links: true       # page agenda → suit les liens vers les pages event
 
   - name: pleinchamp
     url: https://pleinchamplemans.fr/le-festival/concerts-et-dj-sets/
@@ -74,6 +74,7 @@ websites:
 
   - name: lesgarennes
     url: https://www.les-garennes.fr/programmation
+    needs_browser: true            # programmation chargée en JavaScript
     follow_event_links: false
 
   - name: pianoctambule
