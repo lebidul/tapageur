@@ -118,6 +118,7 @@ class _EventDraft(BaseModel):
     venue: str
     city: str
     price: str
+    is_festival: bool = False
     acts: list[Act]
 
 

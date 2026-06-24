@@ -21,17 +21,37 @@ HEADERS = [
 ]
 
 
+FESTIVAL_DATE_MARKER = "Festivals"  # marqueur reconnu par biduleur (PR #106)
+
+
 def event_to_row(ev: Event) -> list[str]:
-    """Convertit un Event en row (26 colonnes A-Z)."""
+    """Convertit un Event en row (26 colonnes A-Z).
+
+    Mode festival (ev.is_festival=True) :
+    - DATE = "Festivals" (marqueur magique pour biduleur)
+    - HEURE / LIEU vides (le festival n'a pas d'horaire ni de lieu précis ;
+      la VILLE et la programmation restent renseignées)
+    - FESTOCHE = ev.festival (nom court du festival)
+    - STYLE FESTOCHE = ev.festival_style (description longue, multi-dates...)
+    """
+    if ev.is_festival:
+        date_cell = FESTIVAL_DATE_MARKER
+        time_cell = ""
+        venue_cell = ""
+    else:
+        date_cell = ev.date_label
+        time_cell = ev.time_str()
+        venue_cell = ev.venue
+
     row = [
         ev.tapeur_email,                  # A
         ev.tapage_iso,                    # B
         "",                               # C — DATE EMISSION RADIO (vide, à remplir manuellement)
         ev.festival or "",                # D
         ev.festival_style or "",          # E
-        ev.date_label,                    # F
-        ev.time_str(),                    # G ("18h30 & 20h30")
-        ev.venue,                         # H
+        date_cell,                        # F
+        time_cell,                        # G ("18h30 & 20h30")
+        venue_cell,                       # H
         ev.city,                          # I
         ev.price,                         # J
     ]

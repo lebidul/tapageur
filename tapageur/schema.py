@@ -52,6 +52,13 @@ class Event(BaseModel):
     # Tarif (col J)
     price: str = Field(..., description="Col J — ex. 'gratuit', '7€', '12 à 15€', '?'")
 
+    # Mode festival : si True, l'export CSV met "Festivals" dans la col DATE
+    # (marqueur magique reconnu par biduleur — section dédiée style onliner,
+    # cf. lebidul/biduleur#106). Le festival/festival_style portent le nom et
+    # la description ; venue/times sont rendus vides au CSV même si renseignés
+    # dans le schema. À utiliser via `mode: festival_onliner` côté config source.
+    is_festival: bool = False
+
     # Programmation : 1 à 4 acts (cols K-N, O-R, S-V, W-Z)
     acts: list[Act] = Field(..., min_length=1, max_length=4)
 
@@ -74,7 +81,15 @@ class Event(BaseModel):
         return " & ".join(self.times)
 
     def fingerprint(self) -> str:
-        """Pour dédoublonnage : (date, premier horaire, lieu, premier artiste)."""
+        """Pour dédoublonnage.
+
+        Mode classique : (date, premier horaire, lieu, premier artiste).
+        Mode festival : (nom du festival, ville) — venue/times non pertinents
+        car rendus vides au CSV, mais le festival a un nom unique par ville.
+        """
+        if self.is_festival:
+            fest = (self.festival or "").lower().strip()
+            return f"festival:{fest}|{self.city.lower().strip()}"
         first_act = self.acts[0].performer.lower().strip()
         first_time = self.times[0].lower().strip()
         return f"{self.date_iso}|{first_time}|{self.venue.lower().strip()}|{first_act}"
