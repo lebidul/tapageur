@@ -109,8 +109,12 @@ class WebConnector(Connector):
                 )
                 continue
 
-            # Mode follow : parcours les pages event individuelles
-            event_urls = _extract_subpages(html, base_url=url)
+            # Mode follow : parcours les pages event individuelles.
+            # event_link_pattern (regex) optionnel pour les sites à structure
+            # non-standard (ex: msj.world/ofcourselemans/86 → pages event sous
+            # /ofcourselemans/card/<slug>, pas sous /ofcourselemans/86/<slug>).
+            event_pattern = site.get("event_link_pattern")
+            event_urls = _extract_subpages(html, base_url=url, pattern=event_pattern)
             agenda_text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
             print(f"[web] {site_name}: {len(event_urls)} URLs candidates")
 
@@ -189,27 +193,54 @@ def _filter_urls_by_month(
     return [u for u in candidates if u in valid]
 
 
-def _extract_subpages(html: str, base_url: str) -> list[str]:
-    """Liens dont l'URL est un sous-chemin strict de `base_url`.
-    Heuristique générique : un event détaillé vit sous /<agenda_path>/<slug>.
-    Exclut les ancres, query strings (déduplique), et les URLs cross-domaine.
+def _extract_subpages(html: str, base_url: str, pattern: str | None = None) -> list[str]:
+    """Liens vers les pages event détaillées d'un site agenda.
+
+    Mode par défaut (pattern=None) : heuristique générique, on garde les liens
+    dont l'URL est un sous-chemin strict de base_url (`/<agenda_path>/<slug>`).
+    Convient à 80% des sites (Superforma, Le Plongeoir, etc.).
+
+    Mode pattern (pattern fourni) : regex appliquée sur l'URL complète. Permet
+    de cibler les sites à structure non-standard où les pages event sont
+    cousines plutôt qu'enfants. Ex: msj.world/ofcourselemans/86 → events sous
+    msj.world/ofcourselemans/card/<slug> ; pattern :
+    "https://msj\\.world/ofcourselemans/card/.+"
+
+    Dans les 2 modes : exclut ancres, query strings (déduplique sur path),
+    URLs cross-domaine.
     """
+    import re
+
     base = urlparse(base_url.rstrip("/"))
     base_path = base.path.rstrip("/")
+    compiled_pattern = re.compile(pattern) if pattern else None
 
     soup = BeautifulSoup(html, "html.parser")
     out: set[str] = set()
     for a in soup.find_all("a", href=True):
         full = urljoin(base_url, a["href"])
         p = urlparse(full)
+        path = p.path.rstrip("/")
+
+        # Mode pattern : on saute l'heuristique standard et on filtre par regex.
+        # On garde quand même la contrainte cross-domaine (sécurité).
+        if compiled_pattern is not None:
+            if p.netloc != base.netloc:
+                continue
+            # Test sur l'URL canonisée (sans fragment/query) pour cohérence.
+            canonical = f"{p.scheme}://{p.netloc}{p.path}"
+            if not compiled_pattern.match(canonical):
+                continue
+            out.add(canonical)
+            continue
+
+        # Heuristique par défaut : sous-chemin strict de base_path.
         if p.netloc != base.netloc:
             continue
-        path = p.path.rstrip("/")
         if path == base_path:
             continue  # la page agenda elle-même
         if not path.startswith(base_path + "/"):
             continue
-        # Normalise (strip query/fragment) pour le dédup
         clean = f"{p.scheme}://{p.netloc}{p.path}"
         out.add(clean)
     return sorted(out)

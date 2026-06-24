@@ -77,6 +77,58 @@ def test_fetch_cache_distinguishes_browser_mode():
     assert mock.call_count == 2
 
 
+# ---------- _extract_subpages : heuristique + pattern ----------
+
+def test_extract_subpages_heuristic_default():
+    """Heuristique par défaut : sous-chemin strict de base_path."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '''<html><body>
+      <a href="/agenda/event-1">e1</a>
+      <a href="/agenda/event-2">e2</a>
+      <a href="/agenda">agenda root</a>
+      <a href="/autre/event-3">autre branche</a>
+      <a href="https://external.com/x">external</a>
+    </body></html>'''
+    subs = _extract_subpages(html, base_url="https://site.fr/agenda")
+    assert subs == ["https://site.fr/agenda/event-1", "https://site.fr/agenda/event-2"]
+
+
+def test_extract_subpages_with_pattern_overrides_heuristic():
+    """Pattern regex : capte les liens même hors du sous-chemin de base_path.
+
+    Cas réel msj.world/ofcourselemans/86 : pages event sous /ofcourselemans/card/
+    pas sous /86/. Heuristique → 0 ; pattern → toutes.
+    """
+    from tapageur.connectors.web import _extract_subpages
+    html = '''<html><body>
+      <a href="https://msj.world/ofcourselemans/card/abc">e1</a>
+      <a href="https://msj.world/ofcourselemans/card/def">e2</a>
+      <a href="https://msj.world/other/x">hors pattern</a>
+      <a href="https://external.com/card/x">cross-domain</a>
+    </body></html>'''
+    subs = _extract_subpages(
+        html,
+        base_url="https://msj.world/ofcourselemans/86",
+        pattern=r"https://msj\.world/ofcourselemans/card/.+",
+    )
+    assert subs == [
+        "https://msj.world/ofcourselemans/card/abc",
+        "https://msj.world/ofcourselemans/card/def",
+    ]
+
+
+def test_extract_subpages_pattern_skips_cross_domain():
+    """Le pattern ne contourne pas la sécurité cross-domain."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '<a href="https://evil.com/ofcourselemans/card/x">trap</a>'
+    subs = _extract_subpages(
+        html,
+        base_url="https://msj.world/ofcourselemans/86",
+        pattern=r"https://.*/card/.+",  # pattern volontairement permissif
+    )
+    assert subs == []  # cross-domain bloqué malgré le match pattern
+
+
 def test_clear_fetch_cache_resets():
     """clear_fetch_cache() invalide le cache."""
     with patch("tapageur.connectors.web._do_fetch", return_value="<html/>") as mock:

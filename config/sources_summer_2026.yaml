@@ -48,7 +48,10 @@ websites:
 
   - name: ofcourselemans
     url: https://msj.world/ofcourselemans/86
-    follow_event_links: true       # page agenda → suit les liens vers les pages event
+    follow_event_links: true
+    # Sous-pages event sous /ofcourselemans/card/<slug>, pas sous /86/<slug>.
+    # L'heuristique par défaut (sous-chemin strict) ne les capte pas → pattern explicite.
+    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
 
   - name: pleinchamp
     url: https://pleinchamplemans.fr/le-festival/concerts-et-dj-sets/
@@ -56,6 +59,7 @@ websites:
 
   - name: atoutboutdchamp
     url: https://www.festivalatoutboutdchamp.com/programmation/
+    needs_browser: true    
     follow_event_links: false
 
   - name: beauxdimanches
@@ -99,6 +103,11 @@ websites:
     note: "Page event FB publique : Meta force le login wall depuis 2020. Probable
            échec — fallback : drop screenshot/PDF dans sources/docs/2026-summer/."
 
+  - name: teriaki
+    url: https://www.teriaki.fr/siestes-2026/
+    # needs_browser: true                # HelloAsso = Cloudflare anti-bot
+    follow_event_links: false
+
   # ─── FESTIVALS — mode onliner ───────────────────────────────────────
   # Une seule ligne "Festivals" dans le CSV (rendu par biduleur PR#106).
 
@@ -111,6 +120,7 @@ websites:
     url: https://www.fest.fr/fete-nationale-quotles-z-arts-sur-l-herbequot-2534862.html
     follow_event_links: false
     mode: festival_onliner
+
 
 
 # === Outlook (Graph API) ===
