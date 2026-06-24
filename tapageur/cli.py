@@ -185,18 +185,38 @@ def _collect_one_month(
     console.print(f"[green]✓[/green] {len(all_items)} items → {out_path}")
 
 
+def _validate_months(months: tuple[str, ...]) -> tuple[str, ...]:
+    """Helper commun aux sous-commandes : --month répétable, défaut = mois courant."""
+    if not months:
+        return (_validate_month(None),)
+    return tuple(_validate_month(m) for m in months)
+
+
+def _print_month_header(m: str, idx: int, total: int) -> None:
+    if total > 1:
+        console.print(f"\n[bold cyan]═══ MONTH {m} ({idx + 1}/{total}) ═══[/bold cyan]")
+
+
 @main.command()
-@click.option("--month", default=None)
+@click.option("--month", "months", multiple=True, default=(),
+              help="YYYY-MM (défaut : mois courant). Répétable.")
 @click.option("--batch", "use_batch", is_flag=True, default=False,
               help="Soumet via la Batch API (50% off, SLA 24h). "
                    "Récupère ensuite avec `tapageur retrieve`.")
-def normalize(month: str, use_batch: bool):
+def normalize(months: tuple[str, ...], use_batch: bool):
     """Normalise via Claude API → cache/<month>/normalized.json
 
     Par défaut : mode synchrone (appels immédiats).
     Avec --batch : soumet en différé et exit ; `tapageur retrieve` finalise.
+    Multi-mois : --month répétable, traite chaque mois séquentiellement.
     """
-    month = _validate_month(month)
+    months_validated = _validate_months(months)
+    for i, m in enumerate(months_validated):
+        _print_month_header(m, i, len(months_validated))
+        _normalize_one_month(m, use_batch)
+
+
+def _normalize_one_month(month: str, use_batch: bool) -> None:
     raw_path = _cache_dir(month) / "raw.json"
     out_path = _cache_dir(month) / "normalized.json"
 
@@ -227,10 +247,24 @@ def normalize(month: str, use_batch: bool):
 
 
 @main.command()
-@click.option("--month", default=None)
-def retrieve(month: str):
-    """Finalise un batch soumis avec `normalize --batch` → normalized.json"""
-    month = _validate_month(month)
+@click.option("--month", "months", multiple=True, default=(),
+              help="YYYY-MM (défaut : mois courant). Répétable.")
+def retrieve(months: tuple[str, ...]):
+    """Finalise un batch soumis avec `normalize --batch` → normalized.json.
+
+    Multi-mois : --month répétable. Si un batch n'est pas encore prêt pour
+    un mois, l'erreur est loggée et les autres mois sont traités quand même.
+    """
+    months_validated = _validate_months(months)
+    for i, m in enumerate(months_validated):
+        _print_month_header(m, i, len(months_validated))
+        try:
+            _retrieve_one_month(m)
+        except click.UsageError as e:
+            console.print(f"[yellow]skip {m}: {e}[/yellow]")
+
+
+def _retrieve_one_month(month: str) -> None:
     raw_path = _cache_dir(month) / "raw.json"
     out_path = _cache_dir(month) / "normalized.json"
 
@@ -244,7 +278,6 @@ def retrieve(month: str):
     except RuntimeError as e:
         raise click.UsageError(str(e))
 
-    # Canonicalisation + dédup (même pipeline que normalize sync).
     mappings = load_mappings()
     events = canonicalize(events, mappings)
     events = dedup(events)
@@ -257,10 +290,20 @@ def retrieve(month: str):
 
 
 @main.command()
-@click.option("--month", default=None)
-def preview(month: str):
-    """Export CSV pour validation manuelle → cache/<month>/preview.csv"""
-    month = _validate_month(month)
+@click.option("--month", "months", multiple=True, default=(),
+              help="YYYY-MM (défaut : mois courant). Répétable.")
+def preview(months: tuple[str, ...]):
+    """Export CSV pour validation manuelle → cache/<month>/preview.csv
+
+    Multi-mois : --month répétable, génère 1 preview.csv par mois.
+    """
+    months_validated = _validate_months(months)
+    for i, m in enumerate(months_validated):
+        _print_month_header(m, i, len(months_validated))
+        _preview_one_month(m)
+
+
+def _preview_one_month(month: str) -> None:
     norm_path = _cache_dir(month) / "normalized.json"
     out_path = _cache_dir(month) / "preview.csv"
 
@@ -273,19 +316,24 @@ def preview(month: str):
 
 
 @main.command()
-@click.option("--month", default=None)
+@click.option("--month", "months", multiple=True, default=(),
+              help="YYYY-MM (défaut : mois courant). Répétable.")
 @click.option("--worksheet", default=None, help="Nom de la feuille cible (défaut : première)")
-def push(month: str, worksheet: str):
-    """Push le CSV validé vers Google Sheets."""
-    month = _validate_month(month)
-    csv_path = _cache_dir(month) / "preview.csv"
+def push(months: tuple[str, ...], worksheet: str):
+    """Push le CSV validé vers Google Sheets.
 
-    if not csv_path.exists():
-        raise click.UsageError(f"{csv_path} n'existe pas.")
-
+    Multi-mois : --month répétable, push chaque preview.csv séquentiellement.
+    """
+    months_validated = _validate_months(months)
     sheet_id = os.environ["TAPAGE_SHEET_ID"]
-    n = push_csv(csv_path, sheet_id, worksheet)
-    console.print(f"[green]✓[/green] {n} lignes pushées vers le sheet")
+    for i, m in enumerate(months_validated):
+        _print_month_header(m, i, len(months_validated))
+        csv_path = _cache_dir(m) / "preview.csv"
+        if not csv_path.exists():
+            console.print(f"[yellow]skip {m}: {csv_path} n'existe pas[/yellow]")
+            continue
+        n = push_csv(csv_path, sheet_id, worksheet)
+        console.print(f"[green]✓[/green] {n} lignes pushées vers le sheet")
 
 
 if __name__ == "__main__":
