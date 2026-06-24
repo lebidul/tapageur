@@ -77,6 +77,8 @@ websites:
     url: https://superforma.fr/mediator/la-bonn-zik-festival-d-ete-bonnetable
     needs_browser: true                # même config que superforma (sous-page)
     follow_event_links: false
+    model: claude-opus-4-7             # Sonnet rate 0 events juillet sur format
+                                       # `09/07: Jacqueline` séparé en 2 lignes
 
   - name: lesgarennes
     url: https://www.les-garennes.fr/
@@ -111,6 +113,10 @@ websites:
   - name: teriaki
     url: https://www.teriaki.fr/siestes-2026/
     # needs_browser: true                # HelloAsso = Cloudflare anti-bot
+    follow_event_links: false
+
+  - name: musica
+    url: https://my.weezevent.com/MLM
     follow_event_links: false
 
   # ─── FESTIVALS — mode onliner ───────────────────────────────────────
@@ -155,8 +161,10 @@ facebook:
 # === Docs du mois (images + PDFs déposés manuellement) ===
 docs:
   paths:
-    - sources/docs/{month}/        # par mois — 2026-07/ puis 2026-08/
-    - sources/docs/2026-summer/    # partagé pour les 2 mois (PDF + photos festivals)
+    - sources/docs/{month}/                  # par mois — 2026-07/ puis 2026-08/
+    - sources/docs/2026-summer/              # partagé été — mode classique
+    - path: sources/docs/2026-summer-onliner/    # flyers à rendre en mode onliner
+      mode: festival_onliner                     # (1 ligne Festivals dans le CSV)
 
 
 # === Filtre temporel ===
