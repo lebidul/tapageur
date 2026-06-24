@@ -44,25 +44,71 @@ def canonicalize(events: list[Event], mappings: dict) -> list[Event]:
     return events
 
 
+_UNKNOWN_PERFORMERS = {"?", "", "inconnu"}
+
+
+def _has_unknown_performer(ev: Event) -> bool:
+    return ev.acts[0].performer.lower().strip() in _UNKNOWN_PERFORMERS
+
+
 def dedup(events: list[Event]) -> list[Event]:
     """
-    Fusionne les doublons identifiés par fingerprint.
-    Stratégie : si deux events ont le même fingerprint, on garde le premier
-    et on log un warning (souvent ça veut dire 2 sources qui parlent du même event).
+    Fusionne les doublons identifiés par fingerprint, en 2 passes.
+
+    Pass 1 — STRICT : fingerprint = (date, time_normalisé, venue, performer).
+    Garde le premier event de chaque fingerprint, drop les suivants.
+
+    Pass 2 — WEAK : pour chaque event RESTANT après pass 1 dont le performer
+    est "?" / inconnu, on calcule fingerprint_weak = (date, time, venue).
+    Si ce fingerprint matche un AUTRE event strict de pass 1 (avec performer
+    connu, même date+time+venue), on drop l'event weak (= absorbé par
+    l'event strict qui a plus d'info).
+
+    Couvre le cas typique : Source A annonce "Andromaque, jeudi 20h, Collège
+    Vieux Colombier" avec performer="?", Source B annonce le même event avec
+    performer="Théâtre en actes". Sans pass 2, les 2 restent ; avec pass 2,
+    seul B est gardé.
     """
-    seen: dict[str, Event] = {}
-    duplicates: list[tuple[Event, Event]] = []
+    # Pass 1 : dedup strict
+    strict_seen: dict[str, Event] = {}
+    strict_duplicates: list[tuple[Event, Event]] = []
 
     for ev in events:
         fp = ev.fingerprint()
-        if fp in seen:
-            duplicates.append((seen[fp], ev))
+        if fp in strict_seen:
+            strict_duplicates.append((strict_seen[fp], ev))
             continue
-        seen[fp] = ev
+        strict_seen[fp] = ev
 
-    if duplicates:
-        # TODO : logger via rich
-        for kept, dropped in duplicates:
-            print(f"[dedup] dropped duplicate from {dropped.source_kind}:{dropped.source_ref}")
+    if strict_duplicates:
+        for kept, dropped in strict_duplicates:
+            print(f"[dedup] strict dup dropped from {dropped.source_kind}:{dropped.source_ref}")
 
-    return list(seen.values())
+    survivors = list(strict_seen.values())
+
+    # Pass 2 : pour les events weak (performer=?), chercher un strict matching
+    # sur fingerprint_weak (date+time+venue). Si trouvé → drop le weak.
+    # Index : weak_key → events strict (performer connu) sur cette clé.
+    weak_to_strict_events: dict[str, list[Event]] = {}
+    for ev in survivors:
+        if not _has_unknown_performer(ev):
+            weak_to_strict_events.setdefault(ev.fingerprint_weak(), []).append(ev)
+
+    final: list[Event] = []
+    weak_duplicates_count = 0
+    for ev in survivors:
+        if _has_unknown_performer(ev):
+            weak_key = ev.fingerprint_weak()
+            if weak_to_strict_events.get(weak_key):
+                # Un autre event "strict" couvre déjà ce slot → drop celui-ci
+                strict_match = weak_to_strict_events[weak_key][0]
+                print(f"[dedup] weak dup (performer=?) dropped from {ev.source_kind}:{ev.source_ref}"
+                      f" — covered by strict event with performer='{strict_match.acts[0].performer}'")
+                weak_duplicates_count += 1
+                continue
+        final.append(ev)
+
+    if weak_duplicates_count:
+        print(f"[dedup] {weak_duplicates_count} weak duplicates dropped (pass 2)")
+
+    return final

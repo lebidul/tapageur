@@ -6,11 +6,33 @@ qui regroupe jusqu'à 4 Acts (artiste/spectacle).
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime
 from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
+
+
+_TIME_PATTERN = re.compile(r"^\s*(\d{1,2})\s*h\s*(\d{1,2})?\s*$", re.IGNORECASE)
+
+
+def _normalize_time(t: str) -> str:
+    """Normalise un horaire en format "HHhMM" zero-padded.
+
+    - "20h"     → "20h00"
+    - "20h00"   → "20h00"
+    - "9h30"    → "09h30"
+    - "21 h 00" → "21h00"
+    - format inconnu (ex: "à 20h30 ou 22h") → retourné inchangé en lower()
+    """
+    t = (t or "").strip().lower()
+    m = _TIME_PATTERN.match(t)
+    if not m:
+        return t
+    hh = int(m.group(1))
+    mm = int(m.group(2) or 0)
+    return f"{hh:02d}h{mm:02d}"
 
 
 class Genre(str, Enum):
@@ -83,7 +105,7 @@ class Event(BaseModel):
     def fingerprint(self) -> str:
         """Pour dédoublonnage.
 
-        Mode classique : (date, premier horaire, lieu, premier artiste).
+        Mode classique : (date, premier horaire NORMALISÉ, lieu, premier artiste).
         Mode festival : (nom du festival, ville) — venue/times non pertinents
         car rendus vides au CSV, mais le festival a un nom unique par ville.
         """
@@ -91,8 +113,17 @@ class Event(BaseModel):
             fest = (self.festival or "").lower().strip()
             return f"festival:{fest}|{self.city.lower().strip()}"
         first_act = self.acts[0].performer.lower().strip()
-        first_time = self.times[0].lower().strip()
+        first_time = _normalize_time(self.times[0])
         return f"{self.date_iso}|{first_time}|{self.venue.lower().strip()}|{first_act}"
+
+    def fingerprint_weak(self) -> str:
+        """Fingerprint sans le performer — utilisé pour le 2e pass du dedup
+        quand un event a performer='?' (inconnu). Permet de matcher avec
+        un event « strict » identique sur (date, time, venue) ayant un
+        performer connu, et de drop le weak comme doublon.
+        """
+        first_time = _normalize_time(self.times[0])
+        return f"{self.date_iso}|{first_time}|{self.venue.lower().strip()}"
 
 
 class CollectedItem(BaseModel):
