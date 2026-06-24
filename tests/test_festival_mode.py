@@ -113,3 +113,89 @@ def test_batch_build_request_unknown_mode_falls_back_to_classic():
     item = _item(mode="festival_typo_xxx")
     req = _build_request(item, "2026-06")
     assert req["params"]["system"] == SYSTEM_PROMPT
+
+
+# ---------- model_override par site ----------
+
+def test_cache_key_includes_model_override():
+    """Override de modèle → clé cache distincte (cohérent avec mode)."""
+    a = CollectedItem(
+        source_kind="web", source_ref="https://x.fr",
+        fetched_at="t", raw_text="hello",
+        raw_metadata={"site": "x"},
+    )
+    b = CollectedItem(
+        source_kind="web", source_ref="https://x.fr",
+        fetched_at="t", raw_text="hello",
+        raw_metadata={"site": "x", "model_override": "claude-opus-4-7"},
+    )
+    assert cache_mod.cache_key(a, "2026-06") != cache_mod.cache_key(b, "2026-06")
+
+
+def test_batch_request_uses_model_override():
+    """model_override remplace le défaut MODEL_BY_KIND."""
+    item = CollectedItem(
+        source_kind="web", source_ref="x",
+        fetched_at="t", raw_text="hello",
+        raw_metadata={"model_override": "claude-opus-4-7"},
+    )
+    req = _build_request(item, "2026-06")
+    assert req["params"]["model"] == "claude-opus-4-7"
+
+
+def test_batch_request_default_model_without_override():
+    """Sans model_override, MODEL_BY_KIND s'applique (Sonnet pour web)."""
+    item = CollectedItem(
+        source_kind="web", source_ref="x",
+        fetched_at="t", raw_text="hello",
+        raw_metadata={"site": "x"},
+    )
+    req = _build_request(item, "2026-06")
+    assert "sonnet" in req["params"]["model"].lower()
+
+
+# ---------- docs paths : forme dict avec mode/model ----------
+
+def test_docs_paths_dict_form_propagates_mode(tmp_path, monkeypatch):
+    """Path déclaré en dict avec mode → tous les items du path ont ce mode."""
+    from tapageur.connectors.docs import DocsConnector
+
+    monkeypatch.chdir(tmp_path)
+    target_dir = tmp_path / "festivals"
+    target_dir.mkdir()
+    # Fake jpeg pour qu'on ait au moins 1 item routé
+    (target_dir / "flyer.jpg").write_bytes(
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01" + b"\x00" * 50 + b"\xff\xd9"
+    )
+
+    config = {
+        "docs": {
+            "paths": [
+                {"path": str(target_dir), "mode": "festival_onliner"},
+            ]
+        }
+    }
+    conn = DocsConnector(config)
+    items = list(conn.collect("2026-07"))
+
+    assert len(items) == 1
+    assert items[0].raw_metadata.get("mode") == "festival_onliner"
+
+
+def test_docs_paths_string_form_no_mode(tmp_path, monkeypatch):
+    """Path string (forme historique) → pas de mode propagé."""
+    from tapageur.connectors.docs import DocsConnector
+
+    monkeypatch.chdir(tmp_path)
+    target_dir = tmp_path / "classic"
+    target_dir.mkdir()
+    (target_dir / "flyer.jpg").write_bytes(
+        b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01\x01" + b"\x00" * 50 + b"\xff\xd9"
+    )
+
+    config = {"docs": {"paths": [str(target_dir)]}}
+    conn = DocsConnector(config)
+    items = list(conn.collect("2026-07"))
+
+    assert len(items) == 1
+    assert "mode" not in items[0].raw_metadata

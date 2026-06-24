@@ -57,6 +57,10 @@ def cache_key(item: CollectedItem, month: str) -> str:
     if mode:
         h.update(b"|mode=")
         h.update(str(mode).encode("ascii"))
+    model_override = (item.raw_metadata or {}).get("model_override")
+    if model_override:
+        h.update(b"|model=")
+        h.update(str(model_override).encode("ascii"))
     return h.hexdigest()[:24]
 
 

@@ -75,6 +75,11 @@ class WebConnector(Connector):
             # Valeur supportée pour l'instant : "festival_onliner" (cf. commit
             # festival mode). Absent ou autre = mode classique.
             mode = site.get("mode")
+            # model_override : surcharge MODEL_BY_KIND pour ce site spécifique.
+            # Utile quand le modèle par défaut (Sonnet pour web) est instable
+            # sur un contenu particulier (ex: bonnzik → Opus pour formats
+            # date/artiste imbriqués).
+            model_override = site.get("model")
 
             # Détection PDF distant : extension d'URL ou Content-Type via HEAD.
             # Route vers le parsing pdfplumber au lieu du fetch HTML.
@@ -83,6 +88,8 @@ class WebConnector(Connector):
                     item = _fetch_pdf_url(url, site_name)
                     if mode:
                         item.raw_metadata["mode"] = mode
+                    if model_override:
+                        item.raw_metadata["model_override"] = model_override
                     yield item
                 except Exception as e:
                     print(f"[web] {site_name}: PDF fetch error: {e}")
@@ -100,6 +107,8 @@ class WebConnector(Connector):
                 meta = {"site": site_name}
                 if mode:
                     meta["mode"] = mode
+                if model_override:
+                    meta["model_override"] = model_override
                 yield CollectedItem(
                     source_kind="web",
                     source_ref=url,
@@ -140,6 +149,8 @@ class WebConnector(Connector):
                 meta = {"site": site_name, "agenda_url": url}
                 if mode:
                     meta["mode"] = mode
+                if model_override:
+                    meta["model_override"] = model_override
                 yield CollectedItem(
                     source_kind="web",
                     source_ref=ev_url,

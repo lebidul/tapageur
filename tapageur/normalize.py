@@ -229,14 +229,22 @@ def _normalize_one(
     selon `item.source_kind`. Passer un modèle explicite force l'override
     (utile pour debug ou test de non-régression Sonnet→Opus).
     """
-    if model is None:
+    # Override par site/path (raw_metadata["model_override"]) > paramètre
+    # explicite > sélection auto via MODEL_BY_KIND. L'override permet à un
+    # site ou path de forcer un modèle (ex: Sonnet → Opus pour les sources
+    # où le défaut est instable).
+    meta = item.raw_metadata or {}
+    model_override = meta.get("model_override")
+    if model_override:
+        model = model_override
+    elif model is None:
         model = MODEL_BY_KIND.get(item.source_kind, DEFAULT_MODEL)
 
     # Sélection du prompt selon le mode déclaré dans raw_metadata (propagé
     # depuis la config YAML par le connecteur). Mode classique (mode absent)
     # = SYSTEM_PROMPT historique. "festival_onliner" = prompt dédié qui
     # demande à Claude de compresser en 1 seul Event avec is_festival=true.
-    mode = (item.raw_metadata or {}).get("mode")
+    mode = meta.get("mode")
     if mode == "festival_onliner":
         system_prompt = FESTIVAL_SYSTEM_PROMPT
     else:

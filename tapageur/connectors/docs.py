@@ -53,18 +53,38 @@ class DocsConnector(Connector):
         n_yielded = 0
         n_skipped = 0
         for raw in paths:
-            resolved = str(raw).replace("{month}", month)
+            # Forme 1 : str (path simple, pas de metadata)
+            # Forme 2 : dict { path: ..., mode: ..., model: ... } (avec metadata
+            # appliquée à tous les items produits par ce path).
+            if isinstance(raw, dict):
+                path_str = raw.get("path", "")
+                entry_mode = raw.get("mode")
+                entry_model = raw.get("model")
+            else:
+                path_str = str(raw)
+                entry_mode = None
+                entry_model = None
+
+            resolved = path_str.replace("{month}", month)
             p = Path(resolved)
 
             if not p.exists():
                 print(f"[docs] {resolved}: introuvable, skip")
                 continue
 
+            def _decorate(item: CollectedItem) -> CollectedItem:
+                """Appose mode/model_override si déclarés au niveau du path."""
+                if entry_mode:
+                    item.raw_metadata["mode"] = entry_mode
+                if entry_model:
+                    item.raw_metadata["model_override"] = entry_model
+                return item
+
             if p.is_file():
                 item = _route_file(p)
                 if item is not None:
                     n_yielded += 1
-                    yield item
+                    yield _decorate(item)
                 else:
                     n_skipped += 1
                 continue
@@ -76,7 +96,7 @@ class DocsConnector(Connector):
                     item = _route_file(f)
                     if item is not None:
                         n_yielded += 1
-                        yield item
+                        yield _decorate(item)
                     else:
                         n_skipped += 1
                 continue

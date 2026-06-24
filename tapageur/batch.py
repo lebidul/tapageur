@@ -78,9 +78,11 @@ def clear_batch_state(month: str) -> None:
 
 def _build_request(item: CollectedItem, month: str) -> dict[str, Any]:
     """Construit une request batch pour un item donné. Route le prompt selon
-    item.raw_metadata['mode'] (cf. normalize._normalize_one)."""
-    model = MODEL_BY_KIND.get(item.source_kind, DEFAULT_MODEL)
-    mode = (item.raw_metadata or {}).get("mode")
+    item.raw_metadata['mode'] et le modèle selon raw_metadata['model_override']
+    (cf. normalize._normalize_one)."""
+    meta = item.raw_metadata or {}
+    model = meta.get("model_override") or MODEL_BY_KIND.get(item.source_kind, DEFAULT_MODEL)
+    mode = meta.get("mode")
     system_prompt = FESTIVAL_SYSTEM_PROMPT if mode == "festival_onliner" else SYSTEM_PROMPT
     params: dict[str, Any] = {
         "model": model,
