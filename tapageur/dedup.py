@@ -12,7 +12,7 @@ from pathlib import Path
 
 import yaml
 
-from tapageur.schema import Event
+from tapageur.schema import Event, _normalize_time
 
 
 def load_mappings(path: Path = Path("config/mappings.yaml")) -> dict:
@@ -112,3 +112,110 @@ def dedup(events: list[Event]) -> list[Event]:
         print(f"[dedup] {weak_duplicates_count} weak duplicates dropped (pass 2)")
 
     return final
+
+
+# ============================================================
+# Groupement d'events partageant festival+date+venue
+# ============================================================
+
+MAX_ACTS_PER_EVENT = 4  # nombre de blocs ACT du sheet (cols K-Z)
+
+
+def group_events(events: list[Event]) -> list[Event]:
+    """Fusionne en un seul Event les groupes qui partagent festival+date+venue.
+
+    Cas typique : Of Course Le Mans annonce 4 spectacles successifs au même
+    parc le même jour (18h30, 19h30, 20h, 21h). Ils proviennent de 4 sous-pages
+    web distinctes mais représentent UNE soirée organisée → 1 ligne dans le
+    sheet avec 4 acts, et un horaire de départ = 18h30.
+
+    Critères de groupement (TOUS doivent matcher) :
+    - même festival (non-vide)
+    - même date_iso
+    - même venue (canonisé via canonicalize() en amont)
+
+    Sans festival → pas de groupement (trop risqué de fusionner 2 events
+    indépendants au même venue le même jour).
+
+    Si plus de 4 acts cumulés → split en blocs successifs de 4 acts max.
+
+    L'event fusionné prend :
+    - times = [horaire le plus tôt du groupe]
+    - acts = concaténation chronologique (jusqu'à 4)
+    - price = premier non-"?" du groupe (sinon "?")
+    - festival_style, city, date_label, festival = ceux de l'event le plus tôt
+    """
+    groups: dict[tuple, list[Event]] = {}
+    ungrouped: list[Event] = []
+    order: list[tuple | str] = []  # pour préserver l'ordre relatif
+
+    for ev in events:
+        if not ev.festival or not ev.festival.strip():
+            ungrouped.append(ev)
+            order.append(f"u:{len(ungrouped) - 1}")
+            continue
+        key = (
+            ev.festival.lower().strip(),
+            ev.date_iso,
+            ev.venue.lower().strip(),
+        )
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(ev)
+
+    out: list[Event] = []
+    n_merged_events_total = 0  # nb d'events fusionnés depuis l'input
+    n_output_groups = 0        # nb de nouveaux events produits par fusion
+
+    for entry in order:
+        if isinstance(entry, str) and entry.startswith("u:"):
+            idx = int(entry.split(":")[1])
+            out.append(ungrouped[idx])
+            continue
+        group = groups[entry]
+        if len(group) == 1:
+            out.append(group[0])
+            continue
+        merged = _merge_event_group(group)
+        n_merged_events_total += len(group)
+        n_output_groups += len(merged)
+        out.extend(merged)
+
+    if n_output_groups:
+        print(f"[group] {n_merged_events_total} events fusionnés en {n_output_groups} (acts regroupés par festival/date/venue)")
+
+    return out
+
+
+def _merge_event_group(group: list[Event]) -> list[Event]:
+    """Fusionne un groupe (>=2) d'events. Split en blocs de MAX_ACTS_PER_EVENT
+    acts si nécessaire. Retourne 1 ou plusieurs events fusionnés."""
+    # Trier chronologiquement par horaire de départ normalisé
+    sorted_group = sorted(group, key=lambda ev: _normalize_time(ev.times[0]))
+
+    # Aplatir tous les acts en respectant l'ordre chronologique
+    flat_acts: list[tuple[Event, "Act"]] = []  # type: ignore[name-defined]
+    for ev in sorted_group:
+        for act in ev.acts:
+            flat_acts.append((ev, act))
+
+    out: list[Event] = []
+    i = 0
+    while i < len(flat_acts):
+        chunk = flat_acts[i:i + MAX_ACTS_PER_EVENT]
+        base_event, _ = chunk[0]
+        # Copie de base, on remplace acts + times + price
+        merged_acts = [act for _, act in chunk]
+        # Premier non-"?" de price dans les events du chunk
+        chunk_events = list({id(ev): ev for ev, _ in chunk}.values())  # dedup ev refs
+        price = next((ev.price for ev in chunk_events if ev.price not in ("?", "")), base_event.price)
+        merged = base_event.model_copy(update={
+            "acts": merged_acts,
+            "times": [base_event.times[0]],   # horaire de départ
+            "price": price,
+        })
+        out.append(merged)
+        i += MAX_ACTS_PER_EVENT
+
+    return out

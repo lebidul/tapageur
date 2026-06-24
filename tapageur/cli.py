@@ -15,7 +15,7 @@ from tapageur.batch import retrieve_batch, submit_batch
 from tapageur.connectors import get_connector
 # Trigger registry registration via imports
 from tapageur.connectors import outlook, web, pdf, fb, docs, mailbox  # noqa: F401
-from tapageur.dedup import canonicalize, dedup, load_mappings
+from tapageur.dedup import canonicalize, dedup, group_events, load_mappings
 from tapageur.normalize import normalize_items
 from tapageur.push import push_csv
 from tapageur.schema import CollectedItem, Event
@@ -234,10 +234,11 @@ def _normalize_one_month(month: str, use_batch: bool) -> None:
 
     events = normalize_items(items, month, out_path)
 
-    # Canonicalisation + dédup
+    # Canonicalisation + dédup + groupement
     mappings = load_mappings()
     events = canonicalize(events, mappings)
     events = dedup(events)
+    events = group_events(events)
 
     out_path.write_text(
         json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
@@ -281,6 +282,7 @@ def _retrieve_one_month(month: str) -> None:
     mappings = load_mappings()
     events = canonicalize(events, mappings)
     events = dedup(events)
+    events = group_events(events)
 
     out_path.write_text(
         json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
