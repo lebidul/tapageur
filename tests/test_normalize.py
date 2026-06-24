@@ -146,3 +146,29 @@ def test_normalization_wrapper_still_works():
     response = {"events": [_good_event()]}
     parsed = _NormalizationOutput.model_validate(response)
     assert len(parsed.events) == 1
+
+
+# ---------- Asymétrie _EventDraft vs Event ----------
+
+def test_event_draft_accepts_empty_times_but_event_rejects():
+    """Régression bug observé : Claude peut renvoyer times=[].
+    _EventDraft (schéma laxe) accepte → la validation au niveau Event échoue.
+    Vérifie que ce cas existe pour justifier le try/except sur Event(...)."""
+    from tapageur.normalize import _EventDraft
+
+    bad = _good_event()
+    bad["times"] = []  # vide → invalide selon Event.at_least_one_time
+    # _EventDraft accepte (pas de validator at_least_one_time)
+    draft = _EventDraft.model_validate(bad)
+    assert draft.times == []
+
+    # Event refuse (validator déclenche)
+    from tapageur.schema import Event
+    from pydantic import ValidationError as PydErr
+    with pytest.raises(PydErr, match="times must contain at least one entry"):
+        Event(
+            **draft.model_dump(),
+            tapeur_email="x@y.fr",
+            source_kind="web",
+            source_ref="x",
+        )

@@ -286,12 +286,22 @@ def _normalize_one(
             continue
         if not draft.date_iso.startswith(month):
             continue
-        events.append(Event(
-            **draft.model_dump(),
-            tapeur_email=tapeur_email,
-            source_kind=item.source_kind,
-            source_ref=item.source_ref,
-        ))
+        # Asymétrie historique : Event a des validators (au moins 1 horaire,
+        # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
+        # encore échouer à la création Event. On catch event-par-event ici
+        # aussi (sinon 1 event invalide ruine l'extraction de tout l'item).
+        try:
+            events.append(Event(
+                **draft.model_dump(),
+                tapeur_email=tapeur_email,
+                source_kind=item.source_kind,
+                source_ref=item.source_ref,
+            ))
+        except ValidationError as e:
+            first = e.errors()[0] if e.errors() else {}
+            field = ".".join(str(p) for p in first.get("loc", []))
+            msg = first.get("msg", str(e))
+            print(f"    [warn] event {i + 1} rejeté par Event ({field}: {msg}), skip")
     return events
 
 
