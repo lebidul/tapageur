@@ -1,0 +1,112 @@
+# =============================================================================
+# Sources de collecte — BIDUL D'ÉTÉ 2026 (juillet + août)
+# =============================================================================
+# Config partagée pour les 2 mois. Utiliser avec :
+#
+#   tapageur collect --month 2026-07 --month 2026-08 \
+#                    -c config/sources_summer_2026.yaml
+#
+# Le multi-mois mutualise les fetches HTTP cross-mois (Superforma fetché
+# 1 fois pour les 2 mois). Voir docs/workflow.md section "Bidul d'été".
+#
+# Spécificités vs config/sources.yaml :
+# - Substitution {month} dans les paths docs : 1 même config marche pour
+#   juillet ET août (les dossiers sources/.../2026-07/ et 2026-08/ sont lus
+#   séparément à chaque itération de mois).
+# - Section festivals d'été : Eldorado, Pop au Parc, etc. Certains sont
+#   marqués `mode: festival_onliner` → rendus en 1 ligne "Festivals" dans
+#   le CSV (cf. lebidul/biduleur#106).
+#
+# Workflow complet :
+# 1. Drag-and-drop des fichiers dans :
+#    - sources/docs/2026-07/, sources/docs/2026-08/
+#    - sources/mailbox_export/2026-07/, sources/mailbox_export/2026-08/
+# 2. tapageur collect --month 2026-07 --month 2026-08 -c <ce fichier>
+# 3. tapageur normalize --month 2026-07 && tapageur normalize --month 2026-08
+# 4. tapageur preview --month 2026-07 && tapageur preview --month 2026-08
+# 5. Validation manuelle dans LibreOffice
+# 6. tapageur push --month 2026-07 && tapageur push --month 2026-08
+# 7. Biduleur fusionne les 2 CSV en 1 PDF via summer_mode (PR #106).
+# =============================================================================
+
+
+# === Sites web ===
+websites:
+  # Sources récurrentes
+  - name: superforma
+    url: https://superforma.fr/agenda
+    needs_browser: true
+    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+
+  # Sources testées en mai/juin 2026 (à valider sur l'été)
+  - name: bistrobroccafe
+    url: https://bistrobroccafe.e-monsite.com/
+    follow_event_links: false
+
+  - name: musiquesmagiques
+    url: https://www.musiquesmagiques.fr/Agenda/index.php
+    follow_event_links: false
+
+  - name: lafonderie
+    url: https://www.lafonderie.fr/les-ouvertures-publiques/
+    follow_event_links: false
+
+  # === FESTIVALS — mode onliner ===
+  # Chaque festival devient UNE ligne "Festivals" dans le CSV (au lieu de
+  # N events). Voir docs/workflow.md section "Mode festival".
+
+  - name: eldorado
+    url: https://www.helloasso.com/associations/eldorado-americana-festival/evenements/billetterie-festival-eldorado-2026
+    needs_browser: true
+    follow_event_links: false
+    mode: festival_onliner       # 1 onliner au lieu de N concerts
+
+  - name: popauparc
+    url: https://lentracte-sable.fr/pop-au-parc/
+    follow_event_links: false
+    mode: festival_onliner
+
+  # Ajouter d'autres festivals d'été ici au fil de l'eau :
+  # - name: festival_X
+  #   url: https://...
+  #   mode: festival_onliner
+
+
+# === Outlook (Graph API) ===
+outlook:
+  enabled: false
+
+
+# === Mailbox locale ===
+# Le mois courant (passé en CLI) est concaténé automatiquement :
+# multi-mois → lit sources/mailbox_export/2026-07/ puis sources/mailbox_export/2026-08/
+mailbox:
+  base_dir: sources/mailbox_export
+
+
+# === PDFs saison (locaux uniquement) ===
+season_pdfs:
+  - path: "./sources/pdfs_saison/Programme Acthalia saison 2025-2026.pdf"
+    parsed_cache: ./cache/pdf_acthalia_25_26.json
+    label: "Programme saison 25-26 — Théâtre de l'Acthalia"
+    # Acthalia couvre toute la saison ; les events été (juillet-août) seront
+    # filtrés côté Claude par date_iso.
+
+
+# === Facebook ===
+facebook:
+  enabled: false
+
+
+# === Docs du mois (images + PDFs déposés manuellement) ===
+# {month} substitué → lit sources/docs/2026-07/ puis sources/docs/2026-08/
+docs:
+  paths:
+    - sources/docs/{month}/
+    # Exemples ajouts ponctuels (festivals hors mois canonique) :
+    # - sources/special/festival_pluri_mois.pdf
+
+
+# === Filtre temporel ===
+filter:
+  margin_days: 3

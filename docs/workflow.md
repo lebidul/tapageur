@@ -56,6 +56,57 @@ tapageur collect --month 2026-06 -c config/sources_2026_06.yaml
 
 Voir [sources.md](sources.md) pour la structure des configs et comment en créer une.
 
+### Mode multi-mois (bidul d'été — 1 commande pour 2 mois)
+
+Le **bidul d'été** fusionne juillet + août en 1 PDF côté biduleur (cf. [PR #106](https://github.com/lebidul/biduleur/pull/106)). Côté tapageur on produit **1 CSV par mois** ; biduleur fait la fusion ensuite.
+
+Le flag `--month` est répétable. Les fetches HTTP sont mutualisés cross-mois (cache in-process) — Superforma + Playwright ne tournent qu'une fois pour les 2 mois :
+
+```bash
+# 1 commande pour les 2 mois
+tapageur collect --month 2026-07 --month 2026-08 \
+                 -c config/sources_summer_2026.yaml
+
+# Normalize séparément (Claude est appelé une fois par mois et par item, le filtre
+# par mois cible étant côté Claude). Le cache item-level garde les 2 entrées.
+tapageur normalize --month 2026-07
+tapageur normalize --month 2026-08
+
+# Preview + push séparés
+tapageur preview --month 2026-07
+tapageur preview --month 2026-08
+tapageur push    --month 2026-07
+tapageur push    --month 2026-08
+```
+
+Note : le pre-filter Claude (qui choisit les URLs event candidates par mois) reste appelé séparément pour chaque mois — son résultat dépend du mois cible. Seul le fetch HTTP est mutualisé.
+
+### Mode festival (onliner)
+
+Certaines sources sont en réalité **un festival entier** (ex: Eldorado, Pop au Parc, Kikloche) — on ne veut pas 7 events distincts dans le sheet mais 1 seule ligne dans la section "Festivals" du PDF (style "Coups de cœur en bref"). Marqueur `"Festivals"` dans la colonne DATE, reconnu par biduleur via la [PR #106](https://github.com/lebidul/biduleur/pull/106).
+
+Pour activer ce mode sur une source, ajoute `mode: festival_onliner` dans son entry config :
+
+```yaml
+websites:
+  - name: eldorado
+    url: https://www.helloasso.com/.../festival-eldorado-2026
+    mode: festival_onliner       # 1 ligne au lieu de N concerts
+
+season_pdfs:
+  - path: ./sources/pdfs_saison/programme_kikloche.pdf
+    label: Festival Kikloche
+    mode: festival_onliner
+```
+
+**Comportement sous le capot** :
+- Le mode est propagé dans `CollectedItem.raw_metadata["mode"]` par le connecteur.
+- `normalize` (sync ou batch) sélectionne `FESTIVAL_SYSTEM_PROMPT` au lieu du prompt classique → Claude produit **exactement 1 Event** avec `is_festival=true`, le nom du festival en `festival`, la description résumée en `festival_style`, l'URL en `acts[0].title`, etc.
+- `validate.event_to_row` met `"Festivals"` dans la colonne DATE, HEURE/LIEU vides.
+- Le cache item-level isole les 2 modes : changer une source du mode classique au mode festival ne pollue pas les cache hits.
+
+**Cas mixtes** : si une source contient **à la fois** un festival et des concerts indépendants (genre Superforma qui annonce un festival en plus de sa programmation classique), reste en mode classique. Claude n'a pas de mode auto-détection — c'est toi qui décides via la config.
+
 ### Mode sélectif (re-collecter une source précise)
 
 Quand un seul connecteur ou site a besoin d'être re-fetché (typiquement : tu viens de fixer la config d'un site, ou tu veux refresher juste une source qui change vite), passe `--connector` ou `--site` au lieu de tout relancer :
