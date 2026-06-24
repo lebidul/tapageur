@@ -81,8 +81,11 @@ class Event(BaseModel):
     # dans le schema. À utiliser via `mode: festival_onliner` côté config source.
     is_festival: bool = False
 
-    # Programmation : 1 à 4 acts (cols K-N, O-R, S-V, W-Z)
-    acts: list[Act] = Field(..., min_length=1, max_length=4)
+    # Programmation : 1+ acts. Plus de limite haute fixe — biduleur supporte
+    # un nombre dynamique de colonnes ACT dans le CSV (4 colonnes par act :
+    # GENRE / NOM SPECTACLE / ARTISTE / STYLE). validate.export_csv calcule
+    # max(acts) sur l'ensemble exporté et pad les lignes plus courtes.
+    acts: list[Act] = Field(..., min_length=1)
 
     # Source tracking (pas dans le sheet, utile pour debug/dédup).
     # Pas exclu de model_dump() : on en a besoin pour rejouer le cache disque

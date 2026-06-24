@@ -155,21 +155,20 @@ def test_group_events_user_case():
     assert titles == ["Pestacle El Chuflini", "Le GOP", "MARGO", "Brassens à la folie"]
 
 
-def test_group_events_more_than_4_acts_split_in_blocks():
-    """6 events partageant festival/date/venue → 2 events fusionnés (4 + 2)."""
+def test_group_events_more_than_4_acts_kept_in_one_event():
+    """6 events partageant festival/date/venue → 1 event avec 6 acts (plus
+    de limite 4 ; biduleur supporte un nombre dynamique de colonnes ACT)."""
     events = [
         _make_event_full(f"{18 + i}h00", f"Show {i}", f"Artist {i}",
                          source_ref=f"src{i}")
         for i in range(6)
     ]
     result = group_events(events)
-    assert len(result) == 2
-    assert len(result[0].acts) == 4
-    assert len(result[1].acts) == 2
-    # 1er bloc : heure de départ du 1er event
+    assert len(result) == 1
+    assert len(result[0].acts) == 6
     assert result[0].times == ["18h00"]
-    # 2e bloc : heure de départ du 5e event (chronologiquement)
-    assert result[1].times == ["22h00"]
+    # Ordre chronologique respecté
+    assert [a.title for a in result[0].acts] == [f"Show {i}" for i in range(6)]
 
 
 def test_group_events_different_venues_not_merged():

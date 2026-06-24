@@ -1,6 +1,11 @@
 """
 Export CSV pour relecture/édition manuelle dans LibreOffice avant push.
-Le CSV reproduit les colonnes du Google Sheet exactement.
+
+Le CSV reproduit les colonnes du Google Sheet biduleur. Cols A-J sont fixes.
+Cols K..Z (et au-delà) : 4 colonnes par act (GENRE, NOM SPECTACLE, ARTISTE,
+STYLE). Le nombre de blocs ACT est calculé dynamiquement = max(len(acts))
+sur l'ensemble des events exportés. Les lignes plus courtes sont paddées
+avec des cellules vides. biduleur supporte un nombre dynamique de colonnes.
 """
 from __future__ import annotations
 
@@ -10,29 +15,46 @@ from pathlib import Path
 from tapageur.schema import Event
 
 
-# En-têtes alignés sur le Google Sheet `tapage_biduleur`
-HEADERS = [
+# En-têtes fixes (cols A-J)
+HEADERS_BASE = [
     "INFO TAPEUR", "DATE TAPAGE", "DATE EMISSION RADIO", "FESTOCHE", "STYLE FESTOCHE",
     "DATE", "HEURE", "LIEU", "VILLE", "PRIX",
+]
+
+# Headers historiques exposés pour la compatibilité (tests qui importent HEADERS).
+# Correspond à 4 blocs ACT, le nombre minimal que biduleur supportait avant
+# l'extension dynamique. Utilisé uniquement comme valeur de référence ; les
+# en-têtes réellement écrits par export_csv sont calculés dynamiquement.
+HEADERS = HEADERS_BASE + [
     "GENRE 1", "NOM SPECTACLE 1", "ARTISTE 1", "STYLE 1",
     "GENRE 2", "NOM SPECTACLE 2", "ARTISTE 2", "STYLE 2",
     "GENRE 3", "NOM SPECTACLE 3", "ARTISTE 3", "STYLE 3",
     "GENRE 4", "NOM SPECTACLE 4", "ARTISTE 4", "STYLE 4",
 ]
 
-
 FESTIVAL_DATE_MARKER = "Festivals"  # marqueur reconnu par biduleur (PR #106)
 
 
-def event_to_row(ev: Event) -> list[str]:
-    """Convertit un Event en row (26 colonnes A-Z).
+def _make_headers(n_acts: int) -> list[str]:
+    """En-têtes complets pour un export avec n_acts blocs."""
+    headers = list(HEADERS_BASE)
+    for i in range(1, n_acts + 1):
+        headers.extend([f"GENRE {i}", f"NOM SPECTACLE {i}", f"ARTISTE {i}", f"STYLE {i}"])
+    return headers
+
+
+def event_to_row(ev: Event, n_acts: int | None = None) -> list[str]:
+    """Convertit un Event en row.
+
+    n_acts : nombre de blocs ACT à émettre (4 colonnes chacun). Si None,
+    utilise len(ev.acts) — utile pour les tests à 1 event. En usage normal
+    (export_csv), n_acts = max sur tout l'export pour aligner les lignes.
+    Les blocs au-delà de len(ev.acts) sont remplis de cellules vides.
 
     Mode festival (ev.is_festival=True) :
     - DATE = "Festivals" (marqueur magique pour biduleur)
-    - HEURE / LIEU vides (le festival n'a pas d'horaire ni de lieu précis ;
-      la VILLE et la programmation restent renseignées)
-    - FESTOCHE = ev.festival (nom court du festival)
-    - STYLE FESTOCHE = ev.festival_style (description longue, multi-dates...)
+    - HEURE / LIEU vides
+    - FESTOCHE = ev.festival, STYLE FESTOCHE = ev.festival_style
     """
     if ev.is_festival:
         date_cell = FESTIVAL_DATE_MARKER
@@ -55,8 +77,9 @@ def event_to_row(ev: Event) -> list[str]:
         ev.city,                          # I
         ev.price,                         # J
     ]
-    # Acts (jusqu'à 4) : K-N, O-R, S-V, W-Z
-    for i in range(4):
+
+    target = n_acts if n_acts is not None else len(ev.acts)
+    for i in range(target):
         if i < len(ev.acts):
             act = ev.acts[i]
             row.extend([act.genre.value, act.title or "", act.performer, act.style or ""])
@@ -66,10 +89,16 @@ def event_to_row(ev: Event) -> list[str]:
 
 
 def export_csv(events: list[Event], out_path: Path) -> None:
+    """Écrit un CSV avec un nombre de colonnes ACT dynamique = max d'acts
+    sur tous les events exportés. Si la liste est vide, on émet quand même
+    les headers de base + 1 bloc ACT (cohérent avec le sheet)."""
+    n_acts = max((len(ev.acts) for ev in events), default=1)
+    headers = _make_headers(n_acts)
+
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, delimiter=";", quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(HEADERS)
+        writer.writerow(headers)
         for ev in events:
-            writer.writerow(event_to_row(ev))
-    print(f"[validate] {len(events)} lignes → {out_path}")
+            writer.writerow(event_to_row(ev, n_acts=n_acts))
+    print(f"[validate] {len(events)} lignes ({n_acts} blocs ACT) → {out_path}")

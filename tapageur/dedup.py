@@ -118,9 +118,6 @@ def dedup(events: list[Event]) -> list[Event]:
 # Groupement d'events partageant festival+date+venue
 # ============================================================
 
-MAX_ACTS_PER_EVENT = 4  # nombre de blocs ACT du sheet (cols K-Z)
-
-
 def group_events(events: list[Event]) -> list[Event]:
     """Fusionne en un seul Event les groupes qui partagent festival+date+venue.
 
@@ -137,11 +134,14 @@ def group_events(events: list[Event]) -> list[Event]:
     Sans festival → pas de groupement (trop risqué de fusionner 2 events
     indépendants au même venue le même jour).
 
-    Si plus de 4 acts cumulés → split en blocs successifs de 4 acts max.
+    Pas de limite haute sur le nombre d'acts dans le groupe fusionné : tous
+    les acts du groupe sont concaténés dans le même Event. Le CSV (cf.
+    validate.export_csv) générera dynamiquement autant de colonnes ACT que
+    nécessaire — biduleur supporte un nombre de colonnes variable.
 
     L'event fusionné prend :
     - times = [horaire le plus tôt du groupe]
-    - acts = concaténation chronologique (jusqu'à 4)
+    - acts = concaténation chronologique de TOUS les acts (sans split)
     - price = premier non-"?" du groupe (sinon "?")
     - festival_style, city, date_label, festival = ceux de l'event le plus tôt
     """
@@ -189,33 +189,24 @@ def group_events(events: list[Event]) -> list[Event]:
 
 
 def _merge_event_group(group: list[Event]) -> list[Event]:
-    """Fusionne un groupe (>=2) d'events. Split en blocs de MAX_ACTS_PER_EVENT
-    acts si nécessaire. Retourne 1 ou plusieurs events fusionnés."""
+    """Fusionne un groupe (>=2) d'events en 1 seul Event multi-acts.
+    Pas de split (le CSV génère autant de colonnes que d'acts)."""
     # Trier chronologiquement par horaire de départ normalisé
     sorted_group = sorted(group, key=lambda ev: _normalize_time(ev.times[0]))
 
-    # Aplatir tous les acts en respectant l'ordre chronologique
-    flat_acts: list[tuple[Event, "Act"]] = []  # type: ignore[name-defined]
-    for ev in sorted_group:
-        for act in ev.acts:
-            flat_acts.append((ev, act))
+    # Concaténation chronologique de tous les acts
+    all_acts = [act for ev in sorted_group for act in ev.acts]
 
-    out: list[Event] = []
-    i = 0
-    while i < len(flat_acts):
-        chunk = flat_acts[i:i + MAX_ACTS_PER_EVENT]
-        base_event, _ = chunk[0]
-        # Copie de base, on remplace acts + times + price
-        merged_acts = [act for _, act in chunk]
-        # Premier non-"?" de price dans les events du chunk
-        chunk_events = list({id(ev): ev for ev, _ in chunk}.values())  # dedup ev refs
-        price = next((ev.price for ev in chunk_events if ev.price not in ("?", "")), base_event.price)
-        merged = base_event.model_copy(update={
-            "acts": merged_acts,
-            "times": [base_event.times[0]],   # horaire de départ
-            "price": price,
-        })
-        out.append(merged)
-        i += MAX_ACTS_PER_EVENT
+    # Premier prix non-"?" / non-vide dans le groupe
+    price = next(
+        (ev.price for ev in sorted_group if ev.price not in ("?", "")),
+        sorted_group[0].price,
+    )
 
-    return out
+    base = sorted_group[0]
+    merged = base.model_copy(update={
+        "acts": all_acts,
+        "times": [base.times[0]],   # horaire de départ
+        "price": price,
+    })
+    return [merged]
