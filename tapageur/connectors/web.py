@@ -215,6 +215,18 @@ def _extract_subpages(html: str, base_url: str) -> list[str]:
     return sorted(out)
 
 
+# Cache HTTP in-process pour éviter de re-fetcher la même URL entre 2 mois
+# cibles (cas du `collect --month 07 --month 08`). Vidé manuellement entre
+# runs si besoin via clear_fetch_cache(). Pas de TTL : valide tant que le
+# processus tourne (chaque CLI invocation = 1 process).
+_FETCH_CACHE: dict[str, str] = {}
+
+
+def clear_fetch_cache() -> None:
+    """Vide le cache HTTP. Utile pour les tests ou un re-fetch forcé."""
+    _FETCH_CACHE.clear()
+
+
 def _fetch(url: str, needs_browser: bool = False) -> str:
     """Fetch HTML : requests pour le simple, Playwright pour les sites bloqués.
 
@@ -227,7 +239,23 @@ def _fetch(url: str, needs_browser: bool = False) -> str:
       détection bot Cloudflare et consorts.
     - `wait_for_timeout(5s)` après navigation : laisse les challenges JS
       Cloudflare se résoudre (~3-5s en pratique).
+
+    Cache : un GET sur la même URL renvoie le résultat caché (utile pour le
+    multi-mois où la même URL est traitée pour chaque mois cible). La clé
+    inclut needs_browser (un site peut être fetché en 2 modes différents
+    en théorie).
     """
+    cache_key = f"{int(needs_browser)}|{url}"
+    if cache_key in _FETCH_CACHE:
+        return _FETCH_CACHE[cache_key]
+
+    html = _do_fetch(url, needs_browser)
+    _FETCH_CACHE[cache_key] = html
+    return html
+
+
+def _do_fetch(url: str, needs_browser: bool = False) -> str:
+    """Implémentation pure (non-cachée). Utilisée par _fetch."""
     if needs_browser:
         from playwright.sync_api import sync_playwright
         try:

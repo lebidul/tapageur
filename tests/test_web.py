@@ -7,7 +7,22 @@ from __future__ import annotations
 
 from unittest.mock import Mock, patch
 
-from tapageur.connectors.web import _fetch_pdf_url, _is_pdf_url
+import pytest
+
+from tapageur.connectors.web import (
+    _fetch,
+    _fetch_pdf_url,
+    _is_pdf_url,
+    clear_fetch_cache,
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset_fetch_cache():
+    """Isole les tests : reset le cache HTTP avant chaque test."""
+    clear_fetch_cache()
+    yield
+    clear_fetch_cache()
 
 
 # ---------- _is_pdf_url ----------
@@ -41,6 +56,37 @@ def test_is_pdf_url_head_html_content_type():
 
 
 # ---------- _fetch_pdf_url ----------
+
+# ---------- HTTP cache ----------
+
+def test_fetch_caches_by_url():
+    """2 _fetch successifs sur la même URL → 1 seul appel HTTP."""
+    with patch("tapageur.connectors.web._do_fetch", return_value="<html>cached</html>") as mock:
+        a = _fetch("https://example.com/agenda", needs_browser=False)
+        b = _fetch("https://example.com/agenda", needs_browser=False)
+    assert a == b == "<html>cached</html>"
+    assert mock.call_count == 1  # 2e fetch sert le cache, pas d'appel réseau
+
+
+def test_fetch_cache_distinguishes_browser_mode():
+    """Même URL en mode requests vs Playwright → entrées cache distinctes."""
+    with patch("tapageur.connectors.web._do_fetch", side_effect=["<a/>", "<b/>"]) as mock:
+        a = _fetch("https://example.com/x", needs_browser=False)
+        b = _fetch("https://example.com/x", needs_browser=True)
+    assert a == "<a/>" and b == "<b/>"
+    assert mock.call_count == 2
+
+
+def test_clear_fetch_cache_resets():
+    """clear_fetch_cache() invalide le cache."""
+    with patch("tapageur.connectors.web._do_fetch", return_value="<html/>") as mock:
+        _fetch("https://example.com/y", needs_browser=False)
+        clear_fetch_cache()
+        _fetch("https://example.com/y", needs_browser=False)
+    assert mock.call_count == 2  # 1 avant clear, 1 après
+
+
+# ---------- PDF fetching ----------
 
 def test_fetch_pdf_url_extracts_text():
     """Mock requests.get + pdfplumber : on doit obtenir un CollectedItem pdf."""

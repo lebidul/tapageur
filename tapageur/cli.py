@@ -64,7 +64,10 @@ ALL_CONNECTORS = ("outlook", "mailbox", "web", "pdf", "fb", "docs")
 
 
 @main.command()
-@click.option("--month", default=None, help="YYYY-MM (défaut : mois courant)")
+@click.option("--month", "months", multiple=True, default=(),
+              help="YYYY-MM (défaut : mois courant). Répétable : "
+                   "`--month 2026-07 --month 2026-08` produit 1 raw.json par mois "
+                   "et partage les fetches HTTP cross-mois (cache in-process).")
 @click.option("-c", "--config", "config_path",
               type=click.Path(exists=True, dir_okay=False, path_type=Path),
               default=DEFAULT_CONFIG_PATH,
@@ -78,7 +81,7 @@ ALL_CONNECTORS = ("outlook", "mailbox", "web", "pdf", "fb", "docs")
 @click.option("--site", "selected_sites", multiple=True,
               help="Re-collecter uniquement les entrées websites avec ces `name:` "
                    "(répétable). Implique --connector web,pdf. Mode merge actif.")
-def collect(month: str, config_path: Path,
+def collect(months: tuple[str, ...], config_path: Path,
             selected_connectors: tuple[str, ...], selected_sites: tuple[str, ...]):
     """Collecte les sources → cache/<month>/raw.json
 
@@ -91,12 +94,38 @@ def collect(month: str, config_path: Path,
        (matching par source_ref) ; les items hors sélection restent intacts
        dans raw.json. Utile pour re-fetcher une source précise sans relancer
        les autres (ex : `--site eldorado` après un fix du connecteur web).
+
+    \b
+    Multi-mois :
+    Passer --month plusieurs fois (ex. `--month 2026-07 --month 2026-08`)
+    produit un raw.json par mois ciblé. Les fetches HTTP sont mutualisés
+    via un cache in-process : la même URL fetchée pour juillet n'est pas
+    re-fetchée pour août. Utile pour le bidul d'été (juillet+août fusionnés
+    par biduleur en 1 PDF).
     """
-    month = _validate_month(month)
+    # --month répétable, défaut = mois courant si rien
+    if not months:
+        months_validated = (_validate_month(None),)
+    else:
+        months_validated = tuple(_validate_month(m) for m in months)
+
     config = _load_config(config_path)
-    out_path = _cache_dir(month) / "raw.json"
     console.print(f"[dim]config: {config_path}[/dim]")
 
+    for i, m in enumerate(months_validated):
+        if len(months_validated) > 1:
+            console.print(f"\n[bold cyan]═══ MONTH {m} ({i + 1}/{len(months_validated)}) ═══[/bold cyan]")
+        _collect_one_month(m, config, selected_connectors, selected_sites)
+
+
+def _collect_one_month(
+    month: str,
+    config: dict,
+    selected_connectors: tuple[str, ...],
+    selected_sites: tuple[str, ...],
+) -> None:
+    """Logique collect pour un seul mois. Extraite pour le multi-mois."""
+    out_path = _cache_dir(month) / "raw.json"
     is_selective = bool(selected_connectors or selected_sites)
 
     if is_selective:
