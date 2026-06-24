@@ -59,8 +59,10 @@ websites:
 
   - name: atoutboutdchamp
     url: https://www.festivalatoutboutdchamp.com/programmation/
-    needs_browser: true    
+    needs_browser: true
     follow_event_links: false
+    mode: festival_onliner    # lineup en vrac sans correspondance jour→artiste
+                              # → résumé en 1 ligne plutôt que tentative classique
 
   - name: beauxdimanches
     url: https://www.tourisme-alpesmancelles.com/envie-de-sortir/culture-sports-et-loisirs/les-beaux-dimanches-apres-midis-ou-sort-le-soleil-dan-saint-leonard-des-bois-fr-5736575/
@@ -77,9 +79,11 @@ websites:
     follow_event_links: false
 
   - name: lesgarennes
-    url: https://www.les-garennes.fr/programmation
-    needs_browser: true            # programmation chargée en JavaScript
+    url: https://www.les-garennes.fr/
+    needs_browser: true            # page chargée en JavaScript
     follow_event_links: false
+    mode: festival_onliner    # 1 seul jour (4 juillet 2026, Souligné-sous-ballon),
+                              # entrée gratuite, programmation à compléter à la main
 
   - name: pianoctambule
     url: https://www.pianoctambule.com/pianoaujardin
@@ -91,7 +95,7 @@ websites:
     follow_event_links: false
 
   - name: intergalactik
-    url: https://www.helloasso.com/associations/festival-intergalactik-de-clowns-de-jupilles-and-co/evenements/billetterie-festival-intergalactik-de-clowns-de-jupilles-2025
+    url: https://www.helloasso.com/associations/festival-intergalactik-de-clowns-de-jupilles-and-co/evenements/billetterie-festival-intergalactik-de-clowns-de-jupilles-2026
     needs_browser: true                # HelloAsso = Cloudflare anti-bot
     follow_event_links: false
     note: "URL contient 2025 — vérifier si l'édition 2026 existe"
