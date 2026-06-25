@@ -88,14 +88,23 @@ tapageur/
 
 ## Schéma cible
 
-Aligné sur le Google Sheet `tapage_biduleur`. Une ligne = un événement à un lieu et une date donnée, avec jusqu'à 4 actes regroupés. Voir `tapageur/schema.py`.
+Aligné sur le Google Sheet `tapage_biduleur`. Une ligne = un événement à un lieu et une date donnée, avec **N actes regroupés** (N est dynamique : pas de limite, le CSV génère autant de blocs ACT que nécessaire — biduleur supporte ce format depuis [PR #106](https://github.com/lebidul/biduleur/pull/106)). Voir `tapageur/schema.py`.
 
 ## Commandes CLI
 
 ```bash
-tapageur collect    --month 2026-06 [-c CONFIG]   # collecte → cache/<month>/raw.json
-tapageur normalize  --month 2026-06 [--batch]     # Claude → cache/<month>/normalized.json
+# Toutes les commandes acceptent --month répétable pour le multi-mois (bidul d'été)
+tapageur collect    --month 2026-06 [-c CONFIG] [--site X] [--connector Y]
+tapageur normalize  --month 2026-06 [--batch]
 tapageur retrieve   --month 2026-06               # finalise un batch (si --batch utilisé)
-tapageur preview    --month 2026-06               # CSV pour validation
+tapageur preview    --month 2026-06               # CSV pour validation manuelle
 tapageur push       --month 2026-06               # → Google Sheets
+
+# Bidul d'été : juillet + août en 1 commande chaque étape
+tapageur collect    --month 2026-07 --month 2026-08 -c config/sources_summer_2026.yaml
+tapageur normalize  --month 2026-07 --month 2026-08
+tapageur preview    --month 2026-07 --month 2026-08
+tapageur push       --month 2026-07 --month 2026-08
 ```
+
+Détails : [docs/workflow.md](docs/workflow.md) (avec sous-sections sur le mode festival onliner, le mode sélectif `--site`/`--connector`, et les 3 passes canonicalize/dedup/group).

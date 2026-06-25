@@ -46,11 +46,37 @@ websites:
   - name: prog_mensuel_lieu_x
     url: https://lieuX.fr/programmes/juin-2026.pdf
     # Aucun champ supplémentaire : le web connector route automatiquement
+
+  # Site dont les pages event sont à un autre niveau d'URL que /agenda/<slug>
+  - name: ofcourselemans
+    url: https://msj.world/ofcourselemans/86
+    follow_event_links: true
+    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
+
+  # Override de modèle pour un site donné (Sonnet → Opus)
+  - name: bonnzik
+    url: https://...
+    model: claude-opus-4-7            # Opus au lieu du défaut Sonnet
+
+  # Festival → 1 ligne onliner "Festivals" dans le CSV
+  - name: eldorado
+    url: https://...
+    mode: festival_onliner
 ```
 
 **Détection PDF** : extension `.pdf` dans l'URL en priorité, sinon HEAD request → `Content-Type: application/pdf`. Si HEAD échoue (timeout, 405), traité comme HTML par défaut.
 
-**Routage modèle** : `source_kind="web"` → Sonnet. `source_kind="pdf"` (cas URL PDF) → Opus.
+**`needs_browser: true`** : utilise Playwright (Chromium headless) au lieu de `requests`. Activé pour : sites JS-rendered, sites avec anti-bot (Cloudflare, HelloAsso). Le connecteur applique automatiquement `playwright-stealth` + un délai de 5s après `domcontentloaded` pour passer les challenges JS Cloudflare.
+
+**`follow_event_links: true`** : extraction par défaut des liens vers les pages event individuelles. Heuristique : sous-chemin strict de `<base_url>` (`/<agenda_path>/<slug>`). Convient à ~80% des sites.
+
+**`event_link_pattern: <regex>`** (optionnel) : override la heuristique pour les sites à structure non-standard. Exemple : `msj.world/ofcourselemans/86` → events sous `/ofcourselemans/card/<slug>` (cousins, pas enfants). Le pattern est appliqué sur l'URL canonisée. Cross-domain bloqué même si le pattern le permet (sécurité).
+
+**`mode: festival_onliner`** : tous les events extraits de ce site sont produits avec `is_festival=true` et un seul Event onliner (cf. [workflow.md → Mode festival](workflow.md#mode-festival-onliner)).
+
+**`model: <claude-model-id>`** : surcharge `MODEL_BY_KIND` pour ce site spécifique. Utile quand le modèle par défaut est instable sur un contenu particulier. Vu sur `bonnzik` : Sonnet rate l'extraction d'un format `09/07: Jacqueline` avec retour ligne entre date et artiste, Opus s'en sort mieux.
+
+**Routage modèle** (sans override) : `source_kind="web"` → Sonnet. `source_kind="pdf"` (cas URL PDF) → Opus.
 
 ### `pdf` — PDFs saison locaux
 
@@ -61,13 +87,18 @@ season_pdfs:
   - path: "./sources/pdfs_saison/Programme Acthalia 25-26.pdf"
     parsed_cache: ./cache/pdf_acthalia.json
     label: "Programme saison 25-26 — Acthalia"
+    # Optionnels :
+    # mode: festival_onliner       # rend ce PDF en 1 ligne onliner
+    # model: claude-opus-4-7       # force un modèle spécifique
 ```
 
 **Local uniquement** : depuis le refactor de `1cefadd`, ce connecteur **refuse** les URLs (`ValueError` claire si tu en mets une). Les PDFs distribués via URL doivent passer par la section `websites:` (voir ci-dessus).
 
 **`parsed_cache`** : le texte extrait par pdfplumber est sauvé dans ce fichier JSON la première fois, puis réutilisé. Acthalia couvre toute une saison (sept→juin), donc 1 seule extraction pour tout le cycle annuel.
 
-**Routage modèle** : `source_kind="pdf"` → Opus.
+**`mode` et `model`** : pareils que pour `web` — propagés vers normalize via `raw_metadata` sans nécessiter de re-parser le PDF si tu changes ces flags.
+
+**Routage modèle** (sans override) : `source_kind="pdf"` → Opus.
 
 ### `mailbox` — mails locaux (.eml / .msg)
 
@@ -96,12 +127,22 @@ Section `docs:` dans la config YAML.
 ```yaml
 docs:
   paths:
-    - sources/docs/{month}/              # dossier (substitution {month} auto)
-    - sources/docs/2026-06/              # ou hardcodé
-    - sources/special/festival_unique.pdf # fichier individuel
+    - sources/docs/{month}/                       # forme courte : juste le chemin
+    - sources/docs/2026-06/
+    - sources/special/festival_unique.pdf
+    # Forme dict : metadata par path (mode + model optionnels)
+    - path: sources/docs/2026-summer-onliner/     # dossier d'affiches festivals
+      mode: festival_onliner                      # → tous rendus en 1 ligne "Festivals"
+    - path: sources/docs/special/scan_difficile.pdf
+      model: claude-opus-4-7                      # Opus pour ce flyer particulier
 ```
 
-**Liste de paths** : chaque entry peut être un fichier OU un dossier.
+**Liste de paths** : chaque entry peut être un fichier OU un dossier, sous **forme courte** (string) ou **forme dict** avec metadata.
+
+- **Forme courte (str)** : juste le path. Mode/model standards selon `source_kind`.
+- **Forme dict** : `{ path: ..., mode: ..., model: ... }`. Les flags sont propagés à TOUS les items générés par ce path.
+
+Différence fichier vs dossier (forme courte ET dict) :
 - **Fichier** : routé par extension.
 - **Dossier** : tous les fichiers à la racine du dossier sont routés (pas de récursion).
 

@@ -166,13 +166,31 @@ Voir [batch.md](batch.md) pour les détails.
 - **Invalidation automatique** : si un site web change son contenu, le `content_hash` change → cache miss → re-call Claude → résultat à jour.
 - **Invalidation manuelle** : `rm -rf cache/normalize/` purge tout, prochain run = paye plein tarif.
 
-### Canonicalize + dedup
+### Canonicalize + dedup + group
 
-Après l'appel Claude, le code applique :
-1. **Canonicalize** : remplace les variantes par les formes canoniques selon `config/mappings.yaml` (611 venues, ~684 alias). Ex: `"Le Scarron"` → `"Théâtre Paul Scarron"`.
-2. **Dedup** : fingerprint `(date_iso, premier_horaire, venue, premier_performer)` ; en cas de collision, garde le premier.
+Après l'appel Claude, **trois passes** sont appliquées dans cet ordre :
 
-**Sortie** : `cache/<month>/normalized.json` contenant la liste finale d'`Event`.
+1. **Canonicalize** : remplace les variantes par les formes canoniques selon `config/mappings.yaml` (~611 venues, ~684 alias). Ex: `"Le Scarron"` → `"Théâtre Paul Scarron"`. Matching case-insensitive + strip whitespace.
+
+2. **Dedup en 2 passes** :
+   - **Pass strict** : fingerprint `(date_iso, time_normalisé, venue, performer)`. Les horaires sont normalisés au format `HHhMM` (`"20h"` → `"20h00"`, `"9h30"` → `"09h30"`), donc 2 events à `20h` et `20h00` ne sont plus distincts.
+   - **Pass weak** : pour chaque event survivant ayant `performer="?"` (inconnu), on vérifie s'il existe un autre event « strict » avec même `(date, time, venue)` mais un performer connu. Si oui → drop le weak (absorbé par l'event avec plus d'info).
+
+3. **Group** : fusionne les events qui partagent `festival + date_iso + venue` en **1 seul Event multi-acts**. Cas typique : un festival qui programme 4 spectacles sur la même soirée → 1 ligne dans le CSV avec 4 acts (au lieu de 4 lignes séparées). L'horaire conservé = le plus tôt du groupe. **Pas de limite** sur le nombre d'acts (le CSV génère N colonnes ACT dynamiques, voir [Étape 3](#étape-3--preview)).
+
+**Sortie console attendue** :
+```
+[dedup] strict dup dropped from <source>
+[dedup] weak dup (performer=?) dropped from <source> — covered by strict event with performer='X'
+[dedup] N weak duplicates dropped (pass 2)
+[group] X events fusionnés en Y (acts regroupés par festival/date/venue)
+```
+
+**Sortie fichier** : `cache/<month>/normalized.json` contenant la liste finale d'`Event` après ces 3 passes.
+
+### Mode festival (rappel rapide)
+
+Si une source est marquée `mode: festival_onliner` dans le YAML, son extraction Claude utilise un prompt dédié qui force `is_festival=true` et produit **1 seul Event** par source (cf. [sources.md → web/pdf/docs](sources.md#web--sites-web-html-et-pdfs-url)). Au CSV, ces Events ont `DATE = "Festivals"` (marqueur biduleur PR #106), HEURE et LIEU vides, mais `FESTOCHE`, `STYLE FESTOCHE`, `VILLE`, `PRIX` et au moins 1 act sont remplis.
 
 ## Étape 3 — `preview`
 
@@ -181,7 +199,18 @@ Génère un CSV à partir de `normalized.json` pour validation manuelle dans un 
 ```bash
 tapageur preview --month 2026-06
 # → cache/2026-06/preview.csv
+
+# Multi-mois (cf. workflow d'été)
+tapageur preview --month 2026-07 --month 2026-08
 ```
+
+### Nombre de colonnes dynamique
+
+Le CSV a 10 colonnes fixes (cols A-J : INFO TAPEUR, DATE, HEURE, LIEU...) puis **N blocs ACT × 4 colonnes** (GENRE, NOM SPECTACLE, ARTISTE, STYLE). **N est calculé par export = max d'acts trouvés sur l'ensemble du mois**.
+
+Exemple : un mois où la soirée la plus chargée a 6 actes → CSV avec 10 + 4×6 = 34 colonnes. Les lignes plus courtes sont paddées avec des cellules vides. La sortie console l'affiche : `[validate] X lignes (N blocs ACT) → preview.csv`.
+
+Biduleur supporte ce nombre dynamique de colonnes (PR #106). Pas de limite haute fixe.
 
 ### Que valider à la main
 
