@@ -61,6 +61,13 @@ def cache_key(item: CollectedItem, month: str) -> str:
     if model_override:
         h.update(b"|model=")
         h.update(str(model_override).encode("ascii"))
+    # PROMPT_VERSION : invalide automatiquement le cache au changement de
+    # prompt système (cf. tapageur/version.py). Sans ce bump, modifier les
+    # règles dans SYSTEM_PROMPT n'aurait aucun effet visible — les items
+    # déjà cachés renverraient l'ancien résultat.
+    from tapageur.version import PROMPT_VERSION
+    h.update(b"|p=")
+    h.update(PROMPT_VERSION.encode("ascii"))
     return h.hexdigest()[:24]
 
 

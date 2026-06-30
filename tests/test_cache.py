@@ -116,6 +116,22 @@ def test_cache_handles_corrupt_file(tmp_cache: Path):
     assert cache_mod.get_cached(item, "2026-05") is None
 
 
+def test_cache_key_depends_on_prompt_version(tmp_cache: Path, monkeypatch):
+    """Bump de PROMPT_VERSION → clé cache différente → cache miss au prochain run.
+
+    Mécanisme qui permet de modifier SYSTEM_PROMPT sans avoir à purger le cache
+    à la main : on bump simplement tapageur/version.py et tous les items se
+    ré-évaluent au run suivant."""
+    item = _make_item()
+    key_v1 = cache_mod.cache_key(item, "2026-05")
+
+    # Simule un bump de PROMPT_VERSION
+    monkeypatch.setattr("tapageur.version.PROMPT_VERSION", "v999-test")
+    key_v2 = cache_mod.cache_key(item, "2026-05")
+
+    assert key_v1 != key_v2
+
+
 def test_cache_handles_image_items(tmp_cache: Path):
     """raw_image_b64 entre dans le content_hash (différent → miss)."""
     item_a = CollectedItem(

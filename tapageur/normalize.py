@@ -97,6 +97,13 @@ Règles importantes :
    mets "?" comme performer (même convention que pour price). NE PAS omettre
    l'event — le tapeur complètera à la main. performer doit toujours être une
    chaîne non vide (jamais null).
+9. Si une date apparaît dans une LÉGENDE de photo / illustration plutôt que
+   dans une annonce d'event (ex: "Photo prise lors du spectacle X le 14 août",
+   "© photo du concert du 21 juillet"), NE PAS la traiter comme un event
+   distinct. Les légendes référencent souvent un event déjà listé ailleurs
+   dans le document — créer un event séparé causerait un doublon faussement
+   placé. Dans le doute, privilégie de NE PAS créer l'event si le contexte
+   est manifestement descriptif (légende, crédit photo, rétrospective).
 
 Réponds UNIQUEMENT par un objet JSON valide de la forme :
 {"events": [{...}, {...}]}
@@ -148,6 +155,11 @@ Règles importantes :
 3. Si tu n'es pas certain que le contenu décrit UN festival (vs un agenda
    de concerts indépendants), retourne quand même 1 event avec is_festival=
    true en faisant de ton mieux pour résumer.
+4. Si la source contient des LÉGENDES de photos / crédits visuels qui
+   mentionnent des dates (ex: "© photo du concert du 21 juillet"), NE PAS
+   les confondre avec des annonces d'event. Une légende est descriptive,
+   pas annonciatrice — elle réfère probablement à un event déjà décrit
+   ailleurs.
 
 Réponds UNIQUEMENT par un objet JSON valide de la forme :
 {"events": [{...}]}
