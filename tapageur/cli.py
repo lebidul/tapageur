@@ -15,7 +15,7 @@ from tapageur.batch import retrieve_batch, submit_batch
 from tapageur.connectors import get_connector
 # Trigger registry registration via imports
 from tapageur.connectors import outlook, web, pdf, fb, docs, mailbox  # noqa: F401
-from tapageur.dedup import canonicalize, dedup, group_events, load_mappings
+from tapageur.dedup import canonicalize, convert_to_onliner, dedup, group_events, load_mappings
 from tapageur.normalize import normalize_items
 from tapageur.push import push_csv
 from tapageur.schema import CollectedItem, Event
@@ -200,23 +200,46 @@ def _print_month_header(m: str, idx: int, total: int) -> None:
 @main.command()
 @click.option("--month", "months", multiple=True, default=(),
               help="YYYY-MM (défaut : mois courant). Répétable.")
+@click.option("-c", "--config", "config_path",
+              type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              default=None,
+              help="Fichier YAML des sources — lu uniquement pour la section "
+                   "`festivals_as_onliner:` (post-conversion). Optionnel.")
 @click.option("--batch", "use_batch", is_flag=True, default=False,
               help="Soumet via la Batch API (50% off, SLA 24h). "
                    "Récupère ensuite avec `tapageur retrieve`.")
-def normalize(months: tuple[str, ...], use_batch: bool):
+def normalize(months: tuple[str, ...], config_path: Path | None, use_batch: bool):
     """Normalise via Claude API → cache/<month>/normalized.json
 
     Par défaut : mode synchrone (appels immédiats).
     Avec --batch : soumet en différé et exit ; `tapageur retrieve` finalise.
     Multi-mois : --month répétable, traite chaque mois séquentiellement.
+
+    Si --config est passé et que le YAML contient une section top-level
+    `festivals_as_onliner: [name, name, ...]`, une passe de post-conversion
+    fusionne tous les events dont `festival` matche un nom cible en 1 seul
+    Event onliner par festival. Utile pour des festivals dispersés dans
+    un PDF partagé qu'on ne peut pas mettre en mode onliner globalement.
     """
     months_validated = _validate_months(months)
+    onliner_names = _load_onliner_festivals(config_path)
     for i, m in enumerate(months_validated):
         _print_month_header(m, i, len(months_validated))
-        _normalize_one_month(m, use_batch)
+        _normalize_one_month(m, use_batch, onliner_names)
 
 
-def _normalize_one_month(month: str, use_batch: bool) -> None:
+def _load_onliner_festivals(config_path: Path | None) -> list[str]:
+    """Lit la section `festivals_as_onliner:` du YAML config (si passé)."""
+    if not config_path:
+        return []
+    cfg = _load_config(config_path)
+    names = cfg.get("festivals_as_onliner") or []
+    if names:
+        console.print(f"[dim]post-conversion en onliner : {names}[/dim]")
+    return list(names)
+
+
+def _normalize_one_month(month: str, use_batch: bool, onliner_names: list[str]) -> None:
     raw_path = _cache_dir(month) / "raw.json"
     out_path = _cache_dir(month) / "normalized.json"
 
@@ -234,11 +257,12 @@ def _normalize_one_month(month: str, use_batch: bool) -> None:
 
     events = normalize_items(items, month, out_path)
 
-    # Canonicalisation + dédup + groupement
+    # Canonicalisation + dédup + groupement + post-conversion onliner
     mappings = load_mappings()
     events = canonicalize(events, mappings)
     events = dedup(events)
     events = group_events(events)
+    events = convert_to_onliner(events, onliner_names)
 
     out_path.write_text(
         json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
@@ -250,22 +274,31 @@ def _normalize_one_month(month: str, use_batch: bool) -> None:
 @main.command()
 @click.option("--month", "months", multiple=True, default=(),
               help="YYYY-MM (défaut : mois courant). Répétable.")
-def retrieve(months: tuple[str, ...]):
+@click.option("-c", "--config", "config_path",
+              type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              default=None,
+              help="Fichier YAML des sources — lu uniquement pour la section "
+                   "`festivals_as_onliner:` (post-conversion). Optionnel.")
+def retrieve(months: tuple[str, ...], config_path: Path | None):
     """Finalise un batch soumis avec `normalize --batch` → normalized.json.
 
     Multi-mois : --month répétable. Si un batch n'est pas encore prêt pour
     un mois, l'erreur est loggée et les autres mois sont traités quand même.
+
+    Si --config est passé, applique la post-conversion onliner comme
+    `normalize` (cf. sa docstring).
     """
     months_validated = _validate_months(months)
+    onliner_names = _load_onliner_festivals(config_path)
     for i, m in enumerate(months_validated):
         _print_month_header(m, i, len(months_validated))
         try:
-            _retrieve_one_month(m)
+            _retrieve_one_month(m, onliner_names)
         except click.UsageError as e:
             console.print(f"[yellow]skip {m}: {e}[/yellow]")
 
 
-def _retrieve_one_month(month: str) -> None:
+def _retrieve_one_month(month: str, onliner_names: list[str]) -> None:
     raw_path = _cache_dir(month) / "raw.json"
     out_path = _cache_dir(month) / "normalized.json"
 
@@ -283,6 +316,7 @@ def _retrieve_one_month(month: str) -> None:
     events = canonicalize(events, mappings)
     events = dedup(events)
     events = group_events(events)
+    events = convert_to_onliner(events, onliner_names)
 
     out_path.write_text(
         json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),

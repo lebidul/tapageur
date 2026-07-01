@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from tapageur.dedup import canonicalize, dedup, group_events
+from tapageur.dedup import canonicalize, convert_to_onliner, dedup, group_events
 from tapageur.schema import Act, Event, Genre, _normalize_time
 
 
@@ -271,3 +271,107 @@ def test_dedup_andromaque_real_case():
     result = dedup(events)
     assert len(result) == 1
     assert result[0].acts[0].performer == "Théâtre en actes"  # le strict gagne
+
+
+# ---------- convert_to_onliner ----------
+
+def _make_fest_event(
+    festival: str,
+    date_iso: str,
+    performer: str,
+    time: str = "20h30",
+    venue: str = "Le Chapiteau",
+    city: str = "Le Mans",
+    style: str | None = "chanson",
+) -> Event:
+    return Event(
+        tapeur_email="lebidul@live.fr",
+        festival=festival,
+        date_label=f"Mardi {date_iso[-2:]}",
+        date_iso=date_iso,
+        times=[time],
+        venue=venue,
+        city=city,
+        price="10€",
+        acts=[Act(genre=Genre.CONCERT, performer=performer, style=style)],
+        source_kind="pdf",
+        source_ref="guide.pdf",
+    )
+
+
+def test_convert_to_onliner_empty_targets_noop():
+    events = [_make_fest_event("Les Mardis", "2026-08-11", "Frédéric Fromet")]
+    result = convert_to_onliner(events, [])
+    assert result == events
+
+
+def test_convert_to_onliner_no_match_noop():
+    events = [_make_fest_event("Autre Festival", "2026-08-11", "Artist")]
+    result = convert_to_onliner(events, ["Les Mardis de la Chanson"])
+    assert result == events
+
+
+def test_convert_to_onliner_groups_by_name():
+    a = _make_fest_event("Les Mardis de la Chanson", "2026-08-11", "Frédéric Fromet")
+    b = _make_fest_event("Les Mardis de la Chanson", "2026-08-18", "Lémofil")
+    c = _make_fest_event("Les Mardis de la Chanson", "2026-08-25", "Camille Laly")
+    other = _make_fest_event("Autre Truc", "2026-08-01", "X")
+
+    result = convert_to_onliner([a, b, c, other], ["Les Mardis de la Chanson"])
+
+    assert len(result) == 2  # 1 onliner + 1 event non-cible
+    onliner = next(e for e in result if e.is_festival)
+    assert onliner.festival == "Les Mardis de la Chanson"
+    assert onliner.date_iso == "2026-08-11"  # premier chrono
+    assert onliner.venue == ""
+    assert onliner.times == ["?"]
+    assert len(onliner.acts) == 1
+    assert onliner.acts[0].performer == "3 spectacles"
+    assert onliner.acts[0].genre == Genre.SPECTACLE_VIVANT
+    # Les 3 performers apparaissent dans festival_style
+    assert "Frédéric Fromet" in onliner.festival_style
+    assert "Lémofil" in onliner.festival_style
+    assert "Camille Laly" in onliner.festival_style
+
+
+def test_convert_to_onliner_matching_case_insensitive():
+    ev = _make_fest_event("Les Mardis de la Chanson", "2026-08-11", "X")
+    # Config avec casse différente
+    result = convert_to_onliner([ev], ["les MARDIS de la chanson"])
+    assert len(result) == 1
+    assert result[0].is_festival is True
+
+
+def test_convert_to_onliner_preserves_original_case():
+    """La casse du groupe (venant des données) est conservée dans l'onliner,
+    pas celle du nom cible (potentiellement mal saisi dans le YAML)."""
+    ev = _make_fest_event("Les Mardis de la Chanson", "2026-08-11", "X")
+    result = convert_to_onliner([ev], ["les mardis de la chanson"])
+    assert result[0].festival == "Les Mardis de la Chanson"
+
+
+def test_convert_to_onliner_single_event_group():
+    """Un festival cible avec un seul event → performer garde la valeur originale
+    plutôt que '1 spectacles'."""
+    ev = _make_fest_event("Solo Fest", "2026-08-11", "L'Artiste")
+    result = convert_to_onliner([ev], ["Solo Fest"])
+    assert len(result) == 1
+    assert result[0].acts[0].performer == "L'Artiste"
+
+
+def test_convert_to_onliner_date_range_in_festival_style():
+    a = _make_fest_event("F", "2026-08-11", "A")
+    b = _make_fest_event("F", "2026-08-25", "B")
+    result = convert_to_onliner([a, b], ["F"])
+    assert "11 août" in result[0].festival_style
+    assert "25 août" in result[0].festival_style
+
+
+def test_convert_to_onliner_multiple_festivals_targeted():
+    a = _make_fest_event("Fest A", "2026-08-11", "X")
+    b = _make_fest_event("Fest B", "2026-08-18", "Y")
+    other = _make_fest_event("Fest C", "2026-08-25", "Z")
+    result = convert_to_onliner([a, b, other], ["Fest A", "Fest B"])
+    # 2 onliners + 1 event non-cible
+    assert len(result) == 3
+    assert sum(1 for e in result if e.is_festival) == 2

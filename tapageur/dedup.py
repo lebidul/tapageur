@@ -12,7 +12,9 @@ from pathlib import Path
 
 import yaml
 
-from tapageur.schema import Event, _normalize_time
+from datetime import date as _date
+
+from tapageur.schema import Act, Event, Genre, _normalize_time
 
 
 def load_mappings(path: Path = Path("config/mappings.yaml")) -> dict:
@@ -210,3 +212,138 @@ def _merge_event_group(group: list[Event]) -> list[Event]:
         "price": price,
     })
     return [merged]
+
+
+# ============================================================
+# Post-conversion en onliner par nom de festival
+# ============================================================
+
+_FR_MONTHS_ABBR = [
+    "janv.", "fév.", "mars", "avr.", "mai", "juin",
+    "juil.", "août", "sept.", "oct.", "nov.", "déc.",
+]
+
+
+def _fr_date(iso: str) -> str:
+    """'2026-08-11' → '11 août'. Fallback : renvoie iso tel quel si invalide."""
+    try:
+        d = _date.fromisoformat(iso)
+        return f"{d.day} {_FR_MONTHS_ABBR[d.month - 1]}"
+    except (ValueError, IndexError):
+        return iso
+
+
+def convert_to_onliner(events: list[Event], target_festival_names: list[str]) -> list[Event]:
+    """Convertit en 1 Event onliner unique les events partageant un nom de festival cible.
+
+    Cas d'usage : un festival est extrait « en pièces détachées » par le
+    pipeline (ex. Les Mardis de la Chanson = 3 concerts séparés extraits du
+    LeMans_Guide-ete-2026.pdf) et on veut le rendre en 1 ligne 'Festivals'
+    au CSV, comme si sa source avait été `mode: festival_onliner`. On ne
+    peut pas mettre le PDF entier en onliner car il contient plein d'autres
+    events indépendants.
+
+    Matching des noms : case-insensitive, whitespace-stripped. La casse
+    du groupe (préservée depuis les données) sert de nom pour l'onliner.
+
+    Chaque event dont `festival` matche un des noms cibles est extrait
+    et regroupé. Chaque groupe produit 1 Event onliner qui remplace tous
+    les events du groupe. Les events non-cibles sont conservés tels quels.
+    """
+    if not target_festival_names or not events:
+        return events
+
+    targets = {name.lower().strip() for name in target_festival_names}
+
+    to_convert: dict[str, list[Event]] = {}
+    kept: list[Event] = []
+
+    for ev in events:
+        fest = (ev.festival or "").lower().strip()
+        if fest and fest in targets:
+            # utilise la casse originale comme clé (préserve "Les Mardis…")
+            to_convert.setdefault(ev.festival, []).append(ev)
+        else:
+            kept.append(ev)
+
+    if not to_convert:
+        return events
+
+    onliners: list[Event] = []
+    for fest_name, group in to_convert.items():
+        onliner = _build_onliner_from_group(fest_name, group)
+        onliners.append(onliner)
+        print(f"[onliner] {fest_name} : {len(group)} events → 1 ligne Festivals")
+
+    return kept + onliners
+
+
+def _build_onliner_from_group(festival_name: str, group: list[Event]) -> Event:
+    """Construit 1 Event onliner à partir d'un groupe d'events partageant le
+    même nom de festival. Choix éditoriaux :
+
+    - date_iso = premier date (chrono) — permet le tri au CSV
+    - times = ["?"] — non pertinent en mode onliner
+    - venue = "" — convention onliner (biduleur ignore le lieu)
+    - city = unique si tous les events convergent, sinon celle du 1er event
+    - price = "?" — impossible à consolider raisonnablement
+    - festival_style = résumé auto ("N spectacles à Ville, du D1 au D2. Programmation : A, B, C.")
+    - acts = 1 Act(sv, performer=f"N spectacles", style=style dominant)
+    """
+    sorted_group = sorted(group, key=lambda e: (e.date_iso, _normalize_time(e.times[0])))
+    base = sorted_group[0]
+
+    cities = [e.city for e in sorted_group if e.city and e.city != "?"]
+    unique_cities = list(dict.fromkeys(cities))
+    city = unique_cities[0] if len(unique_cities) == 1 else (base.city or "?")
+
+    performers: list[str] = []
+    for ev in sorted_group:
+        for a in ev.acts:
+            p = (a.performer or "").strip()
+            if p and p != "?":
+                performers.append(p)
+    performers_unique = list(dict.fromkeys(performers))
+
+    styles = [a.style for ev in sorted_group for a in ev.acts if a.style]
+    styles_unique = list(dict.fromkeys(styles))
+
+    n_events = len(sorted_group)
+    first_date = sorted_group[0].date_iso
+    last_date = sorted_group[-1].date_iso
+    date_bit = (
+        f"le {_fr_date(first_date)}"
+        if first_date == last_date
+        else f"du {_fr_date(first_date)} au {_fr_date(last_date)}"
+    )
+
+    parts = [f"{n_events} événements"]
+    if city and city != "?":
+        parts.append(f"à {city},")
+    parts.append(f"{date_bit}.")
+    if performers_unique:
+        top = performers_unique[:6]
+        listing = ", ".join(top)
+        if len(performers_unique) > 6:
+            listing += f", et {len(performers_unique) - 6} autres"
+        parts.append(f"Programmation : {listing}.")
+    festival_style = " ".join(parts)
+
+    onliner_act = Act(
+        genre=Genre.SPECTACLE_VIVANT,
+        title=None,   # URL renseignée manuellement post-preview si dispo
+        performer=(f"{n_events} spectacles" if n_events > 1 else base.acts[0].performer),
+        style=styles_unique[0] if styles_unique else None,
+    )
+
+    return base.model_copy(update={
+        "is_festival": True,
+        "festival": festival_name,
+        "festival_style": festival_style,
+        "date_iso": first_date,
+        "times": ["?"],
+        "venue": "",
+        "city": city,
+        "price": "?",
+        "acts": [onliner_act],
+    })

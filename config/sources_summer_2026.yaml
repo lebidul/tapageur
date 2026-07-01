@@ -26,32 +26,32 @@
 # === Sites web ===
 websites:
   # ─── Sources récurrentes ────────────────────────────────────────────
-  - name: superforma
-    url: https://superforma.fr/agenda
-    needs_browser: true
-    note: "SMAC — concerts (Le Scarron, Le Médiator)"
-
-  - name: bistrobroccafe
-    url: https://bistrobroccafe.e-monsite.com/
-    follow_event_links: false
+#  - name: superforma
+#    url: https://superforma.fr/agenda
+#    needs_browser: true
+#    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+#
+#  - name: bistrobroccafe
+#    url: https://bistrobroccafe.e-monsite.com/
+#    follow_event_links: false
 
   - name: musiquesmagiques
     url: https://www.musiquesmagiques.fr/Agenda/index.php
     follow_event_links: false
 
-  - name: lafonderie
-    url: https://www.lafonderie.fr/les-ouvertures-publiques/
-    follow_event_links: true
+#  - name: lafonderie
+#    url: https://www.lafonderie.fr/les-ouvertures-publiques/
+#    follow_event_links: true
 
   # ─── FESTIVALS — mode classique (events séparés) ────────────────────
   # Chaque concert/spectacle du festival devient une ligne dans le sheet.
 
-  - name: ofcourselemans
-    url: https://msj.world/ofcourselemans/86
-    follow_event_links: true
-    # Sous-pages event sous /ofcourselemans/card/<slug>, pas sous /86/<slug>.
-    # L'heuristique par défaut (sous-chemin strict) ne les capte pas → pattern explicite.
-    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
+#  - name: ofcourselemans
+#    url: https://msj.world/ofcourselemans/86
+#    follow_event_links: true
+#    # Sous-pages event sous /ofcourselemans/card/<slug>, pas sous /86/<slug>.
+#    # L'heuristique par défaut (sous-chemin strict) ne les capte pas → pattern explicite.
+#    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
 
   - name: pleinchamp
     url: https://pleinchamplemans.fr/le-festival/concerts-et-dj-sets/
@@ -72,6 +72,7 @@ websites:
     url: https://festivaldelacheronne.com/programmation-2024/
     follow_event_links: false
     note: "URL avec /programmation-2024/ — vérifier si une /programmation-2026/ existe"
+    mode: festival_onliner
 
   - name: bonnzik
     url: https://superforma.fr/mediator/la-bonn-zik-festival-d-ete-bonnetable
@@ -80,10 +81,10 @@ websites:
     model: claude-opus-4-7             # Sonnet rate 0 events juillet sur format
                                        # `09/07: Jacqueline` séparé en 2 lignes
 
-  - name: lesgarennes
-    url: https://www.les-garennes.fr/
-    needs_browser: true            # page chargée en JavaScript
-    follow_event_links: false
+#  - name: lesgarennes
+#    url: https://www.les-garennes.fr/
+#    needs_browser: true            # page chargée en JavaScript
+#    follow_event_links: false
     # Page accueil = date + lieu + prix (4 juillet 2026, Souligné-sous-ballon,
     # entrée gratuite). Les noms d'artistes sont sur /programmation et seront
     # à compléter à la main dans le preview.csv.
@@ -92,16 +93,17 @@ websites:
     url: https://www.pianoctambule.com/pianoaujardin
     follow_event_links: false
 
-  - name: tuffeeries
-    url: https://www.helloasso.com/associations/comite-des-fetes-de-tuffe/evenements/festival-des-tuffeeries-2026
-    needs_browser: true                # HelloAsso = Cloudflare anti-bot
-    follow_event_links: false
+#  - name: tuffeeries
+#    url: https://www.helloasso.com/associations/comite-des-fetes-de-tuffe/evenements/festival-des-tuffeeries-2026
+#    needs_browser: true                # HelloAsso = Cloudflare anti-bot
+#    follow_event_links: false
 
   - name: intergalactik
     url: https://www.helloasso.com/associations/festival-intergalactik-de-clowns-de-jupilles-and-co/evenements/billetterie-festival-intergalactik-de-clowns-de-jupilles-2026
     needs_browser: true                # HelloAsso = Cloudflare anti-bot
     follow_event_links: false
     note: "URL contient 2025 — vérifier si l'édition 2026 existe"
+    mode: festival_onliner
 
   - name: fb_event_1549364973
     url: https://www.facebook.com/events/1549364973433131
@@ -110,27 +112,28 @@ websites:
     note: "Page event FB publique : Meta force le login wall depuis 2020. Probable
            échec — fallback : drop screenshot/PDF dans sources/docs/2026-summer/."
 
-  - name: teriaki
-    url: https://www.teriaki.fr/siestes-2026/
-    # needs_browser: true                # HelloAsso = Cloudflare anti-bot
-    follow_event_links: false
+#  - name: teriaki
+#    url: https://www.teriaki.fr/siestes-2026/
+#    # needs_browser: true                # HelloAsso = Cloudflare anti-bot
+#    follow_event_links: false
 
   - name: musica
     url: https://my.weezevent.com/MLM
     follow_event_links: false
+    mode: festival_onliner
 
   # ─── FESTIVALS — mode onliner ───────────────────────────────────────
   # Une seule ligne "Festivals" dans le CSV (rendu par biduleur PR#106).
 
-  - name: les_affranchis
-    url: https://lecarroi.org/les-affranchis/
-    follow_event_links: false
-    mode: festival_onliner
-
-  - name: zarts_sur_lherbe
-    url: https://www.fest.fr/fete-nationale-quotles-z-arts-sur-l-herbequot-2534862.html
-    follow_event_links: false
-    mode: festival_onliner
+#  - name: les_affranchis
+#    url: https://lecarroi.org/les-affranchis/
+#    follow_event_links: false
+#    mode: festival_onliner
+#
+#  - name: zarts_sur_lherbe
+#    url: https://www.fest.fr/fete-nationale-quotles-z-arts-sur-l-herbequot-2534862.html
+#    follow_event_links: false
+#    mode: festival_onliner
 
 
 
@@ -165,6 +168,18 @@ docs:
     - sources/docs/2026-summer/              # partagé été — mode classique
     - path: sources/docs/2026-summer-onliner/    # flyers à rendre en mode onliner
       mode: festival_onliner                     # (1 ligne Festivals dans le CSV)
+
+
+# === Festivals à convertir en onliner (post-normalisation) ===
+# Ces festivals sont extraits « en pièces détachées » par le pipeline (typique :
+# le LeMans_Guide-ete-2026.pdf liste chaque concert des Mardis de la Chanson
+# comme un event indépendant, ou chaque soirée des Nouveaux Mystères comme
+# un pestacle séparé). Après extraction, tapageur les regroupe en 1 seul
+# Event onliner par nom de festival, qui produit 1 ligne « Festivals » au CSV.
+# Matching : case-insensitive, whitespace-stripped, sur ev.festival.
+festivals_as_onliner:
+  - "Les Mardis de la Chanson"
+  - "Les Nouveaux Mystères de la Cathédrale"
 
 
 # === Filtre temporel ===
