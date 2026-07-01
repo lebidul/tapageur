@@ -14,6 +14,10 @@ Bumps notables :
 - v1 (initial) : prompt avec règles 1-8.
 - v2 : ajout règle 9 — ignorer les dates dans les légendes de photos
        (anti-faux-positif observé sur LeMans_Guide-ete-2026.pdf).
+- v3 : source_ref injectée dans le user message (ligne "Source : ...")
+       + FESTIVAL_SYSTEM_PROMPT durci pour rendre l'URL obligatoire dans
+       acts[0].title quand la source est une page web. Corrige un cas
+       observé sur atoutboutdchamp (title=null malgré URL disponible).
 """
 
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "v3"

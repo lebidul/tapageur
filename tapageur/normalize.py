@@ -141,7 +141,16 @@ Champs à renseigner :
 - price : tarif global si dispo, sinon "voir site" ou "?"
 - acts : EXACTEMENT 1 acte, structuré comme :
   - genre : "sv" (générique pour festival)
-  - title : URL de référence du festival (lien web, billetterie...) ou null
+  - title : URL de référence du festival. Cette URL est LUE PAR LE LECTEUR
+    du fanzine pour retrouver l'info complète — elle est OBLIGATOIRE si
+    disponible. Règle stricte :
+      * Si la ligne "Source" ci-dessus commence par "web —" et contient
+        une URL (http:// ou https://), TU DOIS mettre cette URL EXACTE
+        dans title. Ne PAS résumer, ne PAS traduire, ne PAS null.
+      * Si le contenu textuel mentionne un site officiel ou une page
+        billetterie du festival, tu peux mettre cette URL à la place.
+      * Uniquement si la source est un fichier local (pdf/image) ET que
+        le contenu ne mentionne AUCUNE URL, title peut être null.
   - performer : résumé du contenu, ex. "15 spectacles", "8 concerts", ou
     le nom du festival si pas de chiffre. NE JAMAIS null/vide.
   - style : style musical/artistique dominant (ex. "Americana", "Jazz",
@@ -204,11 +213,17 @@ def _build_user_content(item: CollectedItem, month: str) -> list[dict]:
             },
         })
 
-    parts = [f"Mois cible : {month}"]
+    parts = [
+        f"Mois cible : {month}",
+        # Source ref : URL pour les items web, chemin local pour PDF/image,
+        # Message-ID pour mail. Nécessaire pour que Claude renseigne l'URL
+        # dans acts[0].title en mode festival_onliner.
+        f"Source : {item.source_kind} — {item.source_ref}",
+    ]
     if item.raw_metadata:
         meta = {k: v for k, v in item.raw_metadata.items() if k != "mime"}
         if meta:
-            parts.append(f"Métadonnées source : {json.dumps(meta, ensure_ascii=False)}")
+            parts.append(f"Métadonnées : {json.dumps(meta, ensure_ascii=False)}")
     if item.raw_text:
         parts.append("--- Contenu ---\n" + item.raw_text)
     blocks.append({"type": "text", "text": "\n\n".join(parts)})
