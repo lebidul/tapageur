@@ -32,6 +32,9 @@ preview_*.xlsx
 .idea/
 *.swp
 
+# Claude Code (config locale machine)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db

@@ -1,0 +1,188 @@
+# =============================================================================
+# Sources de collecte — BIDUL D'ÉTÉ 2026 (juillet + août)
+# =============================================================================
+# Config partagée pour les 2 mois. Utiliser avec :
+#
+#   tapageur collect --month 2026-07 --month 2026-08 \
+#                    -c config/sources_summer_2026.yaml
+#
+# Le multi-mois mutualise les fetches HTTP cross-mois (Superforma fetché
+# 1 fois pour les 2 mois). Voir docs/workflow.md section "Bidul d'été".
+#
+# Workflow complet :
+# 1. Drag-and-drop des fichiers dans :
+#    - sources/docs/2026-07/, sources/docs/2026-08/ (spécifique au mois)
+#    - sources/docs/2026-summer/ (partagé pour les 2 mois)
+#    - sources/mailbox_export/2026-07/, sources/mailbox_export/2026-08/
+# 2. tapageur collect --month 2026-07 --month 2026-08 -c <ce fichier>
+# 3. tapageur normalize --month 2026-07 && tapageur normalize --month 2026-08
+# 4. tapageur preview --month 2026-07 && tapageur preview --month 2026-08
+# 5. Validation manuelle dans LibreOffice
+# 6. tapageur push --month 2026-07 && tapageur push --month 2026-08
+# 7. Biduleur fusionne les 2 CSV en 1 PDF via summer_mode (PR #106).
+# =============================================================================
+
+
+# === Sites web ===
+websites:
+  # ─── Sources récurrentes ────────────────────────────────────────────
+#  - name: superforma
+#    url: https://superforma.fr/agenda
+#    needs_browser: true
+#    note: "SMAC — concerts (Le Scarron, Le Médiator)"
+#
+#  - name: bistrobroccafe
+#    url: https://bistrobroccafe.e-monsite.com/
+#    follow_event_links: false
+
+#  - name: musiquesmagiques
+#    url: https://www.musiquesmagiques.fr/Agenda/index.php
+#    follow_event_links: false
+
+#  - name: lafonderie
+#    url: https://www.lafonderie.fr/les-ouvertures-publiques/
+#    follow_event_links: true
+
+  # ─── FESTIVALS — mode classique (events séparés) ────────────────────
+  # Chaque concert/spectacle du festival devient une ligne dans le sheet.
+
+#  - name: ofcourselemans
+#    url: https://msj.world/ofcourselemans/86
+#    follow_event_links: true
+#    # Sous-pages event sous /ofcourselemans/card/<slug>, pas sous /86/<slug>.
+#    # L'heuristique par défaut (sous-chemin strict) ne les capte pas → pattern explicite.
+#    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
+
+  - name: foreveryoung
+    url: https://msj.world/ofcourselemans/89
+    follow_event_links: true
+    event_link_pattern: "https://msj\\.world/ofcourselemans/card/.+"
+
+#  - name: atoutboutdchamp
+#    url: https://www.festivalatoutboutdchamp.com/programmation/
+#    needs_browser: true
+#    follow_event_links: false
+#    mode: festival_onliner    # lineup en vrac sans correspondance jour→artiste
+#                              # → résumé en 1 ligne plutôt que tentative classique
+#
+#  - name: beauxdimanches
+#    url: https://www.tourisme-alpesmancelles.com/envie-de-sortir/culture-sports-et-loisirs/les-beaux-dimanches-apres-midis-ou-sort-le-soleil-dan-saint-leonard-des-bois-fr-5736575/
+#    follow_event_links: false
+#
+#  - name: cheronne
+#    url: https://festivaldelacheronne.com/programmation-2024/
+#    follow_event_links: false
+#    note: "URL avec /programmation-2024/ — vérifier si une /programmation-2026/ existe"
+#    mode: festival_onliner
+#
+#  - name: bonnzik
+#    url: https://superforma.fr/mediator/la-bonn-zik-festival-d-ete-bonnetable
+#    needs_browser: true                # même config que superforma (sous-page)
+#    follow_event_links: false
+#    model: claude-opus-4-7             # Sonnet rate 0 events juillet sur format
+                                       # `09/07: Jacqueline` séparé en 2 lignes
+
+#  - name: lesgarennes
+#    url: https://www.les-garennes.fr/
+#    needs_browser: true            # page chargée en JavaScript
+#    follow_event_links: false
+    # Page accueil = date + lieu + prix (4 juillet 2026, Souligné-sous-ballon,
+    # entrée gratuite). Les noms d'artistes sont sur /programmation et seront
+    # à compléter à la main dans le preview.csv.
+#
+#  - name: pianoctambule
+#    url: https://www.pianoctambule.com/pianoaujardin
+#    follow_event_links: false
+
+#  - name: tuffeeries
+#    url: https://www.helloasso.com/associations/comite-des-fetes-de-tuffe/evenements/festival-des-tuffeeries-2026
+#    needs_browser: true                # HelloAsso = Cloudflare anti-bot
+#    follow_event_links: false
+
+#  - name: intergalactik
+#    url: https://www.helloasso.com/associations/festival-intergalactik-de-clowns-de-jupilles-and-co/evenements/billetterie-festival-intergalactik-de-clowns-de-jupilles-2026
+#    needs_browser: true                # HelloAsso = Cloudflare anti-bot
+#    follow_event_links: false
+#    note: "URL contient 2025 — vérifier si l'édition 2026 existe"
+#    mode: festival_onliner
+#
+#  - name: fb_event_1549364973
+#    url: https://www.facebook.com/events/1549364973433131
+#    needs_browser: true
+#    follow_event_links: false
+#    note: "Page event FB publique : Meta force le login wall depuis 2020. Probable
+#           échec — fallback : drop screenshot/PDF dans sources/docs/2026-summer/."
+#
+##  - name: teriaki
+##    url: https://www.teriaki.fr/siestes-2026/
+##    # needs_browser: true                # HelloAsso = Cloudflare anti-bot
+##    follow_event_links: false
+#
+#  - name: musica
+#    url: https://my.weezevent.com/MLM
+#    follow_event_links: false
+#    mode: festival_onliner
+
+  # ─── FESTIVALS — mode onliner ───────────────────────────────────────
+  # Une seule ligne "Festivals" dans le CSV (rendu par biduleur PR#106).
+
+#  - name: les_affranchis
+#    url: https://lecarroi.org/les-affranchis/
+#    follow_event_links: false
+#    mode: festival_onliner
+#
+#  - name: zarts_sur_lherbe
+#    url: https://www.fest.fr/fete-nationale-quotles-z-arts-sur-l-herbequot-2534862.html
+#    follow_event_links: false
+#    mode: festival_onliner
+
+
+
+# === Outlook (Graph API) ===
+outlook:
+  enabled: false
+
+
+# === Mailbox locale ===
+# Le mois courant (passé en CLI) est concaténé automatiquement :
+# multi-mois → lit sources/mailbox_export/2026-07/ puis sources/mailbox_export/2026-08/
+mailbox:
+  base_dir: sources/mailbox_export
+
+
+# === PDFs saison (locaux uniquement) ===
+#season_pdfs:
+#  - path: "./sources/pdfs_saison/Programme Acthalia saison 2025-2026.pdf"
+#    parsed_cache: ./cache/pdf_acthalia_25_26.json
+#    label: "Programme saison 25-26 — Théâtre de l'Acthalia"
+
+
+# === Facebook ===
+facebook:
+  enabled: false
+
+
+# === Docs du mois (images + PDFs déposés manuellement) ===
+#docs:
+#  paths:
+#    - sources/docs/{month}/                  # par mois — 2026-07/ puis 2026-08/
+#    - sources/docs/2026-summer/              # partagé été — mode classique
+#    - path: sources/docs/2026-summer-onliner/    # flyers à rendre en mode onliner
+#      mode: festival_onliner                     # (1 ligne Festivals dans le CSV)
+
+
+# === Festivals à convertir en onliner (post-normalisation) ===
+# Ces festivals sont extraits « en pièces détachées » par le pipeline (typique :
+# le LeMans_Guide-ete-2026.pdf liste chaque concert des Mardis de la Chanson
+# comme un event indépendant, ou chaque soirée des Nouveaux Mystères comme
+# un pestacle séparé). Après extraction, tapageur les regroupe en 1 seul
+# Event onliner par nom de festival, qui produit 1 ligne « Festivals » au CSV.
+# Matching : case-insensitive, whitespace-stripped, sur ev.festival.
+#festivals_as_onliner:
+#  - "Les Mardis de la Chanson"
+#  - "Les Nouveaux Mystères de la Cathédrale"
+
+
+# === Filtre temporel ===
+filter:
+  margin_days: 3
