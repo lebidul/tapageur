@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+  h1 { font-size: 18px; }
+  fieldset { margin-bottom: 12px; }
+  #drop { border: 2px dashed #888; border-radius: 8px; padding: 24px; text-align: center; color: #666; }
+  #drop.over { border-color: #2b7; color: #2b7; }
+  .url-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+  .url-row input[type=text] { flex: 1; }
+  #summary { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; }
+  .alert { color: #a40; }
+  button { padding: 6px 14px; }
+</style>
+</head>
+<body>
+  <h1>tapageur</h1>
+
+  <fieldset>
+    <legend>Fichiers (PDF, JPG, PNG)</legend>
+    <div id="drop">Dépose des fichiers ici (ou clique pour choisir)</div>
+    <ul id="file-list"></ul>
+  </fieldset>
+
+  <fieldset>
+    <legend>URLs</legend>
+    <div id="urls"></div>
+    <button id="add-url">+ Ajouter une URL</button>
+  </fieldset>
+
+  <fieldset>
+    <legend>Mois</legend>
+    <input id="months" type="text" placeholder="2026-10, 2026-11" size="30">
+    <label><input id="no-filter" type="checkbox"> ne pas filtrer par mois</label>
+  </fieldset>
+
+  <fieldset>
+    <legend>Sortie</legend>
+    <label><input type="checkbox" class="fmt" value="xlsx" checked> xlsx</label>
+    <label><input type="checkbox" class="fmt" value="csv"> csv</label>
+    <label><input type="checkbox" class="fmt" value="json"> json</label>
+    <div style="margin-top:8px">
+      <button id="choose-dir">Dossier de sortie…</button>
+      <span id="out-dir">(aucun)</span>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Réglages</legend>
+    <div><label>Clé API Anthropic <input id="api-key" type="password" size="40"></label></div>
+    <div><label>Email tapeur <input id="email" type="text" size="30"></label></div>
+    <button id="save-settings">Enregistrer les réglages</button>
+  </fieldset>
+
+  <button id="run">Lancer</button>
+  <h2>Résumé</h2>
+  <div id="summary">—</div>
+
+<script>
+const api = () => window.pywebview.api;
+let files = [];
+let outDir = "";
+
+function renderFiles() {
+  document.getElementById('file-list').innerHTML =
+    files.map(f => `<li>${f}</li>`).join('');
+}
+
+// --- drop zone ---
+const drop = document.getElementById('drop');
+// Sélection fiable : dialogue natif pywebview (renvoie de vrais chemins).
+drop.addEventListener('click', async () => {
+  const picked = await api().choose_files();
+  for (const p of picked) files.push(p);
+  renderFiles();
+});
+// Drag-drop best-effort (si le backend expose .path).
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('over');
+  for (const f of e.dataTransfer.files) if (f.path) files.push(f.path);
+  renderFiles();
+});
+
+// --- urls ---
+function addUrlRow() {
+  const div = document.createElement('div');
+  div.className = 'url-row';
+  div.innerHTML = `<input type="text" placeholder="https://…">
+    <label><input type="checkbox" class="follow"> suivre les liens</label>
+    <label><input type="checkbox" class="fest"> festival</label>`;
+  document.getElementById('urls').appendChild(div);
+}
+document.getElementById('add-url').addEventListener('click', addUrlRow);
+
+function collectUrls() {
+  return [...document.querySelectorAll('.url-row')].map(r => ({
+    url: r.querySelector('input[type=text]').value.trim(),
+    follow_links: r.querySelector('.follow').checked,
+    is_festival: r.querySelector('.fest').checked,
+  })).filter(u => u.url);
+}
+
+// --- settings ---
+async function loadSettings() {
+  const s = await api().get_settings();
+  document.getElementById('api-key').value = s.anthropic_api_key || '';
+  document.getElementById('email').value = s.tapeur_email || '';
+}
+document.getElementById('save-settings').addEventListener('click', async () => {
+  await api().save_settings({
+    anthropic_api_key: document.getElementById('api-key').value,
+    tapeur_email: document.getElementById('email').value,
+  });
+  alert('Réglages enregistrés.');
+});
+
+// --- output dir ---
+document.getElementById('choose-dir').addEventListener('click', async () => {
+  outDir = await api().choose_output_dir();
+  document.getElementById('out-dir').textContent = outDir || '(aucun)';
+});
+
+// --- run ---
+document.getElementById('run').addEventListener('click', async () => {
+  const summary = document.getElementById('summary');
+  summary.textContent = 'Extraction en cours…';
+  const payload = {
+    file_paths: files,
+    urls: collectUrls(),
+    months: document.getElementById('months').value.split(',').map(s => s.trim()).filter(Boolean),
+    no_month_filter: document.getElementById('no-filter').checked,
+    formats: [...document.querySelectorAll('.fmt:checked')].map(c => c.value),
+    out_dir: outDir,
+  };
+  const res = await api().run_extraction(payload);
+  if (res.error) { summary.innerHTML = `<span class="alert">Erreur : ${res.error}</span>`; return; }
+  summary.innerHTML = res.results.map(r => {
+    const files = r.files.map(f => `  ${f}`).join('\n');
+    const alerts = r.alerts.length
+      ? '\n  <span class="alert">⚠ ' + r.alerts.join('</span>\n  <span class="alert">⚠ ') + '</span>'
+      : '';
+    return `[${r.month || 'tous'}] ${r.n_events} events\n${files}${alerts}`;
+  }).join('\n\n');
+});
+
+window.addEventListener('pywebviewready', loadSettings);
+</script>
+</body>
+</html>
