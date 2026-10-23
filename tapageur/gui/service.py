@@ -54,8 +54,11 @@ def _reference_lists() -> tuple[set[str], set[str]]:
     """Lit communes / salles_lieux depuis le template embarqué."""
     import openpyxl
     wb = openpyxl.load_workbook(_xlsx.TEMPLATE_PATH, read_only=True)
-    cities = {r[0] for r in wb["communes"].iter_rows(values_only=True) if r and r[0]}
-    venues = {r[0] for r in wb["salles_lieux"].iter_rows(values_only=True) if r and r[0]}
+    try:
+        cities = {r[0] for r in wb["communes"].iter_rows(values_only=True) if r and r[0]}
+        venues = {r[0] for r in wb["salles_lieux"].iter_rows(values_only=True) if r and r[0]}
+    finally:
+        wb.close()
     return cities, venues
 
 
@@ -97,10 +100,11 @@ def run(req: RunRequest) -> list[MonthResult]:
     else:
         passes = [(m, m, True) for m in req.months]
 
+    items = list(items_from_files(req.file_paths))
+    items += list(items_from_urls(req.url_inputs, req.months[0] if req.months else ""))
+
     results: list[MonthResult] = []
     for month, label, month_filter in passes:
-        items = list(items_from_files(req.file_paths))
-        items += list(items_from_urls(req.url_inputs, month))
         cache_out = Path("cache") / (label or "tous") / "gui_normalized.json"
         events = _pipeline(items, month, month_filter, cache_out)
         files = _export(events, req.out_dir, label, req.formats)
