@@ -1,5 +1,7 @@
 from pathlib import Path
+from datetime import datetime
 from tapageur.gui import inputs
+from tapageur.schema import CollectedItem
 
 
 def test_items_from_files_routes_image(tmp_path):
@@ -20,3 +22,52 @@ def test_items_from_files_skips_unsupported(tmp_path):
     txt = tmp_path / "notes.txt"
     txt.write_text("rien", encoding="utf-8")
     assert inputs.items_from_files([txt]) == []
+
+
+def test_url_input_builds_synthetic_config(monkeypatch):
+    captured = {}
+
+    class FakeWeb:
+        def __init__(self, config):
+            captured["config"] = config
+
+        def collect(self, month):
+            captured["month"] = month
+            yield CollectedItem(
+                source_kind="web",
+                source_ref="https://ex.fr/a",
+                fetched_at=datetime.utcnow().isoformat() + "Z",
+                raw_text="texte",
+                raw_metadata={},
+            )
+
+    monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
+    out = inputs.items_from_urls(
+        [inputs.UrlInput(url="https://ex.fr/a", follow_links=True, is_festival=True)],
+        month="2026-10",
+    )
+    assert len(out) == 1
+    site = captured["config"]["websites"][0]
+    assert site["url"] == "https://ex.fr/a"
+    assert site["needs_browser"] is True
+    assert site["follow_event_links"] is True
+    assert site["mode"] == "festival_onliner"
+    assert site["prefilter_by_month"] is False
+    assert captured["month"] == "2026-10"
+
+
+def test_url_input_defaults_no_festival(monkeypatch):
+    captured = {}
+
+    class FakeWeb:
+        def __init__(self, config):
+            captured["config"] = config
+
+        def collect(self, month):
+            return iter(())
+
+    monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
+    inputs.items_from_urls([inputs.UrlInput(url="https://ex.fr/b")], month="2026-10")
+    site = captured["config"]["websites"][0]
+    assert site["follow_event_links"] is False
+    assert "mode" not in site
