@@ -200,7 +200,7 @@ class _NormalizationOutput(BaseModel):
     events: list[_EventDraft]
 
 
-def _build_user_content(item: CollectedItem, month: str) -> list[dict]:
+def _build_user_content(item: CollectedItem, month_hint: str) -> list[dict]:
     """Construit les content blocks (image base64 si dispo, puis texte)."""
     blocks: list[dict] = []
     if item.raw_image_b64:
@@ -214,7 +214,7 @@ def _build_user_content(item: CollectedItem, month: str) -> list[dict]:
         })
 
     parts = [
-        f"Mois cible : {month}",
+        f"Mois cible : {month_hint}",
         # Source ref : URL pour les items web, chemin local pour PDF/image,
         # Message-ID pour mail. Nécessaire pour que Claude renseigne l'URL
         # dans acts[0].title en mode festival_onliner.
@@ -249,6 +249,7 @@ def _normalize_one(
     month: str,
     model: str | None,
     tapeur_email: str,
+    month_filter: bool = True,
 ) -> list[Event]:
     """Appelle Claude, parse, valide, filtre par mois, injecte la métadonnée.
 
@@ -277,11 +278,12 @@ def _normalize_one(
     else:
         system_prompt = SYSTEM_PROMPT
 
+    month_hint = month if month_filter else "tous les mois (ne pas filtrer par date)"
     kwargs: dict = {
         "model": model,
         "max_tokens": 16000,
         "system": system_prompt,
-        "messages": [{"role": "user", "content": _build_user_content(item, month)}],
+        "messages": [{"role": "user", "content": _build_user_content(item, month_hint)}],
     }
     if _supports_adaptive_thinking(model):
         kwargs["thinking"] = {"type": "adaptive"}
@@ -319,7 +321,7 @@ def _normalize_one(
             msg = first.get("msg", str(e))
             print(f"    [warn] event {i + 1} invalide ({field}: {msg}), skip")
             continue
-        if not draft.date_iso.startswith(month):
+        if month_filter and not draft.date_iso.startswith(month):
             continue
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
@@ -345,6 +347,7 @@ def normalize_items(
     month: str,
     out_path: Path,
     model: str | None = None,
+    month_filter: bool = True,
 ) -> list[Event]:
     """
     Normalise les items en Events filtrés sur le mois cible.
@@ -380,7 +383,7 @@ def normalize_items(
         n_miss += 1
         console.print(f"  [{i}/{len(items)}] {item.source_kind}:{ref_short}")
         try:
-            events = _normalize_one(client, item, month, model, tapeur_email)
+            events = _normalize_one(client, item, month, model, tapeur_email, month_filter)
             console.print(f"    → {len(events)} events (mois {month})")
             set_cached(item, month, events)
             all_events.extend(events)

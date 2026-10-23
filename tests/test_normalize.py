@@ -172,3 +172,38 @@ def test_event_draft_accepts_empty_times_but_event_rejects():
             source_kind="web",
             source_ref="x",
         )
+
+
+# ---------- month_filter ----------
+
+from unittest.mock import MagicMock
+from pathlib import Path
+import json as _json
+from tapageur import normalize as _norm
+from tapageur.schema import CollectedItem
+
+
+def _fake_client_returning(events_json):
+    client = MagicMock()
+    block = MagicMock()
+    block.type = "text"
+    block.text = _json.dumps({"events": events_json})
+    resp = MagicMock()
+    resp.content = [block]
+    client.messages.create.return_value = resp
+    return client
+
+
+def test_month_filter_false_keeps_other_months(monkeypatch, tmp_path):
+    item = CollectedItem(
+        source_kind="web", source_ref="https://x.fr", fetched_at="2026-01-01T00:00:00Z",
+        raw_text="x", raw_metadata={},
+    )
+    ev = {
+        "date_label": "Mardi 3", "date_iso": "2026-11-03", "times": ["20h00"],
+        "venue": "V", "city": "C", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "A", "style": None}],
+    }
+    client = _fake_client_returning([ev])
+    out = _norm._normalize_one(client, item, "2026-10", None, "t@b.fr", month_filter=False)
+    assert len(out) == 1  # event de novembre gardé malgré month=2026-10
