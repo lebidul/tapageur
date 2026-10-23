@@ -29,9 +29,14 @@ dev = [
     "ruff>=0.1",
     "mypy>=1.7",
 ]
+gui = [
+    "pywebview>=5.0",
+    "openpyxl>=3.1",
+]
 
 [project.scripts]
 tapageur = "tapageur.cli:main"
+tapageur-gui = "tapageur.gui.app:main"
 
 [build-system]
 requires = ["setuptools>=68"]
