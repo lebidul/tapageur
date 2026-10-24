@@ -81,10 +81,11 @@ class DocsConnector(Connector):
                 return item
 
             if p.is_file():
-                item = _route_file(p)
-                if item is not None:
-                    n_yielded += 1
-                    yield _decorate(item)
+                routed = _route_file(p)
+                if routed:
+                    for item in routed:
+                        n_yielded += 1
+                        yield _decorate(item)
                 else:
                     n_skipped += 1
                 continue
@@ -93,10 +94,11 @@ class DocsConnector(Connector):
                 for f in sorted(p.iterdir()):
                     if not f.is_file():
                         continue
-                    item = _route_file(f)
-                    if item is not None:
-                        n_yielded += 1
-                        yield _decorate(item)
+                    routed = _route_file(f)
+                    if routed:
+                        for item in routed:
+                            n_yielded += 1
+                            yield _decorate(item)
                     else:
                         n_skipped += 1
                 continue
@@ -107,14 +109,19 @@ class DocsConnector(Connector):
             print(f"[docs] {n_yielded} items collectés, {n_skipped} skipped (ext non supportée)")
 
 
-def _route_file(path: Path) -> CollectedItem | None:
-    """Crée un CollectedItem selon l'extension. None si type non géré."""
+def _route_file(path: Path) -> list[CollectedItem]:
+    """Items pour un fichier, selon l'extension (liste : 0, 1 ou N items).
+
+    PDF sans texte extractible → rendu de ses pages en images (vision)."""
     ext = path.suffix.lower()
     if ext in IMAGE_EXTS:
-        return _image_to_item(path)
+        return [_image_to_item(path)]
     if ext in PDF_EXTS:
-        return _pdf_to_item(path)
-    return None
+        item = _pdf_to_item(path)
+        if item is not None:
+            return [item]
+        return _pdf_pages_to_images(path)
+    return []
 
 
 def _image_to_item(path: Path) -> CollectedItem:

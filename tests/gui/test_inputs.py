@@ -24,6 +24,13 @@ def test_items_from_files_skips_unsupported(tmp_path):
     assert inputs.items_from_files([txt]) == []
 
 
+def test_items_from_files_extends_multi(monkeypatch, tmp_path):
+    f = tmp_path / "scan.pdf"
+    f.write_bytes(b"%PDF-1.4 fake")
+    monkeypatch.setattr(inputs, "_route_file", lambda p: ["a", "b"])
+    assert inputs.items_from_files([f]) == ["a", "b"]
+
+
 def test_url_input_builds_synthetic_config(monkeypatch):
     captured = {}
 

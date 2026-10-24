@@ -24,23 +24,62 @@ def _fake_jpeg(n: int = 100) -> bytes:
 def test_route_file_image(tmp_path: Path):
     fp = tmp_path / "flyer.jpg"
     fp.write_bytes(_fake_jpeg())
-    item = _route_file(fp)
-    assert item is not None
-    assert item.source_kind == "image"
-    assert item.raw_metadata["mime"] == "image/jpeg"
+    out = _route_file(fp)
+    assert len(out) == 1
+    assert out[0].source_kind == "image"
+    assert out[0].raw_metadata["mime"] == "image/jpeg"
 
 
 def test_route_file_unsupported_returns_none(tmp_path: Path):
     fp = tmp_path / "rapport.docx"
     fp.write_bytes(b"PK")
-    assert _route_file(fp) is None
+    assert _route_file(fp) == []
 
 
 def test_route_file_gitkeep_returns_none(tmp_path: Path):
     """Le fichier .gitkeep dans un dossier ne doit pas être traité."""
     fp = tmp_path / ".gitkeep"
     fp.write_text("")
-    assert _route_file(fp) is None
+    assert _route_file(fp) == []
+
+
+def test_route_file_returns_list_for_image(tmp_path):
+    from tapageur.connectors.docs import _route_file
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+        "890000000a49444154789c6360000002000154a24f1e0000000049454e44ae426082"
+    )
+    f = tmp_path / "x.png"
+    f.write_bytes(png)
+    out = _route_file(f)
+    assert isinstance(out, list) and len(out) == 1
+    assert out[0].source_kind == "image"
+
+
+def test_route_file_unsupported_returns_empty(tmp_path):
+    from tapageur.connectors.docs import _route_file
+    f = tmp_path / "x.txt"
+    f.write_text("rien", encoding="utf-8")
+    assert _route_file(f) == []
+
+
+def test_route_file_pdf_without_text_routes_to_images(tmp_path, monkeypatch):
+    import tapageur.connectors.docs as docs
+    f = tmp_path / "scan.pdf"
+    f.write_bytes(b"%PDF-1.4 fake")  # contenu bidon : on monkeypatche le routage
+    monkeypatch.setattr(docs, "_pdf_to_item", lambda p: None)      # pas de texte
+    sentinel = object()
+    monkeypatch.setattr(docs, "_pdf_pages_to_images", lambda p: [sentinel])
+    assert docs._route_file(f) == [sentinel]
+
+
+def test_route_file_pdf_with_text_returns_single(tmp_path, monkeypatch):
+    import tapageur.connectors.docs as docs
+    f = tmp_path / "doc.pdf"
+    f.write_bytes(b"%PDF-1.4 fake")
+    sentinel = object()
+    monkeypatch.setattr(docs, "_pdf_to_item", lambda p: sentinel)
+    assert docs._route_file(f) == [sentinel]
 
 
 # ---------- DocsConnector.collect ----------
@@ -129,16 +168,16 @@ def test_route_file_pdf_extracts_text(tmp_path: Path):
         ctx.__exit__ = Mock(return_value=None)
         mock_pdf_open.return_value = ctx
 
-        item = _route_file(fp)
+        out = _route_file(fp)
 
-    assert item is not None
-    assert item.source_kind == "pdf"
-    assert "concert 22 mai" in item.raw_text
-    assert item.raw_metadata["n_pages"] == 1
+    assert len(out) == 1
+    assert out[0].source_kind == "pdf"
+    assert "concert 22 mai" in out[0].raw_text
+    assert out[0].raw_metadata["n_pages"] == 1
 
 
-def test_route_file_pdf_empty_returns_none(tmp_path: Path):
-    """PDF sans texte extractible (image-only scan) → None."""
+def test_route_file_pdf_empty_routes_to_images(tmp_path: Path):
+    """PDF sans texte extractible (image-only scan) → fallback _pdf_pages_to_images."""
     fp = tmp_path / "scan.pdf"
     fp.write_bytes(b"%PDF-fake")
 
@@ -151,7 +190,13 @@ def test_route_file_pdf_empty_returns_none(tmp_path: Path):
         ctx.__exit__ = Mock(return_value=None)
         mock_pdf_open.return_value = ctx
 
-        assert _route_file(fp) is None
+        with patch(
+            "tapageur.connectors.docs._pdf_pages_to_images", return_value=[]
+        ) as mock_pages:
+            out = _route_file(fp)
+
+    assert out == []
+    mock_pages.assert_called_once()
 
 
 # ---------- PDF → images (affiches sans texte) ----------

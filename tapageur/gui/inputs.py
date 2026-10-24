@@ -10,16 +10,15 @@ from tapageur.schema import CollectedItem
 
 
 def items_from_files(paths: list[Path], progress=None) -> list[CollectedItem]:
-    """Route chaque fichier via le connecteur docs. Ignore les types non
-    gérés et les PDF sans texte (``_route_file`` renvoie ``None``)."""
+    """Route chaque fichier via le connecteur docs. ``_route_file`` renvoie une
+    liste (0, 1 ou N items) : types non gérés → aucun item ; PDF sans texte →
+    une image par page."""
     items: list[CollectedItem] = []
     n = len(paths)
     for i, p in enumerate(paths, 1):
         if progress:
             progress(f"Fichier {i}/{n} : {Path(p).name}")
-        item = _route_file(Path(p))
-        if item is not None:
-            items.append(item)
+        items.extend(_route_file(Path(p)))
     return items
 
 
