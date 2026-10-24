@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 DEFAULT_TAPEUR_EMAIL = "lebidul@live.fr"
-_DEFAULTS = {"anthropic_api_key": "", "tapeur_email": DEFAULT_TAPEUR_EMAIL}
+_DEFAULTS = {"anthropic_api_key": "", "tapeur_email": DEFAULT_TAPEUR_EMAIL, "theme": "dark"}
 
 
 def settings_path() -> Path:
@@ -31,8 +31,12 @@ def load_settings() -> dict:
 
 
 def save_settings(data: dict) -> None:
-    """Écrit les réglages (crée le dossier au besoin)."""
+    """Écrit les réglages (crée le dossier au besoin).
+
+    Fusionne avec l'existant : seules les clés fournies dans `data` sont
+    modifiées (sauver {theme} ne touche pas la clé API, et inversement)."""
     p = settings_path()
     p.parent.mkdir(parents=True, exist_ok=True)
-    merged = {**_DEFAULTS, **data}
+    merged = load_settings()
+    merged.update(data)
     p.write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")

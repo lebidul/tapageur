@@ -26,3 +26,29 @@ def test_load_fills_missing_keys(tmp_path, monkeypatch):
     data = settings.load_settings()
     assert data["anthropic_api_key"] == "sk-x"
     assert data["tapeur_email"] == settings.DEFAULT_TAPEUR_EMAIL
+
+
+def test_save_merges_preserves_other_keys(tmp_path, monkeypatch):
+    p = tmp_path / "settings.json"
+    monkeypatch.setattr(settings, "settings_path", lambda: p)
+    settings.save_settings({"anthropic_api_key": "sk-x", "tapeur_email": "a@b.fr"})
+    settings.save_settings({"theme": "light"})          # ne doit PAS effacer la clé
+    data = settings.load_settings()
+    assert data["anthropic_api_key"] == "sk-x"
+    assert data["tapeur_email"] == "a@b.fr"
+    assert data["theme"] == "light"
+
+
+def test_save_key_preserves_existing_theme(tmp_path, monkeypatch):
+    p = tmp_path / "settings.json"
+    monkeypatch.setattr(settings, "settings_path", lambda: p)
+    settings.save_settings({"theme": "light"})
+    settings.save_settings({"anthropic_api_key": "sk-y"})
+    data = settings.load_settings()
+    assert data["theme"] == "light"
+    assert data["anthropic_api_key"] == "sk-y"
+
+
+def test_default_theme_is_dark(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "settings_path", lambda: tmp_path / "settings.json")
+    assert settings.load_settings()["theme"] == "dark"
