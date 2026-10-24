@@ -12,6 +12,24 @@ from tapageur.gui.service import RunRequest, run
 
 _WEB = Path(__file__).parent / "web" / "index.html"
 
+# Extensions acceptées au drop (mêmes que le dialogue natif choose_files).
+_SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"}
+
+
+def _dropped_paths(event: dict) -> list[str]:
+    """Extrait les vrais chemins disque d'un event DOM 'drop' pywebview.
+
+    pywebview enrichit chaque fichier droppé de la clé ``pywebviewFullPath``
+    (le vrai chemin, absent de l'objet File JS standard). On ne garde que les
+    extensions supportées, comme le dialogue natif."""
+    files = (event or {}).get("dataTransfer", {}).get("files", []) or []
+    paths: list[str] = []
+    for f in files:
+        p = f.get("pywebviewFullPath")
+        if p and Path(p).suffix.lower() in _SUPPORTED_EXTS:
+            paths.append(p)
+    return paths
+
 
 class Api:
     """Méthodes appelées depuis le JS (window.pywebview.api.*)."""
@@ -91,7 +109,26 @@ class Api:
 
 
 def main() -> None:
-    webview.create_window("tapageur", str(_WEB), js_api=Api(), width=900, height=720)
+    window = webview.create_window("tapageur", str(_WEB), js_api=Api(), width=900, height=720)
+
+    def _wire_drop(*_) -> None:
+        # Le vrai drag-drop (avec chemins disque) passe par l'API DOM pywebview
+        # côté Python : un addEventListener('drop') JS ne verrait que des File
+        # sans .path. On s'abonne au drop sur #drop ; pywebview nous livre
+        # pywebviewFullPath, qu'on pousse dans l'UI via window.onFilesDropped.
+        from webview.dom import DOMEventHandler
+        el = window.dom.get_element("#drop")
+        if not el:
+            return
+
+        def _on_drop(event: dict) -> None:
+            paths = _dropped_paths(event)
+            if paths:
+                window.evaluate_js("window.onFilesDropped(" + json.dumps(paths) + ")")
+
+        el.on("drop", DOMEventHandler(_on_drop, prevent_default=True))
+
+    window.events.loaded += _wire_drop
     webview.start()
 
 

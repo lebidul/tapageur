@@ -2,6 +2,23 @@ from pathlib import Path
 import tapageur.gui.app as app
 
 
+def test_dropped_paths_extracts_full_paths_filtered():
+    """Garde les pywebviewFullPath d'extensions supportées, ignore le reste."""
+    event = {"dataTransfer": {"files": [
+        {"name": "a.pdf", "pywebviewFullPath": r"C:\x\a.pdf"},
+        {"name": "b.txt", "pywebviewFullPath": r"C:\x\b.txt"},   # ext non supportée
+        {"name": "c.png"},                                        # pas de chemin
+        {"name": "d.JPG", "pywebviewFullPath": r"C:\x\d.JPG"},    # casse ignorée
+    ]}}
+    assert app._dropped_paths(event) == [r"C:\x\a.pdf", r"C:\x\d.JPG"]
+
+
+def test_dropped_paths_empty_cases():
+    assert app._dropped_paths({}) == []
+    assert app._dropped_paths({"dataTransfer": {"files": []}}) == []
+    assert app._dropped_paths({"dataTransfer": {}}) == []
+
+
 def test_run_extraction_passes_append(monkeypatch):
     # Clé présente → pas de court-circuit "clé absente".
     monkeypatch.setattr(app._settings, "load_settings",

@@ -146,14 +146,17 @@ drop.addEventListener('click', async () => {
   for (const p of picked) files.push({ path: p, venue: "", info_orga: "", is_festival: false });
   renderFiles();
 });
-// Drag-drop best-effort (si le backend expose .path).
+// Drag-drop : le drop réel (avec vrais chemins disque) est câblé côté Python
+// via l'API DOM pywebview (window.dom → event 'drop' → pywebviewFullPath), qui
+// appelle window.onFilesDropped ci-dessous. Ici on ne gère que le retour visuel.
 drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
-drop.addEventListener('drop', e => {
-  e.preventDefault(); drop.classList.remove('over');
-  for (const f of e.dataTransfer.files) if (f.path) files.push({ path: f.path, venue: "", info_orga: "", is_festival: false });
+drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); });
+
+window.onFilesDropped = (paths) => {
+  for (const p of paths) files.push({ path: p, venue: "", info_orga: "", is_festival: false });
   renderFiles();
-});
+};
 
 // --- urls ---
 function addUrlRow() {
