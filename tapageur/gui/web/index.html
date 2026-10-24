@@ -116,6 +116,10 @@
     <div><label>Clé API Anthropic <input id="api-key" type="password" size="40"></label></div>
     <div><label>Email tapeur <input id="email" type="text" size="30"></label></div>
     <button id="save-settings">Enregistrer les réglages</button>
+    <div style="margin-top:8px;">
+      <label><input id="debug-mode" type="checkbox"> mode debug (sauver config + logs dans debug/)</label>
+      <button id="import-config" type="button" style="margin-left:12px;">Importer une config</button>
+    </div>
   </fieldset>
 
   <button id="run">Lancer</button>
@@ -314,6 +318,55 @@ document.getElementById('save-settings').addEventListener('click', async () => {
   alert('Réglages enregistrés.');
 });
 
+// --- import config (mode debug) ---
+async function importConfig() {
+  const cfg = await api().import_config();
+  if (cfg && Object.keys(cfg).length) applyConfig(cfg);
+}
+document.getElementById('import-config').addEventListener('click', importConfig);
+
+function applyConfig(cfg) {
+  // fichiers
+  files = (cfg.files || []).map(f => ({
+    path: f.path || "", venue: f.venue || "", info_orga: f.info_orga || "",
+    is_festival: !!f.is_festival,
+  }));
+  renderFiles();
+  // urls
+  const urlsBox = document.getElementById('urls'); urlsBox.innerHTML = '';
+  (cfg.urls || []).forEach(u => {
+    addUrlRow();
+    const row = urlsBox.lastElementChild;
+    row.querySelector('input[type=text]').value = u.url || "";
+    row.querySelector('.follow').checked = !!u.follow_links;
+    row.querySelector('.fest').checked = !!u.is_festival;
+    row.querySelector('.u-venue').value = u.venue || "";
+    row.querySelector('.u-orga').value = u.info_orga || "";
+  });
+  // textes
+  const textsBox = document.getElementById('texts'); textsBox.innerHTML = '';
+  (cfg.texts || []).forEach(t => {
+    addTextRow();
+    const row = textsBox.lastElementChild;
+    row.querySelector('.tx-text').value = t.text || "";
+    row.querySelector('.tx-venue').value = t.venue || "";
+    row.querySelector('.tx-orga').value = t.info_orga || "";
+    row.querySelector('.tx-fest').checked = !!t.is_festival;
+  });
+  // mois
+  document.getElementById('months').value = (cfg.months || []).join(', ');
+  const mode = cfg.month_mode || 'specific';
+  const radio = document.querySelector('input[name="month-mode"][value="' + mode + '"]');
+  if (radio) radio.checked = true;
+  if (cfg.reference_year) document.getElementById('reference-year').value = cfg.reference_year;
+  syncMonthMode();
+  // formats
+  document.querySelectorAll('.fmt').forEach(c => { c.checked = (cfg.formats || []).includes(c.value); });
+  // dossier + append
+  if (cfg.out_dir) { outDir = cfg.out_dir; document.getElementById('out-dir').textContent = outDir; }
+  document.getElementById('append').checked = !!cfg.append;
+}
+
 // --- output dir ---
 document.getElementById('choose-dir').addEventListener('click', async () => {
   outDir = await api().choose_output_dir();
@@ -426,6 +479,7 @@ document.getElementById('run').addEventListener('click', async () => {
     formats: formats,
     out_dir: outDir,
     append: document.getElementById('append').checked,
+    debug: document.getElementById('debug-mode').checked,
     api_key: document.getElementById('api-key').value,
     tapeur_email: document.getElementById('email').value,
   };
