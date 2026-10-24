@@ -1,6 +1,7 @@
 """Export xlsx : remplit une copie du template (feuille `lebiduleur`)."""
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import openpyxl
@@ -44,8 +45,27 @@ def export_xlsx(events: list[Event], out_path: Path, template_path: Path = TEMPL
         for c, value in enumerate(event_to_row(ev, n_acts=n_acts), start=1):
             ws.cell(row=r, column=c, value=value)
 
+    _save_workbook(wb, out_path)
+
+
+def _save_workbook(wb, out_path: Path) -> None:
+    """Sauvegarde atomique : écrit dans un fichier temporaire puis le substitue.
+    Si la cible est verrouillée (fichier ouvert dans Excel…), lève une
+    PermissionError avec un message clair, sans toucher au fichier existant."""
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    wb.save(out_path)
+    tmp = out_path.with_name(out_path.name + ".tmp")
+    wb.save(tmp)
+    try:
+        os.replace(tmp, out_path)
+    except PermissionError as e:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise PermissionError(
+            f"Impossible d'écrire {out_path.name} : le fichier est peut-être ouvert "
+            f"dans Excel. Ferme-le puis relance."
+        ) from e
 
 
 def _write_act_headers(ws, first: int, last: int) -> None:
@@ -73,4 +93,4 @@ def _append_xlsx(events: list[Event], out_path: Path) -> None:
     for r, ev in enumerate(events, start=start):
         for c, value in enumerate(event_to_row(ev, n_acts=n_acts), start=1):
             ws.cell(row=r, column=c, value=value)
-    wb.save(out_path)
+    _save_workbook(wb, out_path)

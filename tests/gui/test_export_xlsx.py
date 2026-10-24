@@ -71,3 +71,26 @@ def test_append_on_missing_file_creates(tmp_path):
     ws = openpyxl.load_workbook(out)["lebiduleur"]
     assert ws.cell(row=2, column=13).value == "Solo0"
     assert ws.max_row == 2
+
+
+def test_save_locked_file_raises_clear_error(tmp_path, monkeypatch):
+    import os as _os
+    import pytest
+    out = tmp_path / "tapage.xlsx"
+    export_xlsx.export_xlsx([_event(perf="Un")], out)          # crée le fichier
+    # Simule un fichier verrouillé (ouvert dans Excel) : os.replace échoue.
+    monkeypatch.setattr(export_xlsx.os, "replace",
+                        lambda *a, **k: (_ for _ in ()).throw(PermissionError("locked")))
+    with pytest.raises(PermissionError) as exc:
+        export_xlsx.export_xlsx([_event(perf="Deux")], out, append=True)
+    assert "Excel" in str(exc.value)
+    # Le fichier existant est préservé et aucun .tmp ne traîne.
+    assert out.exists()
+    assert not (tmp_path / "tapage.xlsx.tmp").exists()
+
+
+def test_save_atomic_no_tmp_left(tmp_path):
+    out = tmp_path / "tapage.xlsx"
+    export_xlsx.export_xlsx([_event(perf="Solo")], out)
+    assert out.exists()
+    assert not (tmp_path / "tapage.xlsx.tmp").exists()
