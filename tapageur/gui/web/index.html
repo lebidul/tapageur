@@ -8,14 +8,15 @@
     --accent-dark: #22508a;
     --accent-contrast: #ffffff;
     --warning: #a4400f;
-    --bg: #ffffff;
+    --bg: #eef2f7;
+    --card: #ffffff;
     --panel-bg: #f6f6f6;
     --border: #cbd5e0;
   }
   body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: var(--bg); color: #1a202c; }
   h1 { font-size: 20px; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 6px; }
   h2 { color: var(--accent-dark); }
-  fieldset { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; }
+  fieldset { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 10px 14px; box-shadow: 0 1px 3px rgba(16,42,67,.06); }
   legend { color: var(--accent-dark); font-weight: 600; }
   #drop { border: 2px dashed #888; border-radius: 8px; padding: 24px; text-align: center; color: #666; transition: border-color .15s, color .15s; }
   #drop:hover { border-color: var(--accent); color: var(--accent); }
