@@ -98,11 +98,17 @@ let outDir = "";
 function renderFiles() {
   const list = document.getElementById('file-list');
   list.textContent = '';
-  for (const f of files) {
+  files.forEach((f, i) => {
     const li = document.createElement('li');
-    li.textContent = f;
+    const span = document.createElement('span');
+    span.textContent = f;
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.textContent = '×'; rm.title = 'Retirer ce fichier';
+    rm.style.marginLeft = '8px';
+    rm.addEventListener('click', () => { files.splice(i, 1); renderFiles(); });
+    li.appendChild(span); li.appendChild(rm);
     list.appendChild(li);
-  }
+  });
 }
 
 // --- drop zone ---
@@ -129,6 +135,11 @@ function addUrlRow() {
   div.innerHTML = `<input type="text" placeholder="https://…">
     <label><input type="checkbox" class="follow"> suivre les liens</label>
     <label><input type="checkbox" class="fest"> festival (une ligne)</label>`;
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.textContent = '×'; rm.title = 'Retirer cette URL';
+  rm.style.marginLeft = '8px';
+  rm.addEventListener('click', () => div.remove());
+  div.appendChild(rm);
   document.getElementById('urls').appendChild(div);
 }
 document.getElementById('add-url').addEventListener('click', addUrlRow);
@@ -158,6 +169,11 @@ function addTextRow() {
   div.appendChild(ta);
   const row2 = document.createElement('div'); row2.style.marginTop = '4px';
   row2.appendChild(venue); row2.appendChild(document.createTextNode(' ')); row2.appendChild(orga);
+  const rm = document.createElement('button');
+  rm.type = 'button'; rm.textContent = '× retirer ce texte';
+  rm.style.marginLeft = '8px';
+  rm.addEventListener('click', () => div.remove());
+  row2.appendChild(document.createTextNode(' ')); row2.appendChild(rm);
   div.appendChild(row2);
   document.getElementById('texts').appendChild(div);
 }
