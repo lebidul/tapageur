@@ -85,6 +85,10 @@ class WebConnector(Connector):
             # sous-chemins stricts de l'agenda ; "domain" découvre les liens
             # frères même-hôte (sites sans sous-arborescence agenda dédiée).
             follow_scope = site.get("follow_scope", "subpath")
+            # overrides : lieu/asso saisis par URL dans l'UI (cf. _url_to_site).
+            # Propagés dans raw_metadata de chaque item ; appliqués en aval par
+            # normalize uniquement si l'event extrait n'a pas déjà l'info.
+            overrides = {k: site[k] for k in ("default_venue", "default_festival") if site.get(k)}
 
             # Détection PDF distant : extension d'URL ou Content-Type via HEAD.
             # Route vers le parsing pdfplumber au lieu du fetch HTML.
@@ -95,6 +99,7 @@ class WebConnector(Connector):
                         item.raw_metadata["mode"] = mode
                     if model_override:
                         item.raw_metadata["model_override"] = model_override
+                    item.raw_metadata.update(overrides)
                     yield item
                 except Exception as e:
                     print(f"[web] {site_name}: PDF fetch error: {e}")
@@ -109,7 +114,7 @@ class WebConnector(Connector):
             if not follow:
                 # Mode mono-page : dump l'agenda lui-même
                 text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
-                yield _web_item(url, text, site_name, mode, model_override)
+                yield _web_item(url, text, site_name, mode, model_override, extra_meta=overrides)
                 continue
 
             # Mode follow : parcours les pages event individuelles.
@@ -134,18 +139,18 @@ class WebConnector(Connector):
                 except Exception as e:
                     print(f"[web]   prefilter échoué ({e})")
                     if follow_scope == "domain":
-                        yield _web_item(url, agenda_text, site_name, mode, model_override)
+                        yield _web_item(url, agenda_text, site_name, mode, model_override, extra_meta=overrides)
                         continue
                     # scope subpath : comportement historique = fetch all
                 if follow_scope == "domain" and not event_urls:
                     print(f"[web]   0 event retenu → fallback page d'index")
-                    yield _web_item(url, agenda_text, site_name, mode, model_override)
+                    yield _web_item(url, agenda_text, site_name, mode, model_override, extra_meta=overrides)
                     continue
             elif follow_scope == "domain":
                 # pré-filtre impossible (pas de clé / 0 candidat) : ne pas fetcher
                 # tout le domaine → fallback page d'index.
                 print(f"[web]   pré-filtre indisponible en scope domaine → fallback index")
-                yield _web_item(url, agenda_text, site_name, mode, model_override)
+                yield _web_item(url, agenda_text, site_name, mode, model_override, extra_meta=overrides)
                 continue
 
             if progress:
@@ -162,7 +167,7 @@ class WebConnector(Connector):
                     continue
                 ev_text = BeautifulSoup(ev_html, "html.parser").get_text("\n", strip=True)
                 yield _web_item(ev_url, ev_text, site_name, mode, model_override,
-                                extra_meta={"agenda_url": url})
+                                extra_meta={**overrides, "agenda_url": url})
 
 
 def _web_item(url: str, text: str, site_name: str,

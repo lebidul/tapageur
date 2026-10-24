@@ -145,3 +145,9 @@ def test_items_from_urls_threads_progress(monkeypatch):
     cb = lambda m: None
     inputs.items_from_urls([inputs.UrlInput(url="https://ex.fr/a")], month="2026-11", progress=cb)
     assert captured["progress"] is cb
+
+
+def test_url_to_site_carries_overrides():
+    site = inputs._url_to_site(inputs.UrlInput(url="https://ex.fr/a", venue="Le Scarron", info_orga="Asso X"))
+    assert site["default_venue"] == "Le Scarron"
+    assert site["default_festival"] == "Asso X"

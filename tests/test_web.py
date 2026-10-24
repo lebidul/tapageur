@@ -310,3 +310,17 @@ def test_collect_follow_domain_reports_page_progress(monkeypatch):
     assert any("2 pages" in m for m in seen)
     assert any("Page 1/2" in m and "diphonie" in m for m in seen)
     assert any("Page 2/2" in m and "polyphonies" in m for m in seen)
+
+
+def test_collect_propagates_overrides_to_items(monkeypatch):
+    import tapageur.connectors.web as web
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    monkeypatch.setattr(web, "_fetch", lambda url, needs_browser=False: "<p>concert</p>")
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/p", "name": "p",
+        "follow_event_links": False,
+        "default_venue": "Le Scarron", "default_festival": "Asso X",
+    }]})
+    items = list(conn.collect("2026-11"))
+    assert items[0].raw_metadata["default_venue"] == "Le Scarron"
+    assert items[0].raw_metadata["default_festival"] == "Asso X"

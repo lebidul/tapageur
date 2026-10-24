@@ -28,6 +28,8 @@ class UrlInput:
     url: str
     follow_links: bool = False
     is_festival: bool = False
+    venue: str = ""
+    info_orga: str = ""
 
 
 def _url_to_site(u: UrlInput) -> dict:
@@ -42,6 +44,10 @@ def _url_to_site(u: UrlInput) -> dict:
     }
     if u.is_festival:
         site["mode"] = "festival_onliner"
+    if u.venue:
+        site["default_venue"] = u.venue
+    if u.info_orga:
+        site["default_festival"] = u.info_orga
     return site
 
 
