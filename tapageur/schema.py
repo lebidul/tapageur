@@ -91,7 +91,7 @@ class Event(BaseModel):
     # Pas exclu de model_dump() : on en a besoin pour rejouer le cache disque
     # entre `normalize` et `preview`. Le CSV ne les inclut pas, car
     # validate.event_to_row() construit la ligne champ par champ.
-    source_kind: Literal["outlook", "web", "pdf", "fb", "image"]
+    source_kind: Literal["outlook", "web", "pdf", "fb", "image", "text"]
     source_ref: str = Field(..., description="URL / message-id / chemin fichier")
 
     @field_validator("times")
@@ -131,7 +131,7 @@ class Event(BaseModel):
 
 class CollectedItem(BaseModel):
     """JSON brut produit par un connecteur, avant normalisation Claude."""
-    source_kind: Literal["outlook", "web", "pdf", "fb", "image"]
+    source_kind: Literal["outlook", "web", "pdf", "fb", "image", "text"]
     source_ref: str                        # URL / message-id / path
     fetched_at: str                        # ISO timestamp
     raw_text: str | None = None            # texte / HTML / markdown

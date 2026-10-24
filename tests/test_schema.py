@@ -1,5 +1,14 @@
 """Tests basiques sur le schéma."""
-from tapageur.schema import Act, Event, Genre
+from tapageur.schema import Act, CollectedItem, Event, Genre
+
+
+def test_collected_item_accepts_text_kind():
+    item = CollectedItem(
+        source_kind="text", source_ref="texte #1",
+        fetched_at="2026-01-01T00:00:00Z", raw_text="concert demain",
+        raw_metadata={},
+    )
+    assert item.source_kind == "text"
 
 
 def test_event_fingerprint():
