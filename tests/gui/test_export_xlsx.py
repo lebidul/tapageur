@@ -99,3 +99,29 @@ def test_save_atomic_no_tmp_left(tmp_path):
     export_xlsx.export_xlsx([_event(perf="Solo")], out)
     assert out.exists()
     assert not (tmp_path / "tapage.xlsx.tmp").exists()
+
+
+def _validation_formulas_for_column(ws, col_letter):
+    """Formules des data validations couvrant la colonne `col_letter`."""
+    import re
+    out = set()
+    for dv in ws.data_validations.dataValidation:
+        for tok in str(dv.sqref).split():
+            for part in tok.split(":"):
+                m = re.match(r"^\$?([A-Z]+)\$?\d+$", part)
+                if m and m.group(1) == col_letter:
+                    out.add(dv.formula1)
+    return out
+
+
+def test_template_dropdowns_aligned_with_shifted_headers():
+    """Les listes déroulantes du template suivent le décalage +2 des en-têtes :
+    DATE→col H, LIEU→col J, VILLE→col K, GENRE 1→col M ; plus rien sur les
+    anciennes positions F (DATE) / I (VILLE)."""
+    ws = openpyxl.load_workbook(export_xlsx.TEMPLATE_PATH)["lebiduleur"]
+    assert any("date!" in f for f in _validation_formulas_for_column(ws, "H"))
+    assert any("salles_lieux" in f for f in _validation_formulas_for_column(ws, "J"))
+    assert any("communes" in f for f in _validation_formulas_for_column(ws, "K"))
+    assert any(f == '"c,sv"' for f in _validation_formulas_for_column(ws, "M"))
+    assert not _validation_formulas_for_column(ws, "F")
+    assert not _validation_formulas_for_column(ws, "I")

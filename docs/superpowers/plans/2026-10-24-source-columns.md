@@ -271,26 +271,55 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 - [ ] **Step 1 : Régénérer le template (2 colonnes en tête)**
 
-Exécuter ce script (depuis la racine du repo) :
+> ⚠️ **Correctif post-revue finale.** Ne PAS se contenter de réécrire la
+> ligne 1 décalée : cela laisse les **data validations** (listes déroulantes)
+> et les **largeurs de colonnes** sur leurs colonnes d'origine → désalignées
+> de 2. Il faut décaler de +2 les en-têtes **ET** les validations **ET** les
+> largeurs, en repartant du template d'origine (`git show main:…template.xlsx`).
 
-```bash
-python -I - <<'PY'
+Script de régénération (depuis la racine du repo ; lit le template d'origine
+`_template_main.xlsx`, écrit `tapageur/gui/assets/template.xlsx`) :
+
+```python
+import re
+from copy import copy
 import openpyxl
-from pathlib import Path
-p = Path("tapageur/gui/assets/template.xlsx")
-wb = openpyxl.load_workbook(p)
-ws = wb["lebiduleur"]
+from openpyxl.utils import get_column_letter, column_index_from_string
+
+SRC, DST, SHIFT = "_template_main.xlsx", "tapageur/gui/assets/template.xlsx", 2
+wb = openpyxl.load_workbook(SRC); ws = wb["lebiduleur"]
+
+def _shift_cell(ref):
+    m = re.match(r"^\$?([A-Z]+)\$?(\d+)$", ref)
+    return f"{get_column_letter(column_index_from_string(m.group(1)) + SHIFT)}{m.group(2)}"
+def _shift_sqref(sq):
+    return " ".join(":".join(_shift_cell(p) for p in tok.split(":")) for tok in str(sq).split())
+
+captured = [copy(dv) for dv in ws.data_validations.dataValidation]
+ws.data_validations.dataValidation = []
+old_widths = {column_index_from_string(k): d.width for k, d in ws.column_dimensions.items() if d.width}
+for idx, w in sorted(old_widths.items()):
+    ws.column_dimensions[get_column_letter(idx + SHIFT)].width = w
+ws.column_dimensions["A"].width = 18.0
+ws.column_dimensions["B"].width = 30.0
 old = [ws.cell(row=1, column=c).value for c in range(1, ws.max_column + 1)]
-assert old[0] == "INFO TAPEUR", f"en-tête inattendu: {old[0]!r}"
-new = ["TYPE SOURCE", "SOURCE"] + old
-for c, val in enumerate(new, start=1):
+assert old[0] == "INFO TAPEUR"
+for c, val in enumerate(["TYPE SOURCE", "SOURCE"] + old, start=1):
     ws.cell(row=1, column=c, value=val)
-wb.save(p)
-print("template régénéré :", len(new), "colonnes ; A1,B1 =", new[0], "/", new[1])
-PY
+for dv in captured:
+    dv.sqref = _shift_sqref(dv.sqref); ws.add_data_validation(dv)
+wb.save(DST)
 ```
 
-Expected (stdout) : `template régénéré : 28 colonnes ; A1,B1 = TYPE SOURCE / SOURCE`
+Lancer :
+
+```bash
+git show main:tapageur/gui/assets/template.xlsx > _template_main.xlsx
+python -I _regen_template.py   # (script ci-dessus) puis : rm -f _template_main.xlsx _regen_template.py
+```
+
+Attendu : 28 colonnes ; A1/B1 = TYPE SOURCE/SOURCE ; validations décalées
+DATE→H, LIEU→J, VILLE→K, GENRE 1→M.
 
 - [ ] **Step 2 : Vérifier l'en-tête du template**
 
