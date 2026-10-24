@@ -9,11 +9,14 @@ from tapageur.connectors.web import WebConnector
 from tapageur.schema import CollectedItem
 
 
-def items_from_files(paths: list[Path]) -> list[CollectedItem]:
+def items_from_files(paths: list[Path], progress=None) -> list[CollectedItem]:
     """Route chaque fichier via le connecteur docs. Ignore les types non
     gérés et les PDF sans texte (``_route_file`` renvoie ``None``)."""
     items: list[CollectedItem] = []
-    for p in paths:
+    n = len(paths)
+    for i, p in enumerate(paths, 1):
+        if progress:
+            progress(f"Fichier {i}/{n} : {Path(p).name}")
         item = _route_file(Path(p))
         if item is not None:
             items.append(item)
@@ -43,9 +46,9 @@ def _url_to_site(u: UrlInput) -> dict:
     return site
 
 
-def items_from_urls(url_inputs: list[UrlInput], month: str) -> list[CollectedItem]:
+def items_from_urls(url_inputs: list[UrlInput], month: str, progress=None) -> list[CollectedItem]:
     """Collecte chaque URL via WebConnector (navigateur, suivi de liens, mode
     festival selon les options de chaque UrlInput)."""
     config = {"websites": [_url_to_site(u) for u in url_inputs]}
     conn = WebConnector(config)
-    return list(conn.collect(month))
+    return list(conn.collect(month, progress=progress))

@@ -31,7 +31,7 @@ def test_url_input_builds_synthetic_config(monkeypatch):
         def __init__(self, config):
             captured["config"] = config
 
-        def collect(self, month):
+        def collect(self, month, progress=None):
             captured["month"] = month
             yield CollectedItem(
                 source_kind="web",
@@ -63,7 +63,7 @@ def test_url_input_defaults_no_festival(monkeypatch):
         def __init__(self, config):
             captured["config"] = config
 
-        def collect(self, month):
+        def collect(self, month, progress=None):
             return iter(())
 
     monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
@@ -80,10 +80,39 @@ def test_url_input_sets_follow_scope_domain(monkeypatch):
         def __init__(self, config):
             captured["config"] = config
 
-        def collect(self, month):
+        def collect(self, month, progress=None):
             return iter(())
 
     monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
     inputs.items_from_urls([inputs.UrlInput(url="https://ex.fr/a", follow_links=True)], month="2026-10")
     site = captured["config"]["websites"][0]
     assert site["follow_scope"] == "domain"
+
+
+def test_items_from_files_reports_progress(tmp_path):
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+        "890000000a49444154789c6360000002000154a24f1e0000000049454e44ae426082"
+    )
+    f = tmp_path / "flyer.png"
+    f.write_bytes(png)
+    seen = []
+    inputs.items_from_files([f], progress=lambda m: seen.append(m))
+    assert any("flyer.png" in m and "1/1" in m for m in seen)
+
+
+def test_items_from_urls_threads_progress(monkeypatch):
+    captured = {}
+
+    class FakeWeb:
+        def __init__(self, config):
+            pass
+
+        def collect(self, month, progress=None):
+            captured["progress"] = progress
+            return iter(())
+
+    monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
+    cb = lambda m: None
+    inputs.items_from_urls([inputs.UrlInput(url="https://ex.fr/a")], month="2026-11", progress=cb)
+    assert captured["progress"] is cb
