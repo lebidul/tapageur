@@ -223,6 +223,16 @@ def test_pdf_pages_to_images_blank(tmp_path):
     assert it.raw_metadata["mime"] == "image/png"
 
 
+def test_pdf_pages_to_images_skips_on_render_error(tmp_path, monkeypatch):
+    import tapageur.connectors.docs as docs
+    f = tmp_path / "bad.pdf"
+    f.write_bytes(b"not a real pdf")
+    class Boom:
+        def __init__(self, *a, **k): raise ValueError("corrupt")
+    monkeypatch.setattr("pypdfium2.PdfDocument", Boom)
+    assert docs._pdf_pages_to_images(f) == []
+
+
 # ---------- Constants ----------
 
 def test_image_exts_have_mime():

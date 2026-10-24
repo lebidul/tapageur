@@ -20,7 +20,9 @@ Routage par extension :
 - autre                      → skip silencieux (.DS_Store, .gitkeep, etc.)
 
 Convention : 1 CollectedItem par fichier. source_ref = chemin local
-(stable cross-run, alimente le cache item-level).
+(stable cross-run, alimente le cache item-level). Exception : un PDF sans
+couche texte (affiche scannée) est rendu en images et produit 1 CollectedItem
+image par page (source_kind="image", source_ref=`<path>#page=N`).
 """
 from __future__ import annotations
 
@@ -142,14 +144,20 @@ def _pdf_pages_to_images(path: Path) -> list[CollectedItem]:
 
     Utilisé pour les PDF sans couche texte (affiches scannées) : on les envoie
     à Claude vision au lieu de les sauter. pypdfium2 n'a aucune dépendance
-    système (PDFium embarqué)."""
-    import base64
+    système (PDFium embarqué).
+
+    Robuste : si l'ouverture ou le rendu échoue (PDF corrompu, chiffré…), on
+    loggue et on saute le fichier (retourne []) au lieu de planter le run."""
     import io
 
     import pypdfium2 as pdfium
 
     items: list[CollectedItem] = []
-    pdf = pdfium.PdfDocument(str(path))
+    try:
+        pdf = pdfium.PdfDocument(str(path))
+    except Exception as e:
+        print(f"[docs] {path.name}: ouverture pypdfium2 échouée {e}, skip")
+        return []
     try:
         for i in range(len(pdf)):
             page = pdf[i]
@@ -171,6 +179,9 @@ def _pdf_pages_to_images(path: Path) -> list[CollectedItem]:
                     "from_pdf": True,
                 },
             ))
+    except Exception as e:
+        print(f"[docs] {path.name}: rendu pypdfium2 échoué {e}, skip")
+        return []
     finally:
         pdf.close()
     return items
