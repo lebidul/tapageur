@@ -25,6 +25,7 @@ class RunRequest:
     formats: list[str]            # sous-ensemble de {"xlsx", "csv", "json"}
     out_dir: Path
     tapeur_email: str
+    append: bool = False
 
 
 @dataclass
@@ -73,7 +74,8 @@ def _pipeline(items, month: str, month_filter: bool, cache_out: Path, progress=N
     return events
 
 
-def _export(events: list[Event], out_dir: Path, label: str, formats: list[str]) -> list[Path]:
+def _export(events: list[Event], out_dir: Path, label: str, formats: list[str],
+            append: bool = False) -> list[Path]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
     if "json" in formats:
@@ -87,7 +89,7 @@ def _export(events: list[Event], out_dir: Path, label: str, formats: list[str]) 
         written.append(p)
     if "xlsx" in formats:
         p = out_dir / f"tapage_{label}.xlsx"
-        _xlsx.export_xlsx(events, p)
+        _xlsx.export_xlsx(events, p, append=append)
         written.append(p)
     return written
 
@@ -115,8 +117,10 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
         _emit(f"{label} : extraction…")
         events = _pipeline(items, month, month_filter, cache_out, progress=progress)
         _emit(f"{label} : {len(events)} events, export…")
-        files = _export(events, req.out_dir, label, req.formats)
+        files = _export(events, req.out_dir, label, req.formats, append=req.append)
         alerts = build_alerts(events, ref_cities, ref_venues)
+        if req.append and "xlsx" not in req.formats:
+            alerts.append("Append ignoré : xlsx non sélectionné.")
         results.append(MonthResult(
             month=(month or None), n_events=len(events), files=files, alerts=alerts,
         ))

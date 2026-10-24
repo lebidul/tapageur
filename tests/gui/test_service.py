@@ -65,3 +65,27 @@ def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
     cb = lambda m: None
     service.run(req, progress=cb)
     assert captured["progress"] is cb
+
+
+def test_export_append_adds_to_existing_xlsx(tmp_path):
+    import openpyxl
+    service._export([_event(perf="Un")], tmp_path, "2026-11", ["xlsx"], append=False)
+    service._export([_event(perf="Deux")], tmp_path, "2026-11", ["xlsx"], append=True)
+    ws = openpyxl.load_workbook(tmp_path / "tapage_2026-11.xlsx")["lebiduleur"]
+    assert ws.max_row == 3   # en-tête + 2 events
+
+
+def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
+    monkeypatch.setattr(service, "normalize_items",
+                        lambda *a, **k: [_event()])
+    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
+    monkeypatch.setattr(service, "dedup", lambda evs: evs)
+    monkeypatch.setattr(service, "group_events", lambda evs: evs)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
+    req = service.RunRequest(
+        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr", append=True,
+    )
+    results = service.run(req)
+    assert any("xlsx" in a.lower() for a in results[0].alerts)
