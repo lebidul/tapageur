@@ -355,7 +355,7 @@ function applyConfig(cfg) {
   });
   // mois
   document.getElementById('months').value = (cfg.months || []).join(', ');
-  const mode = cfg.month_mode || 'specific';
+  const mode = (cfg.month_mode === 'all') ? 'all' : 'specific';
   const radio = document.querySelector('input[name="month-mode"][value="' + mode + '"]');
   if (radio) radio.checked = true;
   if (cfg.reference_year) document.getElementById('reference-year').value = cfg.reference_year;

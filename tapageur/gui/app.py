@@ -22,7 +22,8 @@ _SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 def _debug_config(payload: dict) -> dict:
     """Config rejouable : le payload sans secret ni flag debug."""
-    return {k: v for k, v in payload.items() if k not in ("api_key", "debug")}
+    return {k: v for k, v in payload.items()
+            if k not in ("api_key", "debug", "tapeur_email")}
 
 
 def _read_config(path) -> dict:
