@@ -32,3 +32,42 @@ def test_export_dynamic_act_blocks(tmp_path):
     # 10 colonnes fixes + 5 blocs * 4 = 30 colonnes ; en-tête bloc 5 ajouté
     assert ws.cell(row=1, column=11 + 4 * 4).value == "GENRE 5"
     assert ws.cell(row=2, column=11 + 4 * 4).value == "c"     # genre du 5e act
+
+
+def test_append_preserves_and_adds(tmp_path):
+    out = tmp_path / "tapage.xlsx"
+    export_xlsx.export_xlsx([_event(perf="Alpha")], out)                 # création
+    export_xlsx.export_xlsx([_event(perf="Beta")], out, append=True)     # append
+    ws = openpyxl.load_workbook(out)["lebiduleur"]
+    # 1 en-tête + 2 lignes de données
+    assert ws.cell(row=2, column=13).value == "Alpha0"   # ARTISTE 1, 1re ligne inchangée
+    assert ws.cell(row=3, column=13).value == "Beta0"    # ARTISTE 1, ligne ajoutée
+    assert ws.max_row == 3
+
+
+def test_append_widens_act_blocks(tmp_path):
+    out = tmp_path / "tapage.xlsx"
+    export_xlsx.export_xlsx([_event(n_acts=1)], out)                     # 4 blocs (template)
+    export_xlsx.export_xlsx([_event(n_acts=5, perf="X")], out, append=True)
+    ws = openpyxl.load_workbook(out)["lebiduleur"]
+    assert ws.cell(row=1, column=11 + 4 * 4).value == "GENRE 5"         # en-tête bloc 5 ajouté
+    assert ws.cell(row=3, column=11 + 4 * 4).value == "c"               # genre 5e act, ligne ajoutée
+
+
+def test_append_without_lebiduleur_raises(tmp_path):
+    import openpyxl as _ox
+    foreign = tmp_path / "foreign.xlsx"
+    wb = _ox.Workbook()
+    wb.active.title = "autre"
+    wb.save(foreign)
+    import pytest
+    with pytest.raises(ValueError):
+        export_xlsx.export_xlsx([_event()], foreign, append=True)
+
+
+def test_append_on_missing_file_creates(tmp_path):
+    out = tmp_path / "nouveau.xlsx"
+    export_xlsx.export_xlsx([_event(perf="Solo")], out, append=True)     # fichier absent
+    ws = openpyxl.load_workbook(out)["lebiduleur"]
+    assert ws.cell(row=2, column=13).value == "Solo0"
+    assert ws.max_row == 2
