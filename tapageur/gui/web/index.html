@@ -26,6 +26,8 @@
   #summary .result-head { font-weight: 600; color: var(--accent-dark); }
   .alert { color: var(--warning); }
   #elapsed { color: var(--accent); font-weight: 600; }
+  #progress { color: #4a5568; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; margin-bottom: 8px; }
+  #progress div { padding: 1px 0; }
   button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; }
   button:hover { border-color: var(--accent); }
   #run, #save-settings { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
@@ -74,6 +76,7 @@
 
   <button id="run">Lancer</button>
   <h2>Résumé <span id="elapsed"></span></h2>
+  <div id="progress"></div>
   <div id="summary">—</div>
 
 <script>
@@ -168,6 +171,15 @@ function stopElapsed() {
   document.getElementById('elapsed').textContent = '';
 }
 
+// Progression poussée par le backend (service.run) : chaque message devient une
+// ligne via textContent (jamais innerHTML — mêmes règles de sécurité que le résumé).
+window.onProgress = function (msg) {
+  const area = document.getElementById('progress');
+  const line = document.createElement('div');
+  line.textContent = msg;
+  area.appendChild(line);
+};
+
 // Rend le résumé en construisant des nœuds DOM (textContent) : jamais d'HTML
 // interpolé à partir de chaînes venant du backend (noms de lieux, chemins…).
 function renderSummary(results) {
@@ -179,12 +191,12 @@ function renderSummary(results) {
     head.className = 'result-head';
     head.textContent = '[' + (r.month || 'tous') + '] ' + r.n_events + ' events';
     summary.appendChild(head);
-    for (const f of r.files) {
+    for (const f of (r.files || [])) {
       const line = document.createElement('div');
       line.textContent = '  ' + f;
       summary.appendChild(line);
     }
-    for (const a of r.alerts) {
+    for (const a of (r.alerts || [])) {
       const line = document.createElement('div');
       line.className = 'alert';
       line.textContent = '  ⚠ ' + a;
@@ -214,7 +226,11 @@ document.getElementById('run').addEventListener('click', async () => {
     return;
   }
 
+  const runBtn = document.getElementById('run');
+  runBtn.disabled = true;
+  runBtn.textContent = 'Extraction en cours…';
   summary.textContent = 'Extraction en cours…';
+  document.getElementById('progress').textContent = '';
   startElapsed();
   const payload = {
     file_paths: files,
@@ -223,6 +239,8 @@ document.getElementById('run').addEventListener('click', async () => {
     no_month_filter: noFilter,
     formats: formats,
     out_dir: outDir,
+    api_key: document.getElementById('api-key').value,
+    tapeur_email: document.getElementById('email').value,
   };
   try {
     const res = await api().run_extraction(payload);
@@ -230,6 +248,8 @@ document.getElementById('run').addEventListener('click', async () => {
     renderSummary(res.results);
   } finally {
     stopElapsed();
+    runBtn.disabled = false;
+    runBtn.textContent = 'Lancer';
   }
 });
 

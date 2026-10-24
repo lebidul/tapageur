@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -91,7 +92,10 @@ def _export(events: list[Event], out_dir: Path, label: str, formats: list[str]) 
     return written
 
 
-def run(req: RunRequest) -> list[MonthResult]:
+def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[MonthResult]:
+    def _emit(msg):
+        progress and progress(msg)
+
     os.environ["TAPEUR_EMAIL"] = req.tapeur_email
     ref_cities, ref_venues = _reference_lists()
 
@@ -100,16 +104,21 @@ def run(req: RunRequest) -> list[MonthResult]:
     else:
         passes = [(m, m, True) for m in req.months]
 
+    _emit("Collecte des sources…")
+    url_month = "" if req.no_month_filter else (req.months[0] if req.months else "")
     items = list(items_from_files(req.file_paths))
-    items += list(items_from_urls(req.url_inputs, req.months[0] if req.months else ""))
+    items += list(items_from_urls(req.url_inputs, url_month))
 
     results: list[MonthResult] = []
     for month, label, month_filter in passes:
         cache_out = Path("cache") / (label or "tous") / "gui_normalized.json"
+        _emit(f"{label} : extraction…")
         events = _pipeline(items, month, month_filter, cache_out)
+        _emit(f"{label} : {len(events)} events, export…")
         files = _export(events, req.out_dir, label, req.formats)
         alerts = build_alerts(events, ref_cities, ref_venues)
         results.append(MonthResult(
             month=(month or None), n_events=len(events), files=files, alerts=alerts,
         ))
+    _emit("Terminé.")
     return results
