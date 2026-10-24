@@ -75,5 +75,31 @@ ce moment-là.
 
 ---
 
+## 4. Merger au lieu d'ajouter (dédoublonnage à l'append)
+
+**But :** au lieu d'ajouter aveuglément les nouvelles lignes à un fichier
+mensuel existant, **fusionner** en retirant les doublons (ne pas ré-insérer un
+event déjà présent).
+
+- Aujourd'hui : `append=True` (`_append_xlsx`) ajoute les lignes à la suite,
+  sans vérifier les doublons (volontaire : préserver les corrections Excel).
+- Voulu : fusion dédoublonnée — un event déjà présent dans le fichier n'est pas
+  ré-ajouté.
+
+**Questions ouvertes :**
+- **Clé de dédoublonnage vs xlsx existant** : `Event.fingerprint` utilise
+  `date_iso`, qui **n'est PAS écrit** dans le xlsx (seule la col DATE « Jour N »
+  l'est). Il faut donc soit fingerprinter à partir des colonnes visibles
+  (DATE + HEURE + LIEU + ARTISTE), soit stocker `date_iso` quelque part. À
+  cadrer (risque de faux positifs/négatifs).
+- En cas de doublon : garder la ligne **existante** (préserver les corrections
+  manuelles du tapeur) et ignorer la nouvelle — à confirmer.
+- Fusion contre un fichier **édité à la main** dans Excel (lignes modifiées) :
+  le parsing inverse doit être robuste.
+- Remplace « Ajouter au fichier existant » ou devient une 3ᵉ option
+  (recréer / ajouter / fusionner) ?
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
