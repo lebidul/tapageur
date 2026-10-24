@@ -121,6 +121,16 @@ def test_items_from_texts_builds_item_with_overrides():
     assert it.source_ref == "texte #1"
 
 
+def test_items_from_texts_festival_mode():
+    out = inputs.items_from_texts([inputs.TextInput(text="festival X", is_festival=True)])
+    assert out[0].raw_metadata.get("mode") == "festival_onliner"
+
+
+def test_items_from_texts_no_mode_by_default():
+    out = inputs.items_from_texts([inputs.TextInput(text="concert")])
+    assert "mode" not in out[0].raw_metadata
+
+
 def test_items_from_texts_skips_blank():
     out = inputs.items_from_texts([
         inputs.TextInput(text="   "),

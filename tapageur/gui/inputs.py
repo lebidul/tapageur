@@ -65,6 +65,7 @@ class TextInput:
     text: str
     venue: str = ""
     info_orga: str = ""
+    is_festival: bool = False
 
 
 def items_from_texts(text_inputs: list[TextInput], progress=None) -> list[CollectedItem]:
@@ -78,11 +79,14 @@ def items_from_texts(text_inputs: list[TextInput], progress=None) -> list[Collec
     for i, t in enumerate(kept, 1):
         if progress:
             progress(f"Texte {i}/{n}…")
+        meta = {"default_venue": t.venue, "default_festival": t.info_orga}
+        if t.is_festival:
+            meta["mode"] = "festival_onliner"
         items.append(CollectedItem(
             source_kind="text",
             source_ref=f"texte #{i}",
             fetched_at=datetime.utcnow().isoformat() + "Z",
             raw_text=t.text,
-            raw_metadata={"default_venue": t.venue, "default_festival": t.info_orga},
+            raw_metadata=meta,
         ))
     return items
