@@ -115,3 +115,39 @@ def test_read_config_valid_and_invalid(tmp_path):
     bad.write_text("pas du json", encoding="utf-8")
     assert app._read_config(bad) == {}
     assert app._read_config(tmp_path / "absent.json") == {}
+
+
+def test_run_extraction_debug_writes_config_and_log(tmp_path, monkeypatch):
+    import json as _json
+    monkeypatch.setattr(app._settings, "load_settings",
+                        lambda: {"anthropic_api_key": "sk-secret", "tapeur_email": "t@b.fr"})
+
+    def fake_run(req, progress=None):
+        print("[1/1] text:texte #1")  # doit finir dans run_<ts>.log
+        return []
+    monkeypatch.setattr(app, "run", fake_run)
+
+    app.Api().run_extraction({
+        "files": [], "urls": [], "texts": [], "months": ["2026-11"],
+        "month_mode": "specific", "formats": ["xlsx"], "out_dir": str(tmp_path),
+        "api_key": "sk-secret", "debug": True,
+    })
+    dbg = tmp_path / "debug"
+    configs = list(dbg.glob("config_*.json"))
+    logs = list(dbg.glob("run_*.log"))
+    assert len(configs) == 1 and len(logs) == 1
+    cfg = _json.loads(configs[0].read_text(encoding="utf-8"))
+    assert "api_key" not in cfg and "debug" not in cfg
+    assert cfg["months"] == ["2026-11"]
+    assert "[1/1] text:texte #1" in logs[0].read_text(encoding="utf-8")
+
+
+def test_run_extraction_no_debug_writes_nothing(tmp_path, monkeypatch):
+    monkeypatch.setattr(app._settings, "load_settings",
+                        lambda: {"anthropic_api_key": "sk-x", "tapeur_email": "t@b.fr"})
+    monkeypatch.setattr(app, "run", lambda req, progress=None: [])
+    app.Api().run_extraction({
+        "files": [], "urls": [], "texts": [], "months": ["2026-11"],
+        "month_mode": "specific", "formats": ["xlsx"], "out_dir": str(tmp_path),
+    })
+    assert not (tmp_path / "debug").exists()

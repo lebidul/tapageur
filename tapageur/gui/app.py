@@ -181,8 +181,8 @@ class Api:
             try:
                 _write_debug(payload.get("out_dir") or ".", ts,
                              _debug_config(payload), buf.getvalue())
-            except OSError:
-                pass  # l'échec d'écriture debug ne doit pas masquer le résultat
+            except Exception:
+                pass  # l'échec d'écriture debug ne doit jamais masquer le résultat
             return out
         return _do_run()
 
