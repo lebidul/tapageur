@@ -29,6 +29,9 @@ Bumps notables :
        novembre" → 2020) en ignorant le « Mois cible », et le filtre
        startswith(mois) jetait tout. Désormais : année = celle du mois cible
        quand le contenu ne l'indique pas.
+- v6 : règle 2 assouplie — un event sans horaire n'est plus supprimé, il est
+       gardé avec times=["?"] (le tapeur complète). Fréquent sur les
+       programmes de festivals saisis en events normaux.
 """
 
-PROMPT_VERSION = "v5"
+PROMPT_VERSION = "v6"

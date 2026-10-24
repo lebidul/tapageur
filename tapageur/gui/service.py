@@ -44,6 +44,8 @@ def build_alerts(events: list[Event], ref_cities: set[str], ref_venues: set[str]
     for ev in events:
         if ev.price == "?":
             alerts.append(f"Prix manquant : {ev.date_label} — {ev.acts[0].performer}")
+        if "?" in ev.times:
+            alerts.append(f"Horaire manquant : {ev.date_label} — {ev.acts[0].performer}")
         for act in ev.acts:
             if act.performer == "?":
                 alerts.append(f"Artiste/performer inconnu : {ev.date_label} @ {ev.venue}")

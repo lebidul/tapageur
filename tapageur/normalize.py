@@ -21,7 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from anthropic import Anthropic
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from rich.console import Console
 
 from tapageur.cache import get_cached, set_cached
@@ -93,7 +93,9 @@ Règles importantes :
    année passée). N'utilise une autre année que si elle est ÉCRITE
    explicitement dans le contenu.
 1. NE JAMAIS inventer un tarif. "?" si non trouvé.
-2. NE JAMAIS inventer une heure. Si absent, ne pas créer l'event.
+2. NE JAMAIS inventer une heure. Si l'heure est absente, mets times=["?"]
+   (même convention que le prix) — ne PAS supprimer l'event. Fréquent pour les
+   programmes de festivals : garder l'event, le tapeur complètera l'horaire.
 3. Si un spectacle est joué sur PLUSIEURS dates : génère UN Event PAR DATE,
    chacun avec sa propre date_iso et ses propres times. NE JAMAIS regrouper
    plusieurs dates dans un seul Event (même artiste, même lieu).
@@ -223,7 +225,10 @@ class _EventDraft(BaseModel):
     # _normalize_one avant la création de l'Event (qui, lui, exige un str).
     date_label: str | None = None
     date_iso: str
-    times: list[str]
+    # Défaut [] : ne pas rejeter le draft si le modèle omet times (event sans
+    # horaire). Coercé en ["?"] dans _normalize_one avant la création de
+    # l'Event (qui exige au moins 1 horaire via at_least_one_time).
+    times: list[str] = Field(default_factory=list)
     venue: str
     city: str
     price: str
@@ -377,6 +382,10 @@ def _normalize_one(
             # Festival : date_label libre (non utilisé par le CSV), mais Event
             # exige un str → coercition si le modèle l'a omis.
             draft.date_label = ""
+        # Event sans horaire : garder (times=["?"]) au lieu de le rejeter via
+        # at_least_one_time. Fréquent sur les programmes de festivals.
+        if not draft.times:
+            draft.times = ["?"]
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici

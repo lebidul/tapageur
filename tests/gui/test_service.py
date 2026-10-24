@@ -3,13 +3,25 @@ from tapageur.gui import service
 from tapageur.schema import Event, Act
 
 
-def _event(price="10€", perf="A", city="Le Mans", venue="Le Lieu"):
+def _event(price="10€", perf="A", city="Le Mans", venue="Le Lieu", times=None):
     return Event(
         tapeur_email="t@b.fr", date_label="Vendredi 2", date_iso="2026-10-02",
-        times=["20h00"], venue=venue, city=city, price=price,
+        times=times or ["20h00"], venue=venue, city=city, price=price,
         acts=[Act(genre="c", title=None, performer=perf, style=None)],
         source_kind="web", source_ref="https://x.fr",
     )
+
+
+def test_build_alerts_flags_missing_time():
+    evs = [_event(times=["?"])]
+    alerts = service.build_alerts(evs, ref_cities={"Le Mans"}, ref_venues={"Le Lieu"})
+    assert any("horaire" in a.lower() for a in alerts)
+
+
+def test_build_alerts_no_time_alert_when_present():
+    evs = [_event(times=["20h00"])]
+    alerts = service.build_alerts(evs, ref_cities={"Le Mans"}, ref_venues={"Le Lieu"})
+    assert not any("horaire" in a.lower() for a in alerts)
 
 
 def test_build_alerts_flags_missing_and_unknown():

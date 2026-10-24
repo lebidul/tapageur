@@ -322,6 +322,34 @@ def test_normalize_one_keeps_event_with_null_date_label():
     assert out[0].date_label == "Jeudi 26"
 
 
+def test_normalize_one_keeps_event_without_time():
+    """Event sans horaire : gardé avec times=['?'] au lieu d'être supprimé."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_iso": "2026-11-07", "times": [],
+        "venue": "V", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "sv", "title": None, "performer": "Corps & Âme", "style": "feu"}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    assert out[0].times == ["?"]
+
+
+def test_normalize_one_keeps_event_with_omitted_times():
+    """times carrément omis par le modèle → coercé en ['?']."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_iso": "2026-11-10",
+        "venue": "V", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "Det Var", "style": "nordique"}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    assert out[0].times == ["?"]
+
+
 def test_normalize_one_festival_without_date_label():
     """Un festival sans date_label ne doit pas planter la création de l'Event
     (Event.date_label est requis str) : coercition None -> ''."""
