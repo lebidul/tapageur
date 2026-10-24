@@ -52,3 +52,32 @@ def items_from_urls(url_inputs: list[UrlInput], month: str, progress=None) -> li
     config = {"websites": [_url_to_site(u) for u in url_inputs]}
     conn = WebConnector(config)
     return list(conn.collect(month, progress=progress))
+
+
+@dataclass
+class TextInput:
+    """Un texte collé dans l'UI + ses champs éditables (overrides si absents)."""
+    text: str
+    venue: str = ""
+    info_orga: str = ""
+
+
+def items_from_texts(text_inputs: list[TextInput], progress=None) -> list[CollectedItem]:
+    """Construit un CollectedItem (source_kind='text') par texte non vide.
+    venue / info_orga sont portés dans raw_metadata et appliqués en aval par
+    normalize uniquement si l'event extrait n'a pas déjà l'info."""
+    from datetime import datetime
+    kept = [t for t in text_inputs if t.text and t.text.strip()]
+    items: list[CollectedItem] = []
+    n = len(kept)
+    for i, t in enumerate(kept, 1):
+        if progress:
+            progress(f"Texte {i}/{n}…")
+        items.append(CollectedItem(
+            source_kind="text",
+            source_ref=f"texte #{i}",
+            fetched_at=datetime.utcnow().isoformat() + "Z",
+            raw_text=t.text,
+            raw_metadata={"default_venue": t.venue, "default_festival": t.info_orga},
+        ))
+    return items

@@ -101,6 +101,28 @@ def test_items_from_files_reports_progress(tmp_path):
     assert any("flyer.png" in m and "1/1" in m for m in seen)
 
 
+def test_items_from_texts_builds_item_with_overrides():
+    out = inputs.items_from_texts([
+        inputs.TextInput(text="concert ce soir", venue="Le Scarron", info_orga="Asso X"),
+    ])
+    assert len(out) == 1
+    it = out[0]
+    assert it.source_kind == "text"
+    assert it.raw_text == "concert ce soir"
+    assert it.raw_metadata["default_venue"] == "Le Scarron"
+    assert it.raw_metadata["default_festival"] == "Asso X"
+    assert it.source_ref == "texte #1"
+
+
+def test_items_from_texts_skips_blank():
+    out = inputs.items_from_texts([
+        inputs.TextInput(text="   "),
+        inputs.TextInput(text="vrai texte"),
+    ])
+    assert len(out) == 1
+    assert out[0].raw_text == "vrai texte"
+
+
 def test_items_from_urls_threads_progress(monkeypatch):
     captured = {}
 
