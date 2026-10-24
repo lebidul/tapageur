@@ -14,8 +14,22 @@ from tapageur.normalize import (
     _EventDraft,
     _NormalizationOutput,
     _extract_json,
+    _french_date_label,
     _supports_adaptive_thinking,
 )
+
+
+# ---------- _french_date_label ----------
+
+def test_french_date_label_basic():
+    assert _french_date_label("2026-06-02") == "Mardi 2"   # pas de zéro initial
+    assert _french_date_label("2026-06-22") == "Lundi 22"
+    assert _french_date_label("2026-06-01") == "Lundi 1"
+
+
+def test_french_date_label_invalid_returns_fallback():
+    assert _french_date_label("pas-une-date", "SECOURS") == "SECOURS"
+    assert _french_date_label("", "SECOURS") == "SECOURS"
 
 
 # ---------- _extract_json ----------
@@ -274,3 +288,32 @@ def test_default_festival_applied_when_extracted_empty():
     client = _fake_client_returning([_ev(venue="La Fonderie", festival=None)])
     out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
     assert out[0].festival == "Asso Bidul"
+
+
+# ---------- interop biduleur : date_label dérivé ----------
+
+def test_normalize_one_derives_date_label_non_festival():
+    """Le date_label du LLM est écrasé par la forme 'Jour N' dérivée de date_iso."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_label": "LABEL FAUX DU LLM", "date_iso": "2026-11-10",
+        "times": ["20h00"], "venue": "V", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "A", "style": None}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert out[0].date_label == "Mardi 10"
+
+
+def test_normalize_one_keeps_festival_date_label():
+    """Event festival : date_label libre conservé (non dérivé)."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_label": "27-28 juin", "date_iso": "2026-06-27", "is_festival": True,
+        "festival": "Festival X", "times": ["?"], "venue": "", "city": "Le Mans",
+        "price": "?",
+        "acts": [{"genre": "sv", "title": None, "performer": "15 spectacles", "style": None}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-06", None, "t@b.fr")
+    assert out[0].date_label == "27-28 juin"

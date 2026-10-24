@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 from anthropic import Anthropic
@@ -68,7 +69,8 @@ structurés. UN OBJET PAR LIGNE DU TABLEUR.
 Schéma des champs à extraire :
 - festival : nom du festival/cycle si applicable, sinon null
 - festival_style : style du festival si pertinent
-- date_label : date en français lisible (ex. "Vendredi 22")
+- date_label : ignoré pour les events normaux (recalculé côté Python depuis
+  date_iso en « Jour N »). date_iso DOIT être exact.
 - date_iso : YYYY-MM-DD
 - times : liste d'horaires (ex. ["18h30", "20h30"])
 - venue : nom du lieu
@@ -179,6 +181,23 @@ Réponds UNIQUEMENT par un objet JSON valide de la forme :
 - PAS de markdown.
 - Liste vide events=[] uniquement si le festival est hors mois cible.
 """
+
+
+_JOURS_FR = {0: "Lundi", 1: "Mardi", 2: "Mercredi", 3: "Jeudi",
+             4: "Vendredi", 5: "Samedi", 6: "Dimanche"}
+
+
+def _french_date_label(date_iso: str, fallback: str = "") -> str:
+    """'2026-06-02' -> 'Mardi 2'. Fallback si date_iso non parsable.
+
+    Jour FR capitalisé + numéro sans zéro initial, sans mois ni année.
+    Pas de dépendance à la locale système.
+    """
+    try:
+        dt = datetime.strptime(date_iso, "%Y-%m-%d")
+    except (ValueError, TypeError):
+        return fallback
+    return f"{_JOURS_FR[dt.weekday()]} {dt.day}"
 
 
 class _EventDraft(BaseModel):
@@ -332,6 +351,12 @@ def _normalize_one(
             draft.venue = meta["default_venue"]
         if meta.get("default_festival") and not (draft.festival and draft.festival.strip()):
             draft.festival = meta["default_festival"]
+        # Interop biduleur : la colonne DATE des events non-festival doit être
+        # de la forme « Jour N » (ex. « Mardi 2 »), dérivée de date_iso et non
+        # du texte libre du LLM. Les festivals gardent leur date_label libre
+        # (la colonne DATE porte « Festivals » côté export).
+        if not draft.is_festival:
+            draft.date_label = _french_date_label(draft.date_iso, draft.date_label)
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici
