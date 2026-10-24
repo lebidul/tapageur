@@ -63,6 +63,10 @@ class Api:
         )
         return list(res) if res else []
 
+    def default_reference_year(self) -> str:
+        from tapageur.gui.service import default_reference_year
+        return default_reference_year()
+
     def run_extraction(self, payload: dict) -> dict:
         """payload : {files:[{path,venue,info_orga,is_festival}], urls:[{url,follow_links,is_festival}],
         months:[...], no_month_filter, formats:[...], out_dir}."""
@@ -84,7 +88,8 @@ class Api:
             url_inputs=[UrlInput(**u) for u in payload.get("urls", [])],
             text_inputs=[TextInput(**t) for t in payload.get("texts", [])],
             months=payload.get("months", []),
-            no_month_filter=payload.get("no_month_filter", False),
+            month_mode=payload.get("month_mode", "specific"),
+            reference_year=payload.get("reference_year", ""),
             formats=payload.get("formats", []),
             out_dir=Path(payload.get("out_dir") or "."),
             tapeur_email=cfg.get("tapeur_email", _settings.DEFAULT_TAPEUR_EMAIL),

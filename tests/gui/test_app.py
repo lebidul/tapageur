@@ -76,3 +76,22 @@ def test_get_venues_has_no_formula_entries():
     venues = app.Api().get_venues()
     assert len(venues) > 50
     assert all(not str(v).startswith("=") for v in venues)
+
+
+def test_run_extraction_passes_month_mode(monkeypatch):
+    monkeypatch.setattr(app._settings, "load_settings",
+                        lambda: {"anthropic_api_key": "sk-test", "tapeur_email": "t@b.fr"})
+    captured = {}
+    monkeypatch.setattr(app, "run", lambda req, progress=None: captured.update(req=req) or [])
+    app.Api().run_extraction({
+        "files": [], "urls": [], "texts": [],
+        "month_mode": "all", "reference_year": "2027",
+        "formats": ["xlsx"], "out_dir": ".",
+    })
+    assert captured["req"].month_mode == "all"
+    assert captured["req"].reference_year == "2027"
+
+
+def test_default_reference_year_exposed():
+    val = app.Api().default_reference_year()
+    assert val.isdigit() and len(val) == 4

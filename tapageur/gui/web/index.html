@@ -87,8 +87,14 @@
 
   <fieldset>
     <legend>Mois</legend>
-    <input id="months" type="text" placeholder="2026-10, 2026-11" size="30">
-    <label><input id="no-filter" type="checkbox"> ne pas filtrer par mois</label>
+    <label><input type="radio" name="month-mode" value="specific" checked> Un mois précis</label>
+    <label><input type="radio" name="month-mode" value="all"> Tous les mois des sources</label>
+    <div id="month-specific" style="margin-top:8px;">
+      <input id="months" type="text" placeholder="2026-10, 2026-11" size="30">
+    </div>
+    <div id="month-all" style="margin-top:8px; display:none;">
+      <label>Année de référence <input id="reference-year" type="text" size="6"></label>
+    </div>
   </fieldset>
 
   <fieldset>
@@ -284,7 +290,22 @@ async function loadSettings() {
   document.getElementById('api-key').value = s.anthropic_api_key || '';
   document.getElementById('email').value = s.tapeur_email || '';
   applyTheme(s.theme || 'dark');
+  document.getElementById('reference-year').value = await api().default_reference_year();
+  syncMonthMode();
 }
+
+// --- mode mois (un mois précis / tous les mois) ---
+function monthMode() {
+  const r = document.querySelector('input[name="month-mode"]:checked');
+  return r ? r.value : 'specific';
+}
+function syncMonthMode() {
+  const all = monthMode() === 'all';
+  document.getElementById('month-specific').style.display = all ? 'none' : '';
+  document.getElementById('month-all').style.display = all ? '' : 'none';
+}
+document.querySelectorAll('input[name="month-mode"]').forEach(
+  r => r.addEventListener('change', syncMonthMode));
 document.getElementById('save-settings').addEventListener('click', async () => {
   await api().save_settings({
     anthropic_api_key: document.getElementById('api-key').value,
@@ -363,15 +384,23 @@ document.getElementById('run').addEventListener('click', async () => {
     summary.textContent = 'Choisis au moins un format de sortie.';
     return;
   }
+  const mode = monthMode();
   const months = document.getElementById('months').value.split(',').map(s => s.trim()).filter(Boolean);
-  const noFilter = document.getElementById('no-filter').checked;
-  if (!noFilter && months.length === 0) {
-    summary.textContent = 'Aucun mois ciblé — coche un mois ou « ne pas filtrer par mois ».';
-    return;
-  }
-  if (!noFilter && !months.every(m => /^\d{4}-\d{2}$/.test(m))) {
-    summary.textContent = 'Mois invalide : utilise le format AAAA-MM (ex. 2026-11).';
-    return;
+  const refYear = document.getElementById('reference-year').value.trim();
+  if (mode === 'specific') {
+    if (months.length === 0) {
+      summary.textContent = 'Aucun mois ciblé — saisis au moins un mois.';
+      return;
+    }
+    if (!months.every(m => /^\d{4}-\d{2}$/.test(m))) {
+      summary.textContent = 'Mois invalide : utilise le format AAAA-MM (ex. 2026-11).';
+      return;
+    }
+  } else {
+    if (!/^\d{4}$/.test(refYear)) {
+      summary.textContent = 'Année de référence invalide : format AAAA (ex. 2026).';
+      return;
+    }
   }
   const chosenFiles = collectFiles();
   const urls = collectUrls();
@@ -392,7 +421,8 @@ document.getElementById('run').addEventListener('click', async () => {
     urls: urls,
     texts: texts,
     months: months,
-    no_month_filter: noFilter,
+    month_mode: mode,
+    reference_year: refYear,
     formats: formats,
     out_dir: outDir,
     append: document.getElementById('append').checked,
