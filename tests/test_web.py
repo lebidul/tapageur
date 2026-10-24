@@ -129,6 +129,36 @@ def test_extract_subpages_pattern_skips_cross_domain():
     assert subs == []  # cross-domain bloqué malgré le match pattern
 
 
+def test_extract_subpages_domain_scope_keeps_siblings():
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/festival/">agenda</a>
+      <a href="/diphonie-des-steppes/">event A</a>
+      <a href="/contact/">menu</a>
+      <a href="#top">ancre</a>
+      <a href="mailto:x@y.fr">mail</a>
+      <a href="https://autre.fr/x/">externe</a>
+    '''
+    subs = _extract_subpages(html, base_url="https://site.fr/festival/", scope="domain")
+    assert "https://site.fr/diphonie-des-steppes/" in subs
+    assert "https://site.fr/contact/" in subs          # menu gardé (le pré-filtre triera)
+    assert "https://site.fr/festival/" not in subs      # pas l'agenda lui-même
+    assert not any("autre.fr" in u for u in subs)        # pas cross-domaine
+    assert not any(u.startswith("mailto") or "#" in u for u in subs)
+
+
+def test_extract_subpages_domain_scope_dedups_fragment_and_query():
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/a/">x</a>
+      <a href="/a/#section">x frag</a>
+      <a href="/a/?utm=1">x query</a>
+    '''
+    subs = _extract_subpages(html, base_url="https://site.fr/festival/", scope="domain")
+    assert subs.count("https://site.fr/a/") == 1
+    assert len([u for u in subs if u.endswith("/a/")]) == 1
+
+
 def test_clear_fetch_cache_resets():
     """clear_fetch_cache() invalide le cache."""
     with patch("tapageur.connectors.web._do_fetch", return_value="<html/>") as mock:

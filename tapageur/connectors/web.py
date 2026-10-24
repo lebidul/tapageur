@@ -204,7 +204,7 @@ def _filter_urls_by_month(
     return [u for u in candidates if u in valid]
 
 
-def _extract_subpages(html: str, base_url: str, pattern: str | None = None) -> list[str]:
+def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scope: str = "subpath") -> list[str]:
     """Liens vers les pages event détaillées d'un site agenda.
 
     Mode par défaut (pattern=None) : heuristique générique, on garde les liens
@@ -248,9 +248,11 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None) -> l
         # Heuristique par défaut : sous-chemin strict de base_path.
         if p.netloc != base.netloc:
             continue
+        if p.scheme not in ("http", "https"):
+            continue
         if path == base_path:
             continue  # la page agenda elle-même
-        if not path.startswith(base_path + "/"):
+        if scope == "subpath" and not path.startswith(base_path + "/"):
             continue
         clean = f"{p.scheme}://{p.netloc}{p.path}"
         out.add(clean)
