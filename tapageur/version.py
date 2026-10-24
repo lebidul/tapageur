@@ -24,6 +24,11 @@ Bumps notables :
        renvoyaient date_label=null, rejetés par l'ancien schéma strict. Avec
        le schéma tolérant (_EventDraft.date_label optionnel), re-extraire
        proprement et purger les caches empoisonnés.
+- v5 : règle ANNÉE ajoutée aux deux prompts. Sans elle, Claude devinait une
+       année passée qui fait coïncider le jour de semaine (ex. "mardi 17
+       novembre" → 2020) en ignorant le « Mois cible », et le filtre
+       startswith(mois) jetait tout. Désormais : année = celle du mois cible
+       quand le contenu ne l'indique pas.
 """
 
-PROMPT_VERSION = "v4"
+PROMPT_VERSION = "v5"

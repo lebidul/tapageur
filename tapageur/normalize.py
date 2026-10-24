@@ -71,7 +71,9 @@ Schéma des champs à extraire :
 - festival_style : style du festival si pertinent
 - date_label : ignoré pour les events normaux (recalculé côté Python depuis
   date_iso en « Jour N »). date_iso DOIT être exact.
-- date_iso : YYYY-MM-DD
+- date_iso : YYYY-MM-DD. Si le contenu ne précise PAS l'année, utilise
+  l'année du « Mois cible » (donné dans le user message, ex. 2026-11 → 2026).
+  Ne déduis JAMAIS l'année d'un jour de semaine.
 - times : liste d'horaires (ex. ["18h30", "20h30"])
 - venue : nom du lieu
 - city : ville
@@ -83,6 +85,13 @@ Schéma des champs à extraire :
   - style : sous-genre / style (optionnel)
 
 Règles importantes :
+0. ANNÉE (CRITIQUE) : le « Mois cible » du user message (ex. 2026-11) fixe
+   l'année ET le mois de référence. Pour toute date du contenu SANS année
+   explicite (ex. « mardi 17 novembre »), date_iso DOIT utiliser l'année du
+   mois cible (ici 2026-11-17). Ne déduis JAMAIS l'année à partir du seul jour
+   de semaine (plusieurs années partagent le même jour — n'invente pas une
+   année passée). N'utilise une autre année que si elle est ÉCRITE
+   explicitement dans le contenu.
 1. NE JAMAIS inventer un tarif. "?" si non trouvé.
 2. NE JAMAIS inventer une heure. Si absent, ne pas créer l'event.
 3. Si un spectacle est joué sur PLUSIEURS dates : génère UN Event PAR DATE,
@@ -161,6 +170,9 @@ Champs à renseigner :
     "Cirque", "Pluridisciplinaire")
 
 Règles importantes :
+0. ANNÉE : si le contenu ne précise pas l'année, date_iso (1er jour) utilise
+   l'année du « Mois cible » du user message (ex. 2026-11 → 2026). Ne déduis
+   jamais l'année d'un seul jour de semaine.
 1. Filtre par mois cible (passé en user message) sur la base de date_iso.
    Si le festival est entièrement HORS du mois cible, retourne events=[].
 2. UN SEUL event dans events=[...] (jamais 0 si dans le mois cible, jamais
