@@ -288,3 +288,25 @@ def test_collect_follow_domain_fallback_index_when_no_key(monkeypatch):
     items = list(conn.collect("2026-11"))
     assert len(items) == 1
     assert items[0].source_ref == "https://site.fr/festival/"  # pas de fetch massif du domaine
+
+
+def test_collect_follow_domain_reports_page_progress(monkeypatch):
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    index_html = _html_with_links(["/diphonie/", "/polyphonies/", "/contact/"])
+    monkeypatch.setattr(web, "_fetch",
+                        lambda url, needs_browser=False: index_html if url.endswith("/festival/")
+                        else "<p>event</p>")
+    monkeypatch.setattr(web, "_filter_event_urls",
+                        lambda a, u, m: ["https://site.fr/diphonie/", "https://site.fr/polyphonies/"])
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/festival/", "name": "fest",
+        "follow_event_links": True, "follow_scope": "domain", "prefilter_by_month": False,
+    }]})
+    seen = []
+    items = list(conn.collect("2026-11", progress=lambda msg: seen.append(msg)))
+    assert len(items) == 2
+    assert any("2 pages" in m for m in seen)
+    assert any("Page 1/2" in m and "diphonie" in m for m in seen)
+    assert any("Page 2/2" in m and "polyphonies" in m for m in seen)

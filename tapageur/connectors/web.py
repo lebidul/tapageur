@@ -66,7 +66,7 @@ Réponds UNIQUEMENT par un JSON valide :
 class WebConnector(Connector):
     name = "web"
 
-    def collect(self, month: str) -> Iterator[CollectedItem]:
+    def collect(self, month: str, progress=None) -> Iterator[CollectedItem]:
         for site in self.config.get("websites", []):
             url = site["url"]
             site_name = site.get("name", url)
@@ -148,7 +148,13 @@ class WebConnector(Connector):
                 yield _web_item(url, agenda_text, site_name, mode, model_override)
                 continue
 
-            for ev_url in event_urls:
+            if progress:
+                progress(f"{len(event_urls)} pages à récupérer")
+
+            for i, ev_url in enumerate(event_urls, 1):
+                if progress:
+                    slug = [s for s in ev_url.rstrip("/").split("/") if s][-1]
+                    progress(f"Page {i}/{len(event_urls)} : {slug}")
                 try:
                     ev_html = _fetch(ev_url, needs_browser=needs_browser)
                 except Exception as e:
