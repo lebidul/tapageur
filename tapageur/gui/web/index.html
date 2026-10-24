@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <style>
@@ -12,13 +12,33 @@
     --card: #ffffff;
     --panel-bg: #f6f6f6;
     --border: #cbd5e0;
+    --text: #1a202c;
+    --muted: #4a5568;
+    --drop-border: #888;
+    --drop-text: #666;
+    --button-bg: #ffffff;
   }
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: var(--bg); color: #1a202c; }
+  [data-theme="dark"] {
+    --accent: #63b3ed;
+    --accent-dark: #4a90d9;
+    --accent-contrast: #1a202c;
+    --warning: #fc8181;
+    --bg: #1e2227;
+    --card: #272c33;
+    --panel-bg: #22262c;
+    --border: #3a4049;
+    --text: #e4e7eb;
+    --muted: #a0aec0;
+    --drop-border: #5a616b;
+    --drop-text: #a0aec0;
+    --button-bg: #2f353d;
+  }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: var(--bg); color: var(--text); }
   h1 { font-size: 20px; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 6px; }
   h2 { color: var(--accent-dark); }
   fieldset { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--card); padding: 10px 14px; box-shadow: 0 1px 3px rgba(16,42,67,.06); }
   legend { color: var(--accent-dark); font-weight: 600; }
-  #drop { border: 2px dashed #888; border-radius: 8px; padding: 24px; text-align: center; color: #666; transition: border-color .15s, color .15s; }
+  #drop { border: 2px dashed var(--drop-border); border-radius: 8px; padding: 24px; text-align: center; color: var(--drop-text); transition: border-color .15s, color .15s; }
   #drop:hover { border-color: var(--accent); color: var(--accent); }
   #drop.over { border-color: var(--accent); color: var(--accent); }
   .url-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
@@ -27,17 +47,23 @@
   #summary .result-head { font-weight: 600; color: var(--accent-dark); }
   .alert { color: var(--warning); }
   #elapsed { color: var(--accent); font-weight: 600; }
-  #progress { color: #4a5568; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; margin-bottom: 8px; }
+  #progress { color: var(--muted); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; margin-bottom: 8px; }
   #progress div { padding: 1px 0; }
-  button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; }
+  button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: var(--button-bg); color: var(--text); cursor: pointer; }
   button:hover { border-color: var(--accent); }
   #run, #save-settings { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
   #run:hover, #save-settings:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
   #run { font-size: 15px; padding: 8px 20px; }
+  #header { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 3px solid var(--accent); padding-bottom: 6px; margin-bottom: 12px; }
+  #header h1 { border-bottom: none; padding-bottom: 0; margin: 0; }
+  #theme-toggle { font-size: 16px; line-height: 1; padding: 4px 10px; }
 </style>
 </head>
 <body>
-  <h1>tapageur</h1>
+  <div id="header">
+    <h1>tapageur</h1>
+    <button id="theme-toggle" title="Basculer clair / sombre" aria-label="Basculer le thème">☀</button>
+  </div>
 
   <fieldset>
     <legend>Fichiers (PDF, JPG, PNG)</legend>
@@ -243,10 +269,21 @@ async function loadVenues() {
 }
 
 // --- settings ---
+function applyTheme(theme) {
+  const t = (theme === 'light') ? 'light' : 'dark';
+  document.documentElement.dataset.theme = t;
+  document.getElementById('theme-toggle').textContent = (t === 'dark') ? '☀' : '☾';
+}
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const next = (document.documentElement.dataset.theme === 'dark') ? 'light' : 'dark';
+  applyTheme(next);
+  api().save_settings({ theme: next });
+});
 async function loadSettings() {
   const s = await api().get_settings();
   document.getElementById('api-key').value = s.anthropic_api_key || '';
   document.getElementById('email').value = s.tapeur_email || '';
+  applyTheme(s.theme || 'dark');
 }
 document.getElementById('save-settings').addEventListener('click', async () => {
   await api().save_settings({
