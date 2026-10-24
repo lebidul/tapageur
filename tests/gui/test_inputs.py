@@ -71,3 +71,19 @@ def test_url_input_defaults_no_festival(monkeypatch):
     site = captured["config"]["websites"][0]
     assert site["follow_event_links"] is False
     assert "mode" not in site
+
+
+def test_url_input_sets_follow_scope_domain(monkeypatch):
+    captured = {}
+
+    class FakeWeb:
+        def __init__(self, config):
+            captured["config"] = config
+
+        def collect(self, month):
+            return iter(())
+
+    monkeypatch.setattr(inputs, "WebConnector", FakeWeb)
+    inputs.items_from_urls([inputs.UrlInput(url="https://ex.fr/a", follow_links=True)], month="2026-10")
+    site = captured["config"]["websites"][0]
+    assert site["follow_scope"] == "domain"

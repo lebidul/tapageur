@@ -35,6 +35,7 @@ def _url_to_site(u: UrlInput) -> dict:
         "name": u.url,
         "needs_browser": True,          # navigateur embarqué v1 : toute URL lisible
         "follow_event_links": u.follow_links,
+        "follow_scope": "domain",       # GUI : « suivre les liens » = découverte domaine + pré-filtre
         "prefilter_by_month": False,    # filtrage mois fait en aval par normalize
     }
     if u.is_festival:
