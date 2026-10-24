@@ -207,3 +207,25 @@ def test_month_filter_false_keeps_other_months(monkeypatch, tmp_path):
     client = _fake_client_returning([ev])
     out = _norm._normalize_one(client, item, "2026-10", None, "t@b.fr", month_filter=False)
     assert len(out) == 1  # event de novembre gardé malgré month=2026-10
+
+
+def test_normalize_items_calls_progress_per_item(monkeypatch, tmp_path):
+    from tapageur import normalize as _norm
+    from tapageur.schema import CollectedItem
+    # normalize_items construit Anthropic() en tête → clé factice (aucun appel réel :
+    # _normalize_one est monkeypatché juste après).
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    items = [
+        CollectedItem(source_kind="web", source_ref="https://x.fr/a",
+                      fetched_at="2026-01-01T00:00:00Z", raw_text="x", raw_metadata={}),
+        CollectedItem(source_kind="web", source_ref="https://x.fr/b",
+                      fetched_at="2026-01-01T00:00:00Z", raw_text="y", raw_metadata={}),
+    ]
+    # Court-circuite l'appel Claude : chaque item → 0 event (peu importe ici)
+    monkeypatch.setattr(_norm, "_normalize_one", lambda *a, **k: [])
+    seen = []
+    _norm.normalize_items(items, "2026-11", tmp_path / "out.json",
+                          progress=lambda msg: seen.append(msg))
+    assert any("1/2" in m for m in seen)
+    assert any("2/2" in m for m in seen)
+    assert all(m.startswith("Extraction ") for m in seen)

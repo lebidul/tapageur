@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from anthropic import Anthropic
@@ -348,6 +349,7 @@ def normalize_items(
     out_path: Path,
     model: str | None = None,
     month_filter: bool = True,
+    progress: "Callable[[str], None] | None" = None,
 ) -> list[Event]:
     """
     Normalise les items en Events filtrés sur le mois cible.
@@ -372,6 +374,9 @@ def normalize_items(
     all_events: list[Event] = []
     for i, item in enumerate(items, 1):
         ref_short = item.source_ref[:60] + ("…" if len(item.source_ref) > 60 else "")
+
+        if progress:
+            progress(f"Extraction {i}/{len(items)} : {ref_short}")
 
         cached = get_cached(item, month)
         if cached is not None:
