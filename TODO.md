@@ -29,7 +29,7 @@ ce moment-là.
 
 ---
 
-## 2. Sélection du mois : décision parente
+## 2. Sélection du mois : décision parente — ✅ FAIT (2026-10-25)
 
 **But :** clarifier le choix du périmètre temporel.
 
