@@ -3,16 +3,34 @@
 <head>
 <meta charset="utf-8">
 <style>
-  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
-  h1 { font-size: 18px; }
-  fieldset { margin-bottom: 12px; }
-  #drop { border: 2px dashed #888; border-radius: 8px; padding: 24px; text-align: center; color: #666; }
-  #drop.over { border-color: #2b7; color: #2b7; }
+  :root {
+    --accent: #2b6cb0;
+    --accent-dark: #22508a;
+    --accent-contrast: #ffffff;
+    --warning: #a4400f;
+    --bg: #ffffff;
+    --panel-bg: #f6f6f6;
+    --border: #cbd5e0;
+  }
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: var(--bg); color: #1a202c; }
+  h1 { font-size: 20px; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 6px; }
+  h2 { color: var(--accent-dark); }
+  fieldset { margin-bottom: 12px; border: 1px solid var(--border); border-radius: 6px; }
+  legend { color: var(--accent-dark); font-weight: 600; }
+  #drop { border: 2px dashed #888; border-radius: 8px; padding: 24px; text-align: center; color: #666; transition: border-color .15s, color .15s; }
+  #drop:hover { border-color: var(--accent); color: var(--accent); }
+  #drop.over { border-color: var(--accent); color: var(--accent); }
   .url-row { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
   .url-row input[type=text] { flex: 1; }
-  #summary { white-space: pre-wrap; background: #f6f6f6; padding: 12px; border-radius: 6px; }
-  .alert { color: #a40; }
-  button { padding: 6px 14px; }
+  #summary { white-space: pre-wrap; background: var(--panel-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
+  #summary .result-head { font-weight: 600; color: var(--accent-dark); }
+  .alert { color: var(--warning); }
+  #elapsed { color: var(--accent); font-weight: 600; }
+  button { padding: 6px 14px; border: 1px solid var(--border); border-radius: 4px; background: #fff; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  #run, #save-settings { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
+  #run:hover, #save-settings:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  #run { font-size: 15px; padding: 8px 20px; }
 </style>
 </head>
 <body>
@@ -55,7 +73,7 @@
   </fieldset>
 
   <button id="run">Lancer</button>
-  <h2>Résumé</h2>
+  <h2>Résumé <span id="elapsed"></span></h2>
   <div id="summary">—</div>
 
 <script>
@@ -64,8 +82,13 @@ let files = [];
 let outDir = "";
 
 function renderFiles() {
-  document.getElementById('file-list').innerHTML =
-    files.map(f => `<li>${f}</li>`).join('');
+  const list = document.getElementById('file-list');
+  list.textContent = '';
+  for (const f of files) {
+    const li = document.createElement('li');
+    li.textContent = f;
+    list.appendChild(li);
+  }
 }
 
 // --- drop zone ---
@@ -91,7 +114,7 @@ function addUrlRow() {
   div.className = 'url-row';
   div.innerHTML = `<input type="text" placeholder="https://…">
     <label><input type="checkbox" class="follow"> suivre les liens</label>
-    <label><input type="checkbox" class="fest"> festival</label>`;
+    <label><input type="checkbox" class="fest"> festival (une ligne)</label>`;
   document.getElementById('urls').appendChild(div);
 }
 document.getElementById('add-url').addEventListener('click', addUrlRow);
@@ -125,26 +148,89 @@ document.getElementById('choose-dir').addEventListener('click', async () => {
 });
 
 // --- run ---
+let elapsedTimer = null;
+
+function startElapsed() {
+  const el = document.getElementById('elapsed');
+  const started = Date.now();
+  const tick = () => {
+    const secs = Math.floor((Date.now() - started) / 1000);
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    el.textContent = m + ':' + String(s).padStart(2, '0');
+  };
+  tick();
+  elapsedTimer = setInterval(tick, 1000);
+}
+
+function stopElapsed() {
+  if (elapsedTimer !== null) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  document.getElementById('elapsed').textContent = '';
+}
+
+// Rend le résumé en construisant des nœuds DOM (textContent) : jamais d'HTML
+// interpolé à partir de chaînes venant du backend (noms de lieux, chemins…).
+function renderSummary(results) {
+  const summary = document.getElementById('summary');
+  summary.textContent = '';
+  results.forEach((r, i) => {
+    if (i > 0) summary.appendChild(document.createTextNode('\n'));
+    const head = document.createElement('div');
+    head.className = 'result-head';
+    head.textContent = '[' + (r.month || 'tous') + '] ' + r.n_events + ' events';
+    summary.appendChild(head);
+    for (const f of r.files) {
+      const line = document.createElement('div');
+      line.textContent = '  ' + f;
+      summary.appendChild(line);
+    }
+    for (const a of r.alerts) {
+      const line = document.createElement('div');
+      line.className = 'alert';
+      line.textContent = '  ⚠ ' + a;
+      summary.appendChild(line);
+    }
+  });
+}
+
 document.getElementById('run').addEventListener('click', async () => {
   const summary = document.getElementById('summary');
+
+  // Garde : sélection vide.
+  const formats = [...document.querySelectorAll('.fmt:checked')].map(c => c.value);
+  if (formats.length === 0) {
+    summary.textContent = 'Choisis au moins un format de sortie.';
+    return;
+  }
+  const months = document.getElementById('months').value.split(',').map(s => s.trim()).filter(Boolean);
+  const noFilter = document.getElementById('no-filter').checked;
+  if (!noFilter && months.length === 0) {
+    summary.textContent = 'Aucun mois ciblé — coche un mois ou « ne pas filtrer par mois ».';
+    return;
+  }
+  const urls = collectUrls();
+  if (files.length === 0 && urls.length === 0) {
+    summary.textContent = 'Ajoute au moins un fichier ou une URL.';
+    return;
+  }
+
   summary.textContent = 'Extraction en cours…';
+  startElapsed();
   const payload = {
     file_paths: files,
-    urls: collectUrls(),
-    months: document.getElementById('months').value.split(',').map(s => s.trim()).filter(Boolean),
-    no_month_filter: document.getElementById('no-filter').checked,
-    formats: [...document.querySelectorAll('.fmt:checked')].map(c => c.value),
+    urls: urls,
+    months: months,
+    no_month_filter: noFilter,
+    formats: formats,
     out_dir: outDir,
   };
-  const res = await api().run_extraction(payload);
-  if (res.error) { summary.innerHTML = `<span class="alert">Erreur : ${res.error}</span>`; return; }
-  summary.innerHTML = res.results.map(r => {
-    const files = r.files.map(f => `  ${f}`).join('\n');
-    const alerts = r.alerts.length
-      ? '\n  <span class="alert">⚠ ' + r.alerts.join('</span>\n  <span class="alert">⚠ ') + '</span>'
-      : '';
-    return `[${r.month || 'tous'}] ${r.n_events} events\n${files}${alerts}`;
-  }).join('\n\n');
+  try {
+    const res = await api().run_extraction(payload);
+    if (res.error) { summary.textContent = 'Erreur : ' + res.error; return; }
+    renderSummary(res.results);
+  } finally {
+    stopElapsed();
+  }
 });
 
 window.addEventListener('pywebviewready', loadSettings);
