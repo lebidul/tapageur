@@ -130,6 +130,45 @@ def _image_to_item(path: Path) -> CollectedItem:
     )
 
 
+def _pdf_pages_to_images(path: Path) -> list[CollectedItem]:
+    """Rend chaque page d'un PDF en image PNG (base64) → CollectedItem image.
+
+    Utilisé pour les PDF sans couche texte (affiches scannées) : on les envoie
+    à Claude vision au lieu de les sauter. pypdfium2 n'a aucune dépendance
+    système (PDFium embarqué)."""
+    import base64
+    import io
+
+    import pypdfium2 as pdfium
+
+    items: list[CollectedItem] = []
+    pdf = pdfium.PdfDocument(str(path))
+    try:
+        for i in range(len(pdf)):
+            page = pdf[i]
+            bitmap = page.render(scale=2.0)
+            pil = bitmap.to_pil()
+            buf = io.BytesIO()
+            pil.save(buf, format="PNG")
+            b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+            items.append(CollectedItem(
+                source_kind="image",
+                source_ref=f"{path}#page={i + 1}",
+                fetched_at=datetime.utcnow().isoformat() + "Z",
+                raw_text="",
+                raw_image_b64=b64,
+                raw_metadata={
+                    "filename": path.name,
+                    "mime": "image/png",
+                    "label": f"{path.stem} p{i + 1}",
+                    "from_pdf": True,
+                },
+            ))
+    finally:
+        pdf.close()
+    return items
+
+
 def _pdf_to_item(path: Path) -> CollectedItem | None:
     """Extrait le texte d'un PDF local. None si PDF sans texte (image-only)."""
     import pdfplumber  # lazy

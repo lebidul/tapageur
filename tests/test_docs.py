@@ -154,6 +154,30 @@ def test_route_file_pdf_empty_returns_none(tmp_path: Path):
         assert _route_file(fp) is None
 
 
+# ---------- PDF → images (affiches sans texte) ----------
+
+def _blank_pdf(path):
+    import pypdfium2 as pdfium
+    pdf = pdfium.PdfDocument.new()
+    pdf.new_page(200, 200)
+    with open(path, "wb") as f:
+        pdf.save(f)
+
+
+def test_pdf_pages_to_images_blank(tmp_path):
+    from tapageur.connectors.docs import _pdf_pages_to_images
+    p = tmp_path / "blank.pdf"
+    _blank_pdf(p)
+    items = _pdf_pages_to_images(p)
+    assert len(items) == 1
+    it = items[0]
+    assert it.source_kind == "image"
+    assert it.raw_image_b64 and len(it.raw_image_b64) > 100
+    assert it.source_ref.endswith("#page=1")
+    assert it.raw_metadata["from_pdf"] is True
+    assert it.raw_metadata["mime"] == "image/png"
+
+
 # ---------- Constants ----------
 
 def test_image_exts_have_mime():
