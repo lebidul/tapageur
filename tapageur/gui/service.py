@@ -19,7 +19,6 @@ from tapageur.validate import export_csv
 
 @dataclass
 class RunRequest:
-    file_paths: list[Path]
     url_inputs: list[UrlInput]
     months: list[str]
     no_month_filter: bool
@@ -28,6 +27,7 @@ class RunRequest:
     tapeur_email: str
     append: bool = False
     text_inputs: list[TextInput] = field(default_factory=list)
+    file_inputs: list = field(default_factory=list)   # list[FileInput]
 
 
 @dataclass
@@ -112,7 +112,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
 
     _emit("Collecte des sources…")
     url_month = "" if req.no_month_filter else (req.months[0] if req.months else "")
-    items = list(items_from_files(req.file_paths, progress=progress))
+    items = list(items_from_files(req.file_inputs, progress=progress))
     items += list(items_from_urls(req.url_inputs, url_month, progress=progress))
     items += list(items_from_texts(req.text_inputs, progress=progress))
 

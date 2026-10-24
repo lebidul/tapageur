@@ -33,6 +33,20 @@ def test_run_extraction_passes_texts(monkeypatch):
     assert tis[0].text == "concert" and tis[0].venue == "Le Scarron" and tis[0].info_orga == "Asso X"
 
 
+def test_run_extraction_passes_file_inputs(monkeypatch):
+    monkeypatch.setattr(app._settings, "load_settings",
+                        lambda: {"anthropic_api_key": "sk-test", "tapeur_email": "t@b.fr"})
+    captured = {}
+    monkeypatch.setattr(app, "run", lambda req, progress=None: captured.update(req=req) or [])
+    app.Api().run_extraction({
+        "files": [{"path": "/x/flyer.pdf", "venue": "Le Scarron", "info_orga": "A", "is_festival": True}],
+        "urls": [], "texts": [], "months": ["2026-11"], "no_month_filter": False,
+        "formats": ["json"], "out_dir": ".",
+    })
+    fis = captured["req"].file_inputs
+    assert len(fis) == 1 and fis[0].venue == "Le Scarron" and fis[0].is_festival is True
+
+
 def test_get_venues_returns_list(monkeypatch):
     venues = app.Api().get_venues()
     assert isinstance(venues, list)

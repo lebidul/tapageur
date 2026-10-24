@@ -12,7 +12,7 @@ def test_items_from_files_routes_image(tmp_path):
     )
     f = tmp_path / "flyer.png"
     f.write_bytes(png)
-    items = inputs.items_from_files([f])
+    items = inputs.items_from_files([inputs.FileInput(path=str(f))])
     assert len(items) == 1
     assert items[0].source_kind == "image"
     assert items[0].source_ref == str(f)
@@ -21,14 +21,32 @@ def test_items_from_files_routes_image(tmp_path):
 def test_items_from_files_skips_unsupported(tmp_path):
     txt = tmp_path / "notes.txt"
     txt.write_text("rien", encoding="utf-8")
-    assert inputs.items_from_files([txt]) == []
+    assert inputs.items_from_files([inputs.FileInput(path=str(txt))]) == []
 
 
 def test_items_from_files_extends_multi(monkeypatch, tmp_path):
     f = tmp_path / "scan.pdf"
     f.write_bytes(b"%PDF-1.4 fake")
     monkeypatch.setattr(inputs, "_route_file", lambda p: ["a", "b"])
-    assert inputs.items_from_files([f]) == ["a", "b"]
+    assert inputs.items_from_files([inputs.FileInput(path=str(f))]) == ["a", "b"]
+
+
+def test_items_from_files_applies_overrides(tmp_path):
+    png = bytes.fromhex(
+        "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4"
+        "890000000a49444154789c6360000002000154a24f1e0000000049454e44ae426082"
+    )
+    f = tmp_path / "flyer.png"
+    f.write_bytes(png)
+    out = inputs.items_from_files([
+        inputs.FileInput(path=str(f), venue="Le Scarron", info_orga="Asso X", is_festival=True)
+    ])
+    assert len(out) == 1
+    m = out[0].raw_metadata
+    assert m["default_venue"] == "Le Scarron"
+    assert m["default_festival"] == "Asso X"
+    assert m["mode"] == "festival_onliner"
+    assert m["filename"] == "flyer.png"   # metadata d'origine préservée
 
 
 def test_url_input_builds_synthetic_config(monkeypatch):
@@ -104,7 +122,7 @@ def test_items_from_files_reports_progress(tmp_path):
     f = tmp_path / "flyer.png"
     f.write_bytes(png)
     seen = []
-    inputs.items_from_files([f], progress=lambda m: seen.append(m))
+    inputs.items_from_files([inputs.FileInput(path=str(f))], progress=lambda m: seen.append(m))
     assert any("flyer.png" in m and "1/1" in m for m in seen)
 
 

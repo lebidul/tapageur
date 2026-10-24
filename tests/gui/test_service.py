@@ -33,7 +33,7 @@ def test_run_exports_requested_formats(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
 
     req = service.RunRequest(
-        file_paths=[], url_inputs=[], months=["2026-10"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-10"], no_month_filter=False,
         formats=["json", "csv", "xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
     )
     results = service.run(req)
@@ -59,7 +59,7 @@ def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     req = service.RunRequest(
-        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
     )
     cb = lambda m: None
@@ -84,7 +84,7 @@ def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     req = service.RunRequest(
-        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr", append=True,
     )
     results = service.run(req)
@@ -104,7 +104,7 @@ def test_run_includes_text_inputs(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     from tapageur.gui.inputs import TextInput
     req = service.RunRequest(
-        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
         text_inputs=[TextInput(text="concert", venue="Le Scarron")],
     )

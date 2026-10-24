@@ -7,7 +7,7 @@ from pathlib import Path
 import webview
 
 from tapageur.gui import settings as _settings
-from tapageur.gui.inputs import TextInput, UrlInput
+from tapageur.gui.inputs import FileInput, TextInput, UrlInput
 from tapageur.gui.service import RunRequest, run
 
 _WEB = Path(__file__).parent / "web" / "index.html"
@@ -46,7 +46,7 @@ class Api:
         return list(res) if res else []
 
     def run_extraction(self, payload: dict) -> dict:
-        """payload : {file_paths, urls:[{url,follow_links,is_festival}],
+        """payload : {files:[{path,venue,info_orga,is_festival}], urls:[{url,follow_links,is_festival}],
         months:[...], no_month_filter, formats:[...], out_dir}."""
         # Clé tapée dans l'UI mais pas encore enregistrée : on la persiste d'abord.
         if payload.get("api_key"):
@@ -62,7 +62,7 @@ class Api:
         os.environ["ANTHROPIC_API_KEY"] = cfg["anthropic_api_key"]
 
         req = RunRequest(
-            file_paths=[Path(p) for p in payload.get("file_paths", [])],
+            file_inputs=[FileInput(**f) for f in payload.get("files", [])],
             url_inputs=[UrlInput(**u) for u in payload.get("urls", [])],
             text_inputs=[TextInput(**t) for t in payload.get("texts", [])],
             months=payload.get("months", []),

@@ -9,16 +9,34 @@ from tapageur.connectors.web import WebConnector
 from tapageur.schema import CollectedItem
 
 
-def items_from_files(paths: list[Path], progress=None) -> list[CollectedItem]:
-    """Route chaque fichier via le connecteur docs. ``_route_file`` renvoie une
-    liste (0, 1 ou N items) : types non gérés → aucun item ; PDF sans texte →
-    une image par page."""
+@dataclass
+class FileInput:
+    """Un fichier déposé/choisi + ses champs éditables par élément."""
+    path: str
+    venue: str = ""
+    info_orga: str = ""
+    is_festival: bool = False
+
+
+def items_from_files(file_inputs: list[FileInput], progress=None) -> list[CollectedItem]:
+    """Route chaque fichier via le connecteur docs (``_route_file`` renvoie une
+    liste : 0, 1 ou N items ; types non gérés → aucun item ; PDF sans texte →
+    une image par page), puis applique les overrides par élément dans
+    ``raw_metadata`` (lieu/asso si non vides, mode festival si demandé) en
+    préservant la metadata d'origine de l'item."""
     items: list[CollectedItem] = []
-    n = len(paths)
-    for i, p in enumerate(paths, 1):
+    n = len(file_inputs)
+    for i, fi in enumerate(file_inputs, 1):
         if progress:
-            progress(f"Fichier {i}/{n} : {Path(p).name}")
-        items.extend(_route_file(Path(p)))
+            progress(f"Fichier {i}/{n} : {Path(fi.path).name}")
+        for item in _route_file(Path(fi.path)):
+            if fi.venue:
+                item.raw_metadata["default_venue"] = fi.venue
+            if fi.info_orga:
+                item.raw_metadata["default_festival"] = fi.info_orga
+            if fi.is_festival:
+                item.raw_metadata["mode"] = "festival_onliner"
+            items.append(item)
     return items
 
 
