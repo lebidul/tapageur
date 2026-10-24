@@ -6,7 +6,7 @@ ce moment-là.
 
 ---
 
-## 1. Mode debug (sauver / importer une config de passe)
+## 1. Mode debug (sauver / importer une config de passe) — ✅ FAIT (2026-10-25)
 
 **But :** pouvoir rejouer et diagnostiquer une extraction.
 
