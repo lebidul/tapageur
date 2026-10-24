@@ -150,3 +150,34 @@ def test_cache_handles_image_items(tmp_cache: Path):
     cache_mod.set_cached(item_a, "2026-05", [_make_event()])
     assert cache_mod.get_cached(item_a, "2026-05") is not None
     assert cache_mod.get_cached(item_b, "2026-05") is None
+
+
+def test_cache_key_differs_on_default_venue():
+    from tapageur.cache import cache_key
+    from tapageur.schema import CollectedItem
+    base = dict(source_kind="text", source_ref="texte #1",
+                fetched_at="2026-01-01T00:00:00Z", raw_text="x")
+    a = CollectedItem(**base, raw_metadata={"default_venue": "Le Scarron"})
+    b = CollectedItem(**base, raw_metadata={"default_venue": "La Fonderie"})
+    assert cache_key(a, "2026-11") != cache_key(b, "2026-11")
+
+
+def test_cache_key_differs_on_default_festival():
+    from tapageur.cache import cache_key
+    from tapageur.schema import CollectedItem
+    base = dict(source_kind="text", source_ref="texte #1",
+                fetched_at="2026-01-01T00:00:00Z", raw_text="x")
+    a = CollectedItem(**base, raw_metadata={"default_festival": "Asso A"})
+    b = CollectedItem(**base, raw_metadata={"default_festival": "Asso B"})
+    assert cache_key(a, "2026-11") != cache_key(b, "2026-11")
+
+
+def test_cache_key_stable_without_overrides():
+    # Absence des clés d'override → clé inchangée (préserve le cache historique).
+    from tapageur.cache import cache_key
+    from tapageur.schema import CollectedItem
+    base = dict(source_kind="web", source_ref="u",
+                fetched_at="2026-01-01T00:00:00Z", raw_text="x")
+    a = CollectedItem(**base, raw_metadata={})
+    b = CollectedItem(**base, raw_metadata={"autre": "z"})
+    assert cache_key(a, "2026-11") == cache_key(b, "2026-11")

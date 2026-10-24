@@ -61,6 +61,14 @@ def cache_key(item: CollectedItem, month: str) -> str:
     if model_override:
         h.update(b"|model=")
         h.update(str(model_override).encode("ascii"))
+    default_venue = (item.raw_metadata or {}).get("default_venue")
+    if default_venue:
+        h.update(b"|dv=")
+        h.update(str(default_venue).encode("utf-8"))
+    default_festival = (item.raw_metadata or {}).get("default_festival")
+    if default_festival:
+        h.update(b"|df=")
+        h.update(str(default_festival).encode("utf-8"))
     # PROMPT_VERSION : invalide automatiquement le cache au changement de
     # prompt système (cf. tapageur/version.py). Sans ce bump, modifier les
     # règles dans SYSTEM_PROMPT n'aurait aucun effet visible — les items
