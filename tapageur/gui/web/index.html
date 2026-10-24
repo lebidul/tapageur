@@ -220,6 +220,10 @@ document.getElementById('run').addEventListener('click', async () => {
     summary.textContent = 'Aucun mois ciblé — coche un mois ou « ne pas filtrer par mois ».';
     return;
   }
+  if (!noFilter && !months.every(m => /^\d{4}-\d{2}$/.test(m))) {
+    summary.textContent = 'Mois invalide : utilise le format AAAA-MM (ex. 2026-11).';
+    return;
+  }
   const urls = collectUrls();
   if (files.length === 0 && urls.length === 0) {
     summary.textContent = 'Ajoute au moins un fichier ou une URL.';
