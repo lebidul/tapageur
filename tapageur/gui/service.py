@@ -10,7 +10,8 @@ from pathlib import Path
 from tapageur.dedup import (canonicalize, convert_to_onliner, dedup,
                             group_events, load_mappings)
 from tapageur.gui import export_xlsx as _xlsx
-from tapageur.gui.inputs import UrlInput, items_from_files, items_from_urls
+from tapageur.gui.inputs import (TextInput, UrlInput, items_from_files,
+                                 items_from_texts, items_from_urls)
 from tapageur.normalize import normalize_items
 from tapageur.schema import Event
 from tapageur.validate import export_csv
@@ -26,6 +27,7 @@ class RunRequest:
     out_dir: Path
     tapeur_email: str
     append: bool = False
+    text_inputs: list[TextInput] = field(default_factory=list)
 
 
 @dataclass
@@ -110,6 +112,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
     url_month = "" if req.no_month_filter else (req.months[0] if req.months else "")
     items = list(items_from_files(req.file_paths, progress=progress))
     items += list(items_from_urls(req.url_inputs, url_month, progress=progress))
+    items += list(items_from_texts(req.text_inputs, progress=progress))
 
     results: list[MonthResult] = []
     for month, label, month_filter in passes:

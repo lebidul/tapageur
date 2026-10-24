@@ -89,3 +89,25 @@ def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
     )
     results = service.run(req)
     assert any("xlsx" in a.lower() for a in results[0].alerts)
+
+
+def test_run_includes_text_inputs(tmp_path, monkeypatch):
+    captured = {}
+    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None):
+        captured["items"] = list(items)
+        return [_event()]
+    monkeypatch.setattr(service, "normalize_items", fake_normalize)
+    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
+    monkeypatch.setattr(service, "dedup", lambda evs: evs)
+    monkeypatch.setattr(service, "group_events", lambda evs: evs)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
+    from tapageur.gui.inputs import TextInput
+    req = service.RunRequest(
+        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
+        text_inputs=[TextInput(text="concert", venue="Le Scarron")],
+    )
+    service.run(req)
+    kinds = [it.source_kind for it in captured["items"]]
+    assert "text" in kinds
