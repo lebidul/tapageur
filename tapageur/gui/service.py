@@ -59,8 +59,10 @@ def _reference_lists() -> tuple[set[str], set[str]]:
     import openpyxl
     wb = openpyxl.load_workbook(_xlsx.TEMPLATE_PATH, read_only=True)
     try:
-        cities = {r[0] for r in wb["communes"].iter_rows(values_only=True) if r and r[0]}
-        venues = {r[0] for r in wb["salles_lieux"].iter_rows(values_only=True) if r and r[0]}
+        cities = {r[0] for r in wb["communes"].iter_rows(values_only=True)
+                  if r and r[0] and not str(r[0]).startswith("=")}
+        venues = {r[0] for r in wb["salles_lieux"].iter_rows(values_only=True)
+                  if r and r[0] and not str(r[0]).startswith("=")}
     finally:
         wb.close()
     return cities, venues

@@ -37,3 +37,11 @@ def test_get_venues_returns_list(monkeypatch):
     venues = app.Api().get_venues()
     assert isinstance(venues, list)
     assert len(venues) > 0
+
+
+def test_get_venues_has_no_formula_entries():
+    """Régression #3 : le template doit fournir des lieux en clair, pas des
+    formules Google Sheets (=IFERROR(__xludf.DUMMYFUNCTION(...))."""
+    venues = app.Api().get_venues()
+    assert len(venues) > 50
+    assert all(not str(v).startswith("=") for v in venues)
