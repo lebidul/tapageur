@@ -81,6 +81,10 @@ class WebConnector(Connector):
             # sur un contenu particulier (ex: bonnzik → Opus pour formats
             # date/artiste imbriqués).
             model_override = site.get("model")
+            # follow_scope : "subpath" (défaut, rétro-compat) restreint aux
+            # sous-chemins stricts de l'agenda ; "domain" découvre les liens
+            # frères même-hôte (sites sans sous-arborescence agenda dédiée).
+            follow_scope = site.get("follow_scope", "subpath")
 
             # Détection PDF distant : extension d'URL ou Content-Type via HEAD.
             # Route vers le parsing pdfplumber au lieu du fetch HTML.
@@ -105,18 +109,7 @@ class WebConnector(Connector):
             if not follow:
                 # Mode mono-page : dump l'agenda lui-même
                 text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
-                meta = {"site": site_name}
-                if mode:
-                    meta["mode"] = mode
-                if model_override:
-                    meta["model_override"] = model_override
-                yield CollectedItem(
-                    source_kind="web",
-                    source_ref=url,
-                    fetched_at=datetime.utcnow().isoformat() + "Z",
-                    raw_text=text,
-                    raw_metadata=meta,
-                )
+                yield _web_item(url, text, site_name, mode, model_override)
                 continue
 
             # Mode follow : parcours les pages event individuelles.
@@ -124,21 +117,36 @@ class WebConnector(Connector):
             # non-standard (ex: msj.world/ofcourselemans/86 → pages event sous
             # /ofcourselemans/card/<slug>, pas sous /ofcourselemans/86/<slug>).
             event_pattern = site.get("event_link_pattern")
-            event_urls = _extract_subpages(html, base_url=url, pattern=event_pattern)
+            event_urls = _extract_subpages(html, base_url=url, pattern=event_pattern, scope=follow_scope)
             agenda_text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
-            print(f"[web] {site_name}: {len(event_urls)} URLs candidates")
+            print(f"[web] {site_name}: {len(event_urls)} URLs candidates (scope={follow_scope})")
 
-            # Pré-filtrage Claude (économise ~80% des fetch + calls downstream)
-            if site.get("prefilter_by_month", True) and event_urls:
-                if not os.environ.get("ANTHROPIC_API_KEY"):
-                    print(f"[web]   prefilter skip (ANTHROPIC_API_KEY absente)")
-                else:
-                    try:
-                        kept = _filter_event_urls(agenda_text, event_urls, month)
-                        print(f"[web]   {len(kept)}/{len(event_urls)} retenues pour {month}")
-                        event_urls = kept
-                    except Exception as e:
-                        print(f"[web]   prefilter échoué ({e}), fallback fetch all")
+            prefilter_by_month = site.get("prefilter_by_month", True)
+            has_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
+            run_prefilter = bool(event_urls) and has_key and (prefilter_by_month or follow_scope == "domain")
+
+            if run_prefilter:
+                pf_month = month if prefilter_by_month else None
+                try:
+                    kept = _filter_event_urls(agenda_text, event_urls, pf_month)
+                    print(f"[web]   {len(kept)}/{len(event_urls)} retenues")
+                    event_urls = kept
+                except Exception as e:
+                    print(f"[web]   prefilter échoué ({e})")
+                    if follow_scope == "domain":
+                        yield _web_item(url, agenda_text, site_name, mode, model_override)
+                        continue
+                    # scope subpath : comportement historique = fetch all
+                if follow_scope == "domain" and not event_urls:
+                    print(f"[web]   0 event retenu → fallback page d'index")
+                    yield _web_item(url, agenda_text, site_name, mode, model_override)
+                    continue
+            elif follow_scope == "domain":
+                # pré-filtre impossible (pas de clé / 0 candidat) : ne pas fetcher
+                # tout le domaine → fallback page d'index.
+                print(f"[web]   pré-filtre indisponible en scope domaine → fallback index")
+                yield _web_item(url, agenda_text, site_name, mode, model_override)
+                continue
 
             for ev_url in event_urls:
                 try:
@@ -147,18 +155,28 @@ class WebConnector(Connector):
                     print(f"[web]   {ev_url}: {e}")
                     continue
                 ev_text = BeautifulSoup(ev_html, "html.parser").get_text("\n", strip=True)
-                meta = {"site": site_name, "agenda_url": url}
-                if mode:
-                    meta["mode"] = mode
-                if model_override:
-                    meta["model_override"] = model_override
-                yield CollectedItem(
-                    source_kind="web",
-                    source_ref=ev_url,
-                    fetched_at=datetime.utcnow().isoformat() + "Z",
-                    raw_text=ev_text,
-                    raw_metadata=meta,
-                )
+                yield _web_item(ev_url, ev_text, site_name, mode, model_override,
+                                extra_meta={"agenda_url": url})
+
+
+def _web_item(url: str, text: str, site_name: str,
+              mode: str | None, model_override: str | None,
+              extra_meta: dict | None = None) -> CollectedItem:
+    """Construit un CollectedItem web (texte d'une page), métadonnées propagées."""
+    meta = {"site": site_name}
+    if extra_meta:
+        meta.update(extra_meta)
+    if mode:
+        meta["mode"] = mode
+    if model_override:
+        meta["model_override"] = model_override
+    return CollectedItem(
+        source_kind="web",
+        source_ref=url,
+        fetched_at=datetime.utcnow().isoformat() + "Z",
+        raw_text=text,
+        raw_metadata=meta,
+    )
 
 
 def _filter_event_urls(

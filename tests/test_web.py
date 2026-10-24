@@ -227,3 +227,64 @@ def test_filter_event_urls_month_set_passes_month_in_prompt():
     sent = fake.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "2026-11" in sent
     assert kept == ["https://site.fr/a/"]
+
+
+# ---------- collect() follow_scope domaine + fallback index ----------
+
+def _html_with_links(hrefs):
+    return "".join(f'<a href="{h}">x</a>' for h in hrefs)
+
+
+def test_collect_follow_domain_prefilters_events(monkeypatch):
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    # index + 1 event + 1 menu, tous même-hôte racine
+    index_html = _html_with_links(["/diphonie/", "/contact/"])
+    monkeypatch.setattr(web, "_fetch",
+                        lambda url, needs_browser=False: index_html if url.endswith("/festival/")
+                        else "<p>page event diphonie 20 NOV 20h</p>")
+    monkeypatch.setattr(web, "_filter_event_urls",
+                        lambda agenda, urls, month: ["https://site.fr/diphonie/"])
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)  # pas de HEAD réseau
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/festival/", "name": "fest",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": False,
+    }]})
+    items = list(conn.collect("2026-11"))
+    refs = [it.source_ref for it in items]
+    assert refs == ["https://site.fr/diphonie/"]  # event gardé, menu + index écartés
+
+
+def test_collect_follow_domain_fallback_index_when_prefilter_empty(monkeypatch):
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    index_html = _html_with_links(["/contact/", "/a-propos/"])
+    monkeypatch.setattr(web, "_fetch", lambda url, needs_browser=False: index_html)
+    monkeypatch.setattr(web, "_filter_event_urls", lambda agenda, urls, month: [])
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)  # pas de HEAD réseau
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/festival/", "name": "fest",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": False,
+    }]})
+    items = list(conn.collect("2026-11"))
+    assert len(items) == 1
+    assert items[0].source_ref == "https://site.fr/festival/"  # fallback = page d'index
+    assert items[0].source_kind == "web"
+
+
+def test_collect_follow_domain_fallback_index_when_no_key(monkeypatch):
+    import tapageur.connectors.web as web
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    index_html = _html_with_links(["/diphonie/"])
+    monkeypatch.setattr(web, "_fetch", lambda url, needs_browser=False: index_html)
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)  # pas de HEAD réseau
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/festival/", "name": "fest",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": False,
+    }]})
+    items = list(conn.collect("2026-11"))
+    assert len(items) == 1
+    assert items[0].source_ref == "https://site.fr/festival/"  # pas de fetch massif du domaine
