@@ -101,5 +101,22 @@ event déjà présent).
 
 ---
 
+## 5. Extraction : GENRE parfois rempli avec le STYLE
+
+**Bug d'extraction observé** (mars 2027) : la colonne `GENRE 2` d'un event a été
+peuplée avec `dj` (qui est en réalité le **STYLE**) au lieu d'un genre attendu
+(`c` / `sv`). Le modèle confond le slot GENRE et le slot STYLE pour les actes
+secondaires.
+
+**À investiguer :**
+- `dj` est une valeur de `Genre` valide ET un descripteur de style courant →
+  ambiguïté. Clarifier dans le prompt la distinction GENRE (c/sv/expo/dj/autre)
+  vs STYLE (texte libre), surtout pour les actes 2+.
+- Vérifier sur `tapage_2027-03.xlsx` (exemple fourni) le cas précis.
+- Possibles pistes : renforcer le schéma/prompt, ou validation post-extraction
+  (un style ne doit pas atterrir en genre).
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
