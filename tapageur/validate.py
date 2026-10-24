@@ -15,8 +15,9 @@ from pathlib import Path
 from tapageur.schema import Event
 
 
-# En-têtes fixes (cols A-J)
+# En-têtes fixes (cols A-L)
 HEADERS_BASE = [
+    "TYPE SOURCE", "SOURCE",
     "INFO TAPEUR", "DATE TAPAGE", "DATE EMISSION RADIO", "FESTOCHE", "STYLE FESTOCHE",
     "DATE", "HEURE", "LIEU", "VILLE", "PRIX",
 ]
@@ -35,6 +36,40 @@ HEADERS = HEADERS_BASE + [
 FESTIVAL_DATE_MARKER = "Festivals"  # marqueur reconnu par biduleur (PR #106)
 
 
+# Libellés lisibles pour la colonne TYPE SOURCE (col A).
+_SOURCE_TYPE_LABELS = {
+    "web": "URL",
+    "pdf": "Document",
+    "image": "Image",
+    "text": "Texte",
+    "outlook": "Email",
+    "fb": "Facebook",
+}
+
+
+def _source_type_label(source_kind: str) -> str:
+    """Libellé français du type de source ; valeur brute si inconnue."""
+    return _SOURCE_TYPE_LABELS.get(source_kind, source_kind)
+
+
+def _source_ref_display(source_kind: str, source_ref: str) -> str:
+    """Référence lisible pour la colonne SOURCE.
+
+    pdf/image → nom de fichier seul ; pdf avec '#page=N' → 'fichier (p.N)'.
+    Les autres types (web/text/outlook/fb) sont rendus inchangés.
+    """
+    ref = source_ref or ""
+    if source_kind in ("pdf", "image"):
+        path_part, _, frag = ref.partition("#")
+        name = Path(path_part).name or ref
+        if source_kind == "pdf" and frag.startswith("page="):
+            page = frag[len("page="):]
+            if page:
+                return f"{name} (p.{page})"
+        return name
+    return ref
+
+
 def _make_headers(n_acts: int) -> list[str]:
     """En-têtes complets pour un export avec n_acts blocs."""
     headers = list(HEADERS_BASE)
@@ -44,7 +79,7 @@ def _make_headers(n_acts: int) -> list[str]:
 
 
 def event_to_row(ev: Event, n_acts: int | None = None) -> list[str]:
-    """Convertit un Event en row.
+    """Convertit un Event en row : 12 colonnes fixes (A-L) puis 4 colonnes par ACT.
 
     n_acts : nombre de blocs ACT à émettre (4 colonnes chacun). Si None,
     utilise len(ev.acts) — utile pour les tests à 1 event. En usage normal
@@ -66,16 +101,18 @@ def event_to_row(ev: Event, n_acts: int | None = None) -> list[str]:
         venue_cell = ev.venue
 
     row = [
-        ev.tapeur_email,                  # A
-        ev.tapage_iso,                    # B
-        "",                               # C — DATE EMISSION RADIO (vide, à remplir manuellement)
-        ev.festival or "",                # D
-        ev.festival_style or "",          # E
-        date_cell,                        # F
-        time_cell,                        # G ("18h30 & 20h30")
-        venue_cell,                       # H
-        ev.city,                          # I
-        ev.price,                         # J
+        _source_type_label(ev.source_kind),                       # A — TYPE SOURCE
+        _source_ref_display(ev.source_kind, ev.source_ref),       # B — SOURCE
+        ev.tapeur_email,                  # C — INFO TAPEUR
+        ev.tapage_iso,                    # D — DATE TAPAGE
+        "",                               # E — DATE EMISSION RADIO (vide, manuel)
+        ev.festival or "",                # F — FESTOCHE
+        ev.festival_style or "",          # G — STYLE FESTOCHE
+        date_cell,                        # H — DATE
+        time_cell,                        # I — HEURE
+        venue_cell,                       # J — LIEU
+        ev.city,                          # K — VILLE
+        ev.price,                         # L — PRIX
     ]
 
     target = n_acts if n_acts is not None else len(ev.acts)
