@@ -85,12 +85,12 @@ Schéma des champs à extraire :
   - style : sous-genre / style (optionnel)
 
 Règles importantes :
-0. ANNÉE (CRITIQUE) : le « Mois cible » du user message (ex. 2026-11) fixe
-   l'année ET le mois de référence. Pour toute date du contenu SANS année
-   explicite (ex. « mardi 17 novembre »), date_iso DOIT utiliser l'année du
-   mois cible (ici 2026-11-17). Ne déduis JAMAIS l'année à partir du seul jour
-   de semaine (plusieurs années partagent le même jour — n'invente pas une
-   année passée). N'utilise une autre année que si elle est ÉCRITE
+0. ANNÉE (CRITIQUE) : le « Mois cible » du user message (ex. 2026-11), OU
+   l'« année de référence » qu'il indique, fixe l'année de référence. Pour
+   toute date du contenu SANS année explicite (ex. « mardi 17 novembre »),
+   date_iso DOIT utiliser cette année. Ne déduis JAMAIS l'année à partir du
+   seul jour de semaine (plusieurs années partagent le même jour — n'invente
+   pas une année passée). N'utilise une autre année que si elle est ÉCRITE
    explicitement dans le contenu.
 1. NE JAMAIS inventer un tarif. "?" si non trouvé.
 2. NE JAMAIS inventer une heure. Si l'heure est absente, mets times=["?"]
@@ -292,6 +292,7 @@ def _normalize_one(
     model: str | None,
     tapeur_email: str,
     month_filter: bool = True,
+    reference_year: str | None = None,
 ) -> list[Event]:
     """Appelle Claude, parse, valide, filtre par mois, injecte la métadonnée.
 
@@ -320,7 +321,13 @@ def _normalize_one(
     else:
         system_prompt = SYSTEM_PROMPT
 
-    month_hint = month if month_filter else "tous les mois (ne pas filtrer par date)"
+    if month_filter:
+        month_hint = month
+    elif reference_year:
+        month_hint = (f"tous les mois (année de référence : {reference_year} — "
+                      f"utilise cette année pour les dates sans année)")
+    else:
+        month_hint = "tous les mois (ne pas filtrer par date)"
     kwargs: dict = {
         "model": model,
         "max_tokens": 16000,
@@ -412,6 +419,7 @@ def normalize_items(
     model: str | None = None,
     month_filter: bool = True,
     progress: "Callable[[str], None] | None" = None,
+    reference_year: str | None = None,
 ) -> list[Event]:
     """
     Normalise les items en Events filtrés sur le mois cible.
@@ -450,7 +458,8 @@ def normalize_items(
         n_miss += 1
         console.print(f"  [{i}/{len(items)}] {item.source_kind}:{ref_short}")
         try:
-            events = _normalize_one(client, item, month, model, tapeur_email, month_filter)
+            events = _normalize_one(client, item, month, model, tapeur_email,
+                                    month_filter, reference_year)
             console.print(f"    → {len(events)} events (mois {month})")
             set_cached(item, month, events)
             all_events.extend(events)

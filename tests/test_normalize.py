@@ -392,3 +392,22 @@ def test_normalize_one_keeps_festival_date_label():
     }
     out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-06", None, "t@b.fr")
     assert out[0].date_label == "27-28 juin"
+
+
+def test_normalize_one_passes_reference_year_hint(monkeypatch):
+    """En mode sans filtre + reference_year, le user message cite l'année de réf."""
+    from tapageur import normalize as _norm
+    seen = {}
+    real_build = _norm._build_user_content
+    def spy(item, month_hint):
+        seen["hint"] = month_hint
+        return real_build(item, month_hint)
+    monkeypatch.setattr(_norm, "_build_user_content", spy)
+    item = _text_item({})
+    ev = {"date_iso": "2026-11-17", "times": ["20h00"], "venue": "V",
+          "city": "Le Mans", "price": "?",
+          "acts": [{"genre": "c", "title": None, "performer": "A", "style": None}]}
+    _norm._normalize_one(_fake_client_returning([ev]), item, "tous-2026", None,
+                         "t@b.fr", month_filter=False, reference_year="2026")
+    assert "2026" in seen["hint"]
+    assert "référence" in seen["hint"].lower()

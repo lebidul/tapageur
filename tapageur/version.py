@@ -32,6 +32,8 @@ Bumps notables :
 - v6 : règle 2 assouplie — un event sans horaire n'est plus supprimé, il est
        gardé avec times=["?"] (le tapeur complète). Fréquent sur les
        programmes de festivals saisis en events normaux.
+- v7 : règle ANNÉE élargie pour couvrir le mode « tous les mois » (année de
+       référence passée dans le user message au lieu d'un mois cible).
 """
 
-PROMPT_VERSION = "v6"
+PROMPT_VERSION = "v7"
