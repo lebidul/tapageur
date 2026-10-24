@@ -290,6 +290,53 @@ def test_default_festival_applied_when_extracted_empty():
     assert out[0].festival == "Asso Bidul"
 
 
+# ---------- régression : date_label omis par le modèle (interop date) ----------
+
+def test_normalize_one_keeps_event_without_date_label():
+    """Régression : le prompt interop dit à Claude d'ignorer date_label (recalculé
+    côté Python), donc Claude l'OMET. Le draft ne doit PAS être rejeté ; l'event
+    non-festival est gardé avec un date_label dérivé de date_iso."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {  # pas de clé date_label du tout
+        "date_iso": "2026-11-17", "times": ["20h00"],
+        "venue": "Le Lézard", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "Duo Aoki", "style": "Rock"}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    assert out[0].date_label == "Mardi 17"       # dérivé de date_iso
+
+
+def test_normalize_one_keeps_event_with_null_date_label():
+    """Même régression mais date_label explicitement null dans le JSON du modèle."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_label": None, "date_iso": "2026-11-26", "times": ["21h00"],
+        "venue": "Le Lézard", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "Colombey", "style": "Pop"}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    assert out[0].date_label == "Jeudi 26"
+
+
+def test_normalize_one_festival_without_date_label():
+    """Un festival sans date_label ne doit pas planter la création de l'Event
+    (Event.date_label est requis str) : coercition None -> ''."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {
+        "date_iso": "2026-11-05", "is_festival": True, "festival": "Fest X",
+        "times": ["?"], "venue": "", "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "sv", "title": None, "performer": "10 concerts", "style": "Jazz"}],
+    }
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    assert out[0].is_festival is True
+
+
 # ---------- interop biduleur : date_label dérivé ----------
 
 def test_normalize_one_derives_date_label_non_festival():

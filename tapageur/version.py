@@ -18,6 +18,12 @@ Bumps notables :
        + FESTIVAL_SYSTEM_PROMPT durci pour rendre l'URL obligatoire dans
        acts[0].title quand la source est une page web. Corrige un cas
        observé sur atoutboutdchamp (title=null malgré URL disponible).
+- v4 : SYSTEM_PROMPT dit désormais à Claude d'ignorer date_label (recalculé
+       Python en « Jour N » depuis date_iso). Bump nécessaire : le changement
+       de prompt n'avait pas été versionné et les items ré-extraits depuis
+       renvoyaient date_label=null, rejetés par l'ancien schéma strict. Avec
+       le schéma tolérant (_EventDraft.date_label optionnel), re-extraire
+       proprement et purger les caches empoisonnés.
 """
 
-PROMPT_VERSION = "v3"
+PROMPT_VERSION = "v4"

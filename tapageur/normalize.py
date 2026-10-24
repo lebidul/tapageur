@@ -205,7 +205,11 @@ class _EventDraft(BaseModel):
     Ces champs sont setter côté Python en post-processing."""
     festival: str | None = None
     festival_style: str | None = None
-    date_label: str
+    # Optionnel : le prompt demande à Claude d'ignorer date_label (recalculé
+    # côté Python depuis date_iso pour les events normaux). Claude l'omet donc
+    # souvent → ne PAS rejeter le draft pour autant. Recomposé/coercé dans
+    # _normalize_one avant la création de l'Event (qui, lui, exige un str).
+    date_label: str | None = None
     date_iso: str
     times: list[str]
     venue: str
@@ -356,7 +360,11 @@ def _normalize_one(
         # du texte libre du LLM. Les festivals gardent leur date_label libre
         # (la colonne DATE porte « Festivals » côté export).
         if not draft.is_festival:
-            draft.date_label = _french_date_label(draft.date_iso, draft.date_label)
+            draft.date_label = _french_date_label(draft.date_iso, draft.date_label or "")
+        elif draft.date_label is None:
+            # Festival : date_label libre (non utilisé par le CSV), mais Event
+            # exige un str → coercition si le modèle l'a omis.
+            draft.date_label = ""
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici
