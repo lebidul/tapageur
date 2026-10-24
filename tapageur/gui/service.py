@@ -63,8 +63,8 @@ def _reference_lists() -> tuple[set[str], set[str]]:
     return cities, venues
 
 
-def _pipeline(items, month: str, month_filter: bool, cache_out: Path) -> list[Event]:
-    events = normalize_items(items, month, cache_out, model=None, month_filter=month_filter)
+def _pipeline(items, month: str, month_filter: bool, cache_out: Path, progress=None) -> list[Event]:
+    events = normalize_items(items, month, cache_out, model=None, month_filter=month_filter, progress=progress)
     events = canonicalize(events, load_mappings())
     events = dedup(events)
     events = group_events(events)
@@ -106,14 +106,14 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
 
     _emit("Collecte des sources…")
     url_month = "" if req.no_month_filter else (req.months[0] if req.months else "")
-    items = list(items_from_files(req.file_paths))
-    items += list(items_from_urls(req.url_inputs, url_month))
+    items = list(items_from_files(req.file_paths, progress=progress))
+    items += list(items_from_urls(req.url_inputs, url_month, progress=progress))
 
     results: list[MonthResult] = []
     for month, label, month_filter in passes:
         cache_out = Path("cache") / (label or "tous") / "gui_normalized.json"
         _emit(f"{label} : extraction…")
-        events = _pipeline(items, month, month_filter, cache_out)
+        events = _pipeline(items, month, month_filter, cache_out, progress=progress)
         _emit(f"{label} : {len(events)} events, export…")
         files = _export(events, req.out_dir, label, req.formats)
         alerts = build_alerts(events, ref_cities, ref_venues)

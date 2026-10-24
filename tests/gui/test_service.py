@@ -25,7 +25,7 @@ def test_build_alerts_flags_missing_and_unknown():
 def test_run_exports_requested_formats(tmp_path, monkeypatch):
     # normalize_items mocké : renvoie 1 event, ignore l'appel Claude
     monkeypatch.setattr(service, "normalize_items",
-                        lambda items, month, out_path, model=None, month_filter=True: [_event()])
+                        lambda items, month, out_path, model=None, month_filter=True, progress=None: [_event()])
     monkeypatch.setattr(service, "load_mappings", lambda: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
@@ -45,3 +45,23 @@ def test_run_exports_requested_formats(tmp_path, monkeypatch):
     assert exts == {".json", ".csv", ".xlsx"}
     for p in r.files:
         assert p.exists()
+
+
+def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
+    captured = {}
+    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None):
+        captured["progress"] = progress
+        return [_event()]
+    monkeypatch.setattr(service, "normalize_items", fake_normalize)
+    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
+    monkeypatch.setattr(service, "dedup", lambda evs: evs)
+    monkeypatch.setattr(service, "group_events", lambda evs: evs)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
+    req = service.RunRequest(
+        file_paths=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
+    )
+    cb = lambda m: None
+    service.run(req, progress=cb)
+    assert captured["progress"] is cb
