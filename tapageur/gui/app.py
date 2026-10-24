@@ -58,6 +58,7 @@ class Api:
             formats=payload.get("formats", []),
             out_dir=Path(payload.get("out_dir") or "."),
             tapeur_email=cfg.get("tapeur_email", _settings.DEFAULT_TAPEUR_EMAIL),
+            append=payload.get("append", False),
         )
         def progress(msg: str) -> None:
             # run_extraction tourne hors du thread UI : evaluate_js marshale sans danger.

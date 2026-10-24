@@ -62,6 +62,9 @@
     <label><input type="checkbox" class="fmt" value="csv"> csv</label>
     <label><input type="checkbox" class="fmt" value="json"> json</label>
     <div style="margin-top:8px">
+      <label><input id="append" type="checkbox"> Ajouter au fichier existant (xlsx)</label>
+    </div>
+    <div style="margin-top:8px">
       <button id="choose-dir">Dossier de sortie…</button>
       <span id="out-dir">(aucun)</span>
     </div>
@@ -243,6 +246,7 @@ document.getElementById('run').addEventListener('click', async () => {
     no_month_filter: noFilter,
     formats: formats,
     out_dir: outDir,
+    append: document.getElementById('append').checked,
     api_key: document.getElementById('api-key').value,
     tapeur_email: document.getElementById('email').value,
   };
