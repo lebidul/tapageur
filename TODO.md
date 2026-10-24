@@ -118,5 +118,25 @@ secondaires.
 
 ---
 
+## 6. Message d'erreur clair sur échec d'authentification Anthropic (401)
+
+**But :** quand la clé API Anthropic est invalide/expirée (HTTP 401), afficher
+un message explicite plutôt que l'erreur brute.
+
+- Aujourd'hui : `run_extraction` catche l'exception → `{"error": str(e)}` →
+  l'UI affiche le texte brut de l'erreur SDK (peu clair pour l'utilisateur).
+- Voulu : détecter l'erreur d'authentification (ex. `anthropic.AuthenticationError`
+  / HTTP 401) et renvoyer un message du type « Clé API Anthropic invalide ou
+  expirée — vérifie-la dans Réglages. »
+
+**Questions ouvertes :**
+- Détection : attraper `anthropic.AuthenticationError` spécifiquement (plus
+  robuste que de parser « 401 » dans le message).
+- Étendre aux autres erreurs fréquentes ? (quota / rate limit 429, réseau).
+- Où : dans `run_extraction` (ou `normalize_items`), mapper l'exception → message
+  FR clair avant de remonter à l'UI.
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
