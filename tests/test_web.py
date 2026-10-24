@@ -197,3 +197,33 @@ def test_fetch_pdf_url_extracts_text():
     assert item.raw_metadata["url"] == "https://example.com/prog.pdf"
     assert item.raw_metadata["site"] == "Example Site"
     assert item.raw_metadata["n_pages"] == 2
+
+
+# ---------- _filter_event_urls ----------
+
+def test_filter_event_urls_month_none_sanity_filters_hallucinations():
+    from unittest.mock import Mock, patch
+    import tapageur.connectors.web as web
+    urls = ["https://site.fr/a/", "https://site.fr/b/"]
+    fake = Mock()
+    block = Mock(); block.type = "text"
+    block.text = '{"urls": ["https://site.fr/a/", "https://site.fr/HALLUCINE/"]}'
+    fake.messages.create.return_value = Mock(content=[block])
+    with patch("anthropic.Anthropic", return_value=fake):
+        kept = web._filter_event_urls("agenda overview", urls, month=None)
+    assert kept == ["https://site.fr/a/"]  # b non choisie, HALLUCINE filtrée
+
+
+def test_filter_event_urls_month_set_passes_month_in_prompt():
+    from unittest.mock import Mock, patch
+    import tapageur.connectors.web as web
+    urls = ["https://site.fr/a/"]
+    fake = Mock()
+    block = Mock(); block.type = "text"
+    block.text = '{"urls": ["https://site.fr/a/"]}'
+    fake.messages.create.return_value = Mock(content=[block])
+    with patch("anthropic.Anthropic", return_value=fake):
+        kept = web._filter_event_urls("agenda", urls, month="2026-11")
+    sent = fake.messages.create.call_args.kwargs["messages"][0]["content"]
+    assert "2026-11" in sent
+    assert kept == ["https://site.fr/a/"]

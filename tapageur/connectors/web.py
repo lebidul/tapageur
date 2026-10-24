@@ -43,22 +43,23 @@ USER_AGENT = (
 PREFILTER_MODEL = "claude-sonnet-4-5"
 PREFILTER_SYSTEM = """\
 Tu es un router d'URLs. À partir d'un texte d'agenda et d'une liste d'URLs candidates \
-(chacune pointant vers une page event détaillée du même site), retourne UNIQUEMENT \
-les URLs dont l'event a lieu dans le mois cible.
+(du même site), retourne UNIQUEMENT les URLs qui pointent vers une PAGE D'ÉVÉNEMENT \
+(concert, spectacle, date programmée), et PAS vers une page de menu/navigation \
+(accueil, à-propos, contact, mentions légales, presse, cours, stages génériques…).
+
+Si une ligne "Mois cible" est fournie, ne garde en plus que les événements de ce mois.
 
 Heuristiques :
-- Chaque URL correspond à un event listé dans le texte d'agenda.
-- Le slug d'URL contient souvent un indice (nom artiste/spectacle).
-- Le texte d'agenda donne les dates des events (mois, parfois année).
-- En cas d'INCERTITUDE (date ambiguë, slug obscur, year manquante) : INCLURE
-  l'URL. Mieux vaut payer un fetch inutile qu'oublier un event.
+- Le slug d'URL contient souvent le nom de l'artiste/spectacle listé dans l'agenda.
+- Le texte d'agenda donne les événements (et parfois leurs dates).
+- En cas d'INCERTITUDE : INCLURE l'URL. Mieux vaut un fetch inutile qu'un event raté.
 
 Réponds UNIQUEMENT par un JSON valide :
 {"urls": ["...", "..."]}
 
 - AUCUN texte avant ou après.
 - PAS de markdown.
-- Liste vide si aucune URL ne correspond avec certitude."""
+- Liste vide si aucune URL ne correspond."""
 
 
 @register
@@ -133,7 +134,7 @@ class WebConnector(Connector):
                     print(f"[web]   prefilter skip (ANTHROPIC_API_KEY absente)")
                 else:
                     try:
-                        kept = _filter_urls_by_month(agenda_text, event_urls, month)
+                        kept = _filter_event_urls(agenda_text, event_urls, month)
                         print(f"[web]   {len(kept)}/{len(event_urls)} retenues pour {month}")
                         event_urls = kept
                     except Exception as e:
@@ -160,27 +161,26 @@ class WebConnector(Connector):
                 )
 
 
-def _filter_urls_by_month(
+def _filter_event_urls(
     agenda_text: str,
     urls: list[str],
-    month: str,
+    month: str | None,
 ) -> list[str]:
-    """Pré-filtrage Claude : demande lesquelles des URLs candidates pointent
-    vers un event en `month` (YYYY-MM) en se basant sur le texte d'agenda.
+    """Pré-filtrage Claude : quelles URLs candidates sont des pages d'événement
+    (optionnellement dans `month` = 'YYYY-MM'), d'après le texte d'agenda.
 
-    Retourne un sous-ensemble strict de `urls` (Claude ne peut pas inventer
-    une URL qui n'était pas dans la liste — sanity check côté Python).
-    En cas d'erreur API/parse, lève l'exception : le caller décide du
-    fallback (typiquement : fetch all)."""
+    Retourne un sous-ensemble strict de `urls` (sanity check côté Python).
+    En cas d'erreur API/parse, lève l'exception : le caller décide du fallback."""
     from anthropic import Anthropic
 
     from tapageur.normalize import _extract_json
 
     client = Anthropic()
+    header = f"Mois cible : {month}\n\n" if month else ""
     user = (
-        f"Mois cible : {month}\n\n"
-        f"=== Agenda overview ===\n{agenda_text}\n\n"
-        f"=== URLs candidates ({len(urls)}) ===\n" + "\n".join(urls)
+        header
+        + f"=== Agenda overview ===\n{agenda_text}\n\n"
+        + f"=== URLs candidates ({len(urls)}) ===\n" + "\n".join(urls)
     )
     response = client.messages.create(
         model=PREFILTER_MODEL,
