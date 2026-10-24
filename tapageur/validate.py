@@ -1,8 +1,9 @@
 """
 Export CSV pour relecture/édition manuelle dans LibreOffice avant push.
 
-Le CSV reproduit les colonnes du Google Sheet biduleur. Cols A-J sont fixes.
-Cols K..Z (et au-delà) : 4 colonnes par act (GENRE, NOM SPECTACLE, ARTISTE,
+Le CSV reproduit les colonnes du Google Sheet biduleur. Cols A-L sont fixes
+(TYPE SOURCE, SOURCE, puis INFO TAPEUR … PRIX).
+Cols M et au-delà : 4 colonnes par act (GENRE, NOM SPECTACLE, ARTISTE,
 STYLE). Le nombre de blocs ACT est calculé dynamiquement = max(len(acts))
 sur l'ensemble des events exportés. Les lignes plus courtes sont paddées
 avec des cellules vides. biduleur supporte un nombre dynamique de colonnes.

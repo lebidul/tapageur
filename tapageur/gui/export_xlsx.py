@@ -11,7 +11,7 @@ from tapageur.validate import event_to_row
 
 TEMPLATE_PATH = Path(__file__).parent / "assets" / "template.xlsx"
 DATA_SHEET = "lebiduleur"
-_N_FIXED_COLS = 10  # colonnes A-J
+_N_FIXED_COLS = 12  # colonnes A-L (TYPE SOURCE, SOURCE, puis INFO TAPEUR … PRIX)
 
 
 def export_xlsx(events: list[Event], out_path: Path, template_path: Path = TEMPLATE_PATH,

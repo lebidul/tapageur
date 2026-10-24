@@ -19,19 +19,25 @@ def test_export_writes_data_and_keeps_reference_sheets(tmp_path):
     wb = openpyxl.load_workbook(out)
     assert set(["lebiduleur", "communes", "salles_lieux", "date"]).issubset(set(wb.sheetnames))
     ws = wb["lebiduleur"]
-    # ligne 1 = en-têtes conservés ; ligne 2 = 1er event
-    assert ws.cell(row=2, column=1).value == "t@b.fr"        # col A INFO TAPEUR
-    assert ws.cell(row=2, column=8).value == "Le Lieu"        # col H LIEU
-    assert ws.cell(row=2, column=9).value == "Le Mans"        # col I VILLE
+    # En-têtes : provenance en A/B, INFO TAPEUR décalé en C
+    assert ws.cell(row=1, column=1).value == "TYPE SOURCE"
+    assert ws.cell(row=1, column=2).value == "SOURCE"
+    assert ws.cell(row=1, column=3).value == "INFO TAPEUR"
+    # Ligne 2 = 1er event
+    assert ws.cell(row=2, column=1).value == "URL"            # TYPE SOURCE (source_kind=web)
+    assert ws.cell(row=2, column=2).value == "https://x.fr"   # SOURCE
+    assert ws.cell(row=2, column=3).value == "t@b.fr"         # INFO TAPEUR
+    assert ws.cell(row=2, column=10).value == "Le Lieu"       # LIEU (col J, +2)
+    assert ws.cell(row=2, column=11).value == "Le Mans"       # VILLE (col K, +2)
 
 
 def test_export_dynamic_act_blocks(tmp_path):
     out = tmp_path / "tapage.xlsx"
     export_xlsx.export_xlsx([_event(n_acts=5)], out)
     ws = openpyxl.load_workbook(out)["lebiduleur"]
-    # 10 colonnes fixes + 5 blocs * 4 = 30 colonnes ; en-tête bloc 5 ajouté
-    assert ws.cell(row=1, column=11 + 4 * 4).value == "GENRE 5"
-    assert ws.cell(row=2, column=11 + 4 * 4).value == "c"     # genre du 5e act
+    # 12 colonnes fixes + 5 blocs * 4 = 32 colonnes ; en-tête bloc 5 ajouté
+    assert ws.cell(row=1, column=13 + 4 * 4).value == "GENRE 5"
+    assert ws.cell(row=2, column=13 + 4 * 4).value == "c"     # genre du 5e act
 
 
 def test_append_preserves_and_adds(tmp_path):
@@ -39,9 +45,8 @@ def test_append_preserves_and_adds(tmp_path):
     export_xlsx.export_xlsx([_event(perf="Alpha")], out)                 # création
     export_xlsx.export_xlsx([_event(perf="Beta")], out, append=True)     # append
     ws = openpyxl.load_workbook(out)["lebiduleur"]
-    # 1 en-tête + 2 lignes de données
-    assert ws.cell(row=2, column=13).value == "Alpha0"   # ARTISTE 1, 1re ligne inchangée
-    assert ws.cell(row=3, column=13).value == "Beta0"    # ARTISTE 1, ligne ajoutée
+    assert ws.cell(row=2, column=15).value == "Alpha0"   # ARTISTE 1, 1re ligne inchangée
+    assert ws.cell(row=3, column=15).value == "Beta0"    # ARTISTE 1, ligne ajoutée
     assert ws.max_row == 3
 
 
@@ -50,8 +55,8 @@ def test_append_widens_act_blocks(tmp_path):
     export_xlsx.export_xlsx([_event(n_acts=1)], out)                     # 4 blocs (template)
     export_xlsx.export_xlsx([_event(n_acts=5, perf="X")], out, append=True)
     ws = openpyxl.load_workbook(out)["lebiduleur"]
-    assert ws.cell(row=1, column=11 + 4 * 4).value == "GENRE 5"         # en-tête bloc 5 ajouté
-    assert ws.cell(row=3, column=11 + 4 * 4).value == "c"               # genre 5e act, ligne ajoutée
+    assert ws.cell(row=1, column=13 + 4 * 4).value == "GENRE 5"         # en-tête bloc 5 ajouté
+    assert ws.cell(row=3, column=13 + 4 * 4).value == "c"               # genre 5e act, ligne ajoutée
 
 
 def test_append_without_lebiduleur_raises(tmp_path):
@@ -69,7 +74,7 @@ def test_append_on_missing_file_creates(tmp_path):
     out = tmp_path / "nouveau.xlsx"
     export_xlsx.export_xlsx([_event(perf="Solo")], out, append=True)     # fichier absent
     ws = openpyxl.load_workbook(out)["lebiduleur"]
-    assert ws.cell(row=2, column=13).value == "Solo0"
+    assert ws.cell(row=2, column=15).value == "Solo0"
     assert ws.max_row == 2
 
 
