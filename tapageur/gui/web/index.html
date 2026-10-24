@@ -96,20 +96,46 @@ const api = () => window.pywebview.api;
 let files = [];
 let outDir = "";
 
+// Lignes construites via DOM (createElement + .textContent/.value) : aucune
+// chaîne dynamique (chemin, lieu, asso) injectée en innerHTML.
 function renderFiles() {
   const list = document.getElementById('file-list');
   list.textContent = '';
   files.forEach((f, i) => {
     const li = document.createElement('li');
     const span = document.createElement('span');
-    span.textContent = f;
+    span.textContent = f.path;
+    const venue = document.createElement('input');
+    venue.type = 'text'; venue.className = 'f-venue';
+    venue.setAttribute('list', 'venues'); venue.placeholder = 'Lieu (si absent)';
+    venue.value = f.venue;
+    venue.style.marginLeft = '8px';
+    venue.addEventListener('input', () => { files[i].venue = venue.value; });
+    const orga = document.createElement('input');
+    orga.type = 'text'; orga.className = 'f-orga';
+    orga.placeholder = 'Asso/festival (si absent)';
+    orga.value = f.info_orga;
+    orga.style.marginLeft = '4px';
+    orga.addEventListener('input', () => { files[i].info_orga = orga.value; });
+    const festLabel = document.createElement('label');
+    festLabel.style.marginLeft = '4px';
+    const fest = document.createElement('input');
+    fest.type = 'checkbox'; fest.className = 'f-fest'; fest.checked = f.is_festival;
+    fest.addEventListener('change', () => { files[i].is_festival = fest.checked; });
+    festLabel.appendChild(fest);
+    festLabel.appendChild(document.createTextNode(' festival (une ligne)'));
     const rm = document.createElement('button');
     rm.type = 'button'; rm.textContent = '×'; rm.title = 'Retirer ce fichier';
     rm.style.marginLeft = '8px';
     rm.addEventListener('click', () => { files.splice(i, 1); renderFiles(); });
-    li.appendChild(span); li.appendChild(rm);
+    li.appendChild(span); li.appendChild(venue); li.appendChild(orga);
+    li.appendChild(festLabel); li.appendChild(rm);
     list.appendChild(li);
   });
+}
+
+function collectFiles() {
+  return files.filter(f => f.path);
 }
 
 // --- drop zone ---
@@ -117,7 +143,7 @@ const drop = document.getElementById('drop');
 // Sélection fiable : dialogue natif pywebview (renvoie de vrais chemins).
 drop.addEventListener('click', async () => {
   const picked = await api().choose_files();
-  for (const p of picked) files.push(p);
+  for (const p of picked) files.push({ path: p, venue: "", info_orga: "", is_festival: false });
   renderFiles();
 });
 // Drag-drop best-effort (si le backend expose .path).
@@ -125,7 +151,7 @@ drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add(
 drop.addEventListener('dragleave', () => drop.classList.remove('over'));
 drop.addEventListener('drop', e => {
   e.preventDefault(); drop.classList.remove('over');
-  for (const f of e.dataTransfer.files) if (f.path) files.push(f.path);
+  for (const f of e.dataTransfer.files) if (f.path) files.push({ path: f.path, venue: "", info_orga: "", is_festival: false });
   renderFiles();
 });
 
@@ -136,6 +162,12 @@ function addUrlRow() {
   div.innerHTML = `<input type="text" placeholder="https://…">
     <label><input type="checkbox" class="follow"> suivre les liens</label>
     <label><input type="checkbox" class="fest"> festival (une ligne)</label>`;
+  const venue = document.createElement('input');
+  venue.type = 'text'; venue.className = 'u-venue';
+  venue.setAttribute('list', 'venues'); venue.placeholder = 'Lieu (si absent)';
+  const orga = document.createElement('input');
+  orga.type = 'text'; orga.className = 'u-orga'; orga.placeholder = 'Asso/festival (si absent)';
+  div.appendChild(venue); div.appendChild(orga);
   const rm = document.createElement('button');
   rm.type = 'button'; rm.textContent = '×'; rm.title = 'Retirer cette URL';
   rm.style.marginLeft = '8px';
@@ -150,6 +182,8 @@ function collectUrls() {
     url: r.querySelector('input[type=text]').value.trim(),
     follow_links: r.querySelector('.follow').checked,
     is_festival: r.querySelector('.fest').checked,
+    venue: r.querySelector('.u-venue').value.trim(),
+    info_orga: r.querySelector('.u-orga').value.trim(),
   })).filter(u => u.url);
 }
 
@@ -170,6 +204,13 @@ function addTextRow() {
   div.appendChild(ta);
   const row2 = document.createElement('div'); row2.style.marginTop = '4px';
   row2.appendChild(venue); row2.appendChild(document.createTextNode(' ')); row2.appendChild(orga);
+  const festLabel = document.createElement('label');
+  festLabel.style.marginLeft = '8px';
+  const fest = document.createElement('input');
+  fest.type = 'checkbox'; fest.className = 'tx-fest';
+  festLabel.appendChild(fest);
+  festLabel.appendChild(document.createTextNode(' festival (une ligne)'));
+  row2.appendChild(festLabel);
   const rm = document.createElement('button');
   rm.type = 'button'; rm.textContent = '× retirer ce texte';
   rm.style.marginLeft = '8px';
@@ -185,6 +226,7 @@ function collectTexts() {
     text: r.querySelector('.tx-text').value,
     venue: r.querySelector('.tx-venue').value.trim(),
     info_orga: r.querySelector('.tx-orga').value.trim(),
+    is_festival: r.querySelector('.tx-fest').checked,
   })).filter(t => t.text.trim());
 }
 
@@ -291,9 +333,10 @@ document.getElementById('run').addEventListener('click', async () => {
     summary.textContent = 'Mois invalide : utilise le format AAAA-MM (ex. 2026-11).';
     return;
   }
+  const chosenFiles = collectFiles();
   const urls = collectUrls();
   const texts = collectTexts();
-  if (files.length === 0 && urls.length === 0 && texts.length === 0) {
+  if (chosenFiles.length === 0 && urls.length === 0 && texts.length === 0) {
     summary.textContent = 'Ajoute au moins un fichier, une URL ou un texte.';
     return;
   }
@@ -305,7 +348,7 @@ document.getElementById('run').addEventListener('click', async () => {
   document.getElementById('progress').textContent = '';
   startElapsed();
   const payload = {
-    file_paths: files,
+    files: chosenFiles,
     urls: urls,
     texts: texts,
     months: months,
