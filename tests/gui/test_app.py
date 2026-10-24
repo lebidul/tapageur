@@ -95,3 +95,23 @@ def test_run_extraction_passes_month_mode(monkeypatch):
 def test_default_reference_year_exposed():
     val = app.Api().default_reference_year()
     assert val.isdigit() and len(val) == 4
+
+
+def test_debug_config_excludes_api_key():
+    payload = {"api_key": "sk-x", "debug": True, "files": [], "months": ["2026-11"],
+               "month_mode": "specific", "formats": ["xlsx"], "out_dir": "."}
+    cfg = app._debug_config(payload)
+    assert "api_key" not in cfg
+    assert "debug" not in cfg
+    assert cfg["months"] == ["2026-11"]
+    assert cfg["month_mode"] == "specific"
+
+
+def test_read_config_valid_and_invalid(tmp_path):
+    good = tmp_path / "c.json"
+    good.write_text('{"months": ["2026-11"], "formats": ["xlsx"]}', encoding="utf-8")
+    assert app._read_config(good)["months"] == ["2026-11"]
+    bad = tmp_path / "bad.json"
+    bad.write_text("pas du json", encoding="utf-8")
+    assert app._read_config(bad) == {}
+    assert app._read_config(tmp_path / "absent.json") == {}
