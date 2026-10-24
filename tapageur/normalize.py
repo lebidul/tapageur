@@ -46,6 +46,7 @@ MODEL_BY_KIND: dict[str, str] = {
     "fb": "claude-sonnet-4-5",
     "pdf": "claude-opus-4-7",
     "image": "claude-opus-4-7",
+    "text": "claude-sonnet-4-5",
 }
 DEFAULT_MODEL = "claude-opus-4-7"  # fallback si source_kind inconnu
 
@@ -324,6 +325,13 @@ def _normalize_one(
             continue
         if month_filter and not draft.date_iso.startswith(month):
             continue
+        # Overrides fournis à la main (sources texte collé) : seulement si
+        # l'info est absente de l'extraction. `meta` est défini en tête de la
+        # fonction (item.raw_metadata or {}).
+        if meta.get("default_venue") and (not draft.venue or draft.venue.strip() in ("", "?")):
+            draft.venue = meta["default_venue"]
+        if meta.get("default_festival") and not (draft.festival and draft.festival.strip()):
+            draft.festival = meta["default_festival"]
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici

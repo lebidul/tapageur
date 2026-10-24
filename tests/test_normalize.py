@@ -229,3 +229,48 @@ def test_normalize_items_calls_progress_per_item(monkeypatch, tmp_path):
     assert any("1/2" in m for m in seen)
     assert any("2/2" in m for m in seen)
     assert all(m.startswith("Extraction ") for m in seen)
+
+
+# ---------- overrides par item (sources texte collé) ----------
+
+def _text_item(meta):
+    from tapageur.schema import CollectedItem
+    return CollectedItem(
+        source_kind="text", source_ref="texte #1", fetched_at="2026-01-01T00:00:00Z",
+        raw_text="x", raw_metadata=meta,
+    )
+
+
+def _ev(venue, festival=None):
+    ev = {
+        "date_label": "Mardi 3", "date_iso": "2026-11-03", "times": ["20h00"],
+        "venue": venue, "city": "Le Mans", "price": "?",
+        "acts": [{"genre": "c", "title": None, "performer": "A", "style": None}],
+    }
+    if festival is not None:
+        ev["festival"] = festival
+    return ev
+
+
+def test_default_venue_applied_when_extracted_empty():
+    from tapageur import normalize as _norm
+    item = _text_item({"default_venue": "Le Scarron"})
+    client = _fake_client_returning([_ev(venue="?")])
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert out[0].venue == "Le Scarron"
+
+
+def test_default_venue_not_applied_when_extracted_present():
+    from tapageur import normalize as _norm
+    item = _text_item({"default_venue": "Le Scarron"})
+    client = _fake_client_returning([_ev(venue="La Fonderie")])
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert out[0].venue == "La Fonderie"
+
+
+def test_default_festival_applied_when_extracted_empty():
+    from tapageur import normalize as _norm
+    item = _text_item({"default_festival": "Asso Bidul"})
+    client = _fake_client_returning([_ev(venue="La Fonderie", festival=None)])
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert out[0].festival == "Asso Bidul"
