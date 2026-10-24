@@ -65,7 +65,7 @@ class Event(BaseModel):
     festival_style: str | None = None      # Col E — STYLE FESTOCHE
 
     # Localisation temporelle et spatiale (cols F-I)
-    date_label: str = Field(..., description="Col F — ex. 'Vendredi 22'")
+    date_label: str = Field(..., description="Col F — non-festival : « Jour N » dérivé de date_iso (ex. 'Mardi 2') ; festival : libre")
     date_iso: str = Field(..., description="Format YYYY-MM-DD pour filtrage interne")
     times: list[str] = Field(..., description="Col G — ex. ['18h30', '20h30'] ; joints par ' & '")
     venue: str = Field(..., description="Col H — LIEU (canonicalisé via mappings.yaml)")
