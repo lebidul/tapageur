@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import json
 import os
+from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 
 from tapageur.dedup import (canonicalize, convert_to_onliner, dedup,
@@ -17,14 +19,22 @@ from tapageur.schema import Event
 from tapageur.validate import export_csv
 
 
+def default_reference_year(today: date | None = None) -> str:
+    """Année de référence pour le mode « tous les mois » : année courante,
+    sauf en décembre (on prépare janvier de l'année suivante)."""
+    today = today or date.today()
+    return str(today.year + 1 if today.month == 12 else today.year)
+
+
 @dataclass
 class RunRequest:
     url_inputs: list[UrlInput]
     months: list[str]
-    no_month_filter: bool
     formats: list[str]            # sous-ensemble de {"xlsx", "csv", "json"}
     out_dir: Path
     tapeur_email: str
+    month_mode: str = "specific"          # "specific" | "all"
+    reference_year: str = ""              # mode "all" ; vide → default_reference_year()
     append: bool = False
     text_inputs: list[TextInput] = field(default_factory=list)
     file_inputs: list = field(default_factory=list)   # list[FileInput]
@@ -70,8 +80,11 @@ def _reference_lists() -> tuple[set[str], set[str]]:
     return cities, venues
 
 
-def _pipeline(items, month: str, month_filter: bool, cache_out: Path, progress=None) -> list[Event]:
-    events = normalize_items(items, month, cache_out, model=None, month_filter=month_filter, progress=progress)
+def _pipeline(items, month: str, month_filter: bool, cache_out: Path,
+              progress=None, reference_year: str | None = None) -> list[Event]:
+    events = normalize_items(items, month, cache_out, model=None,
+                             month_filter=month_filter, progress=progress,
+                             reference_year=reference_year)
     events = canonicalize(events, load_mappings())
     events = dedup(events)
     events = group_events(events)
@@ -107,29 +120,46 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
     os.environ["TAPEUR_EMAIL"] = req.tapeur_email
     ref_cities, ref_venues = _reference_lists()
 
-    if req.no_month_filter:
-        passes = [("", "tous", False)]
-    else:
-        passes = [(m, m, True) for m in req.months]
-
     _emit("Collecte des sources…")
-    url_month = "" if req.no_month_filter else (req.months[0] if req.months else "")
+    url_month = "" if req.month_mode == "all" else (req.months[0] if req.months else "")
     items = list(items_from_files(req.file_inputs, progress=progress))
     items += list(items_from_urls(req.url_inputs, url_month, progress=progress))
     items += list(items_from_texts(req.text_inputs, progress=progress))
 
     results: list[MonthResult] = []
-    for month, label, month_filter in passes:
-        cache_out = Path("cache") / (label or "tous") / "gui_normalized.json"
-        _emit(f"{label} : extraction…")
-        events = _pipeline(items, month, month_filter, cache_out, progress=progress)
-        _emit(f"{label} : {len(events)} events, export…")
-        files = _export(events, req.out_dir, label, req.formats, append=req.append)
-        alerts = build_alerts(events, ref_cities, ref_venues)
-        if req.append and "xlsx" not in req.formats:
-            alerts.append("Append ignoré : xlsx non sélectionné.")
-        results.append(MonthResult(
-            month=(month or None), n_events=len(events), files=files, alerts=alerts,
-        ))
+
+    if req.month_mode == "all":
+        ref_year = req.reference_year or default_reference_year()
+        key = f"tous-{ref_year}"
+        cache_out = Path("cache") / key / "gui_normalized.json"
+        _emit("tous les mois : extraction…")
+        events = _pipeline(items, key, False, cache_out, progress=progress,
+                           reference_year=ref_year)
+        by_month: dict[str, list[Event]] = defaultdict(list)
+        for ev in events:
+            by_month[ev.date_iso[:7]].append(ev)
+        for month in sorted(by_month):
+            evs = by_month[month]
+            _emit(f"{month} : {len(evs)} events, export…")
+            files = _export(evs, req.out_dir, month, req.formats, append=req.append)
+            alerts = build_alerts(evs, ref_cities, ref_venues)
+            results.append(MonthResult(month=month, n_events=len(evs),
+                                       files=files, alerts=alerts))
+        if not by_month:
+            results.append(MonthResult(month=None, n_events=0, files=[],
+                                       alerts=["Aucun event extrait."]))
+    else:
+        for month in req.months:
+            cache_out = Path("cache") / month / "gui_normalized.json"
+            _emit(f"{month} : extraction…")
+            events = _pipeline(items, month, True, cache_out, progress=progress)
+            _emit(f"{month} : {len(events)} events, export…")
+            files = _export(events, req.out_dir, month, req.formats, append=req.append)
+            alerts = build_alerts(events, ref_cities, ref_venues)
+            if req.append and "xlsx" not in req.formats:
+                alerts.append("Append ignoré : xlsx non sélectionné.")
+            results.append(MonthResult(month=month, n_events=len(events),
+                                       files=files, alerts=alerts))
+
     _emit("Terminé.")
     return results

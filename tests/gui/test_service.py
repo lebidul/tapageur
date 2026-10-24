@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from tapageur.gui import service
 from tapageur.schema import Event, Act
@@ -37,7 +38,7 @@ def test_build_alerts_flags_missing_and_unknown():
 def test_run_exports_requested_formats(tmp_path, monkeypatch):
     # normalize_items mocké : renvoie 1 event, ignore l'appel Claude
     monkeypatch.setattr(service, "normalize_items",
-                        lambda items, month, out_path, model=None, month_filter=True, progress=None: [_event()])
+                        lambda items, month, out_path, model=None, month_filter=True, progress=None, reference_year=None: [_event()])
     monkeypatch.setattr(service, "load_mappings", lambda: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
@@ -45,7 +46,7 @@ def test_run_exports_requested_formats(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
 
     req = service.RunRequest(
-        file_inputs=[], url_inputs=[], months=["2026-10"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-10"], month_mode="specific",
         formats=["json", "csv", "xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
     )
     results = service.run(req)
@@ -61,7 +62,7 @@ def test_run_exports_requested_formats(tmp_path, monkeypatch):
 
 def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
     captured = {}
-    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None):
+    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None, reference_year=None):
         captured["progress"] = progress
         return [_event()]
     monkeypatch.setattr(service, "normalize_items", fake_normalize)
@@ -71,7 +72,7 @@ def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     req = service.RunRequest(
-        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], month_mode="specific",
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
     )
     cb = lambda m: None
@@ -96,7 +97,7 @@ def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     req = service.RunRequest(
-        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], month_mode="specific",
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr", append=True,
     )
     results = service.run(req)
@@ -105,7 +106,7 @@ def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
 
 def test_run_includes_text_inputs(tmp_path, monkeypatch):
     captured = {}
-    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None):
+    def fake_normalize(items, month, out_path, model=None, month_filter=True, progress=None, reference_year=None):
         captured["items"] = list(items)
         return [_event()]
     monkeypatch.setattr(service, "normalize_items", fake_normalize)
@@ -116,10 +117,41 @@ def test_run_includes_text_inputs(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     from tapageur.gui.inputs import TextInput
     req = service.RunRequest(
-        file_inputs=[], url_inputs=[], months=["2026-11"], no_month_filter=False,
+        file_inputs=[], url_inputs=[], months=["2026-11"], month_mode="specific",
         formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
         text_inputs=[TextInput(text="concert", venue="Le Scarron")],
     )
     service.run(req)
     kinds = [it.source_kind for it in captured["items"]]
     assert "text" in kinds
+
+
+def test_default_reference_year_normal_and_december():
+    assert service.default_reference_year(date(2026, 11, 1)) == "2026"
+    assert service.default_reference_year(date(2026, 1, 5)) == "2026"
+    assert service.default_reference_year(date(2026, 12, 10)) == "2027"
+
+
+def test_run_all_months_one_file_per_month(tmp_path, monkeypatch):
+    """Mode all : events sur 2 mois → 2 fichiers groupés par mois."""
+    evs = [_event(perf="Nov", times=["20h00"]), _event(perf="Dec", times=["21h00"])]
+    evs[0].date_iso = "2026-11-10"
+    evs[1].date_iso = "2026-12-05"
+    monkeypatch.setattr(service, "normalize_items",
+                        lambda items, month, out_path, model=None, month_filter=True,
+                               progress=None, reference_year=None: list(evs))
+    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "canonicalize", lambda e, m: e)
+    monkeypatch.setattr(service, "dedup", lambda e: e)
+    monkeypatch.setattr(service, "group_events", lambda e: e)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda e, names: e)
+
+    req = service.RunRequest(
+        file_inputs=[], url_inputs=[], months=[], month_mode="all",
+        reference_year="2026", formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+    )
+    results = service.run(req)
+    months = sorted(r.month for r in results)
+    assert months == ["2026-11", "2026-12"]
+    names = sorted(p.name for r in results for p in r.files)
+    assert names == ["tapage_2026-11.xlsx", "tapage_2026-12.xlsx"]
