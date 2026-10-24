@@ -7,7 +7,7 @@ from pathlib import Path
 import webview
 
 from tapageur.gui import settings as _settings
-from tapageur.gui.inputs import UrlInput
+from tapageur.gui.inputs import TextInput, UrlInput
 from tapageur.gui.service import RunRequest, run
 
 _WEB = Path(__file__).parent / "web" / "index.html"
@@ -22,6 +22,16 @@ class Api:
     def save_settings(self, data: dict) -> dict:
         _settings.save_settings(data)
         return {"ok": True}
+
+    def get_venues(self) -> list[str]:
+        import openpyxl
+        from tapageur.gui import export_xlsx as _xlsx
+        wb = openpyxl.load_workbook(_xlsx.TEMPLATE_PATH, read_only=True)
+        try:
+            venues = {r[0] for r in wb["salles_lieux"].iter_rows(values_only=True) if r and r[0]}
+        finally:
+            wb.close()
+        return sorted(venues)
 
     def choose_output_dir(self) -> str:
         res = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
@@ -53,6 +63,7 @@ class Api:
         req = RunRequest(
             file_paths=[Path(p) for p in payload.get("file_paths", [])],
             url_inputs=[UrlInput(**u) for u in payload.get("urls", [])],
+            text_inputs=[TextInput(**t) for t in payload.get("texts", [])],
             months=payload.get("months", []),
             no_month_filter=payload.get("no_month_filter", False),
             formats=payload.get("formats", []),

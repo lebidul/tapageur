@@ -50,6 +50,14 @@
     <button id="add-url">+ Ajouter une URL</button>
   </fieldset>
 
+  <datalist id="venues"></datalist>
+
+  <fieldset>
+    <legend>Textes</legend>
+    <div id="texts"></div>
+    <button id="add-text">+ Ajouter un texte</button>
+  </fieldset>
+
   <fieldset>
     <legend>Mois</legend>
     <input id="months" type="text" placeholder="2026-10, 2026-11" size="30">
@@ -131,6 +139,45 @@ function collectUrls() {
     follow_links: r.querySelector('.follow').checked,
     is_festival: r.querySelector('.fest').checked,
   })).filter(u => u.url);
+}
+
+// --- textes collés ---
+// Lignes construites via DOM (createElement) : aucune chaîne dynamique injectée
+// en innerHTML (mêmes règles de sécurité que le résumé / la progression).
+function addTextRow() {
+  const div = document.createElement('div');
+  div.className = 'text-row';
+  div.style.margin = '8px 0';
+  const ta = document.createElement('textarea');
+  ta.rows = 4; ta.style.width = '100%'; ta.placeholder = 'Colle le texte ici…';
+  const venue = document.createElement('input');
+  venue.type = 'text'; venue.setAttribute('list', 'venues'); venue.placeholder = 'Lieu (si absent du texte)';
+  const orga = document.createElement('input');
+  orga.type = 'text'; orga.placeholder = 'Asso / organisateur (si absent)';
+  venue.className = 'tx-venue'; orga.className = 'tx-orga'; ta.className = 'tx-text';
+  div.appendChild(ta);
+  const row2 = document.createElement('div'); row2.style.marginTop = '4px';
+  row2.appendChild(venue); row2.appendChild(document.createTextNode(' ')); row2.appendChild(orga);
+  div.appendChild(row2);
+  document.getElementById('texts').appendChild(div);
+}
+document.getElementById('add-text').addEventListener('click', addTextRow);
+
+function collectTexts() {
+  return [...document.querySelectorAll('.text-row')].map(r => ({
+    text: r.querySelector('.tx-text').value,
+    venue: r.querySelector('.tx-venue').value.trim(),
+    info_orga: r.querySelector('.tx-orga').value.trim(),
+  })).filter(t => t.text.trim());
+}
+
+// Peuple le <datalist> des lieux : options créées via createElement + .value
+// (jamais innerHTML — ces noms viennent du backend).
+async function loadVenues() {
+  const venues = await api().get_venues();
+  const dl = document.getElementById('venues');
+  dl.textContent = '';
+  for (const v of venues) { const o = document.createElement('option'); o.value = v; dl.appendChild(o); }
 }
 
 // --- settings ---
@@ -242,6 +289,7 @@ document.getElementById('run').addEventListener('click', async () => {
   const payload = {
     file_paths: files,
     urls: urls,
+    texts: collectTexts(),
     months: months,
     no_month_filter: noFilter,
     formats: formats,
@@ -261,7 +309,7 @@ document.getElementById('run').addEventListener('click', async () => {
   }
 });
 
-window.addEventListener('pywebviewready', loadSettings);
+window.addEventListener('pywebviewready', () => { loadSettings(); loadVenues(); });
 </script>
 </body>
 </html>
