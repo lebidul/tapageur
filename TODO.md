@@ -193,5 +193,59 @@ exploitable → 0 event aujourd'hui).
 
 ---
 
+## 10. Identifier la source dans le log live / Résumé
+
+**But :** savoir à quelle source se rapportent les infos affichées pendant
+l'extraction (log live) et dans le Résumé — au moins un en-tête en début de
+section.
+
+- Aujourd'hui : le log enchaîne des blocs anonymes (« 6 pages à récupérer »,
+  « 5 pages à récupérer », « 9 pages à récupérer »…) et la liste `Page i/N :
+  <slug>` sans indiquer de quel site/fichier il s'agit. Impossible de savoir
+  que « 9 pages à récupérer » = le Festival CARAVANES (cpfi) ou que les
+  `Agenda-NNNN` = musiquesmagiques.
+- Voulu : préfixer chaque section par la source (nom du site / URL / fichier),
+  ex. « === musiquesmagiques.fr === » avant son bloc « N pages à récupérer »,
+  et idem côté Résumé (grouper / titrer les events par source).
+
+**Questions ouvertes :**
+- Le `progress(...)` actuel (web.py) émet « N pages à récupérer » / « Page i/N :
+  slug » sans le `site_name` → ajouter le nom de la source dans ces messages.
+- Côté Résumé : les events portent déjà `source_ref` (colonne SOURCE) ; on peut
+  titrer/grouper par `source_ref` ou `site`.
+- Granularité : un en-tête par source suffit (demande), vs. source sur chaque
+  ligne (déjà le cas dans l'xlsx via la colonne SOURCE).
+- Harmoniser avec les connecteurs docs/mailbox (mêmes préfixes de section).
+
+---
+
+## 11. Écriture fallback si le fichier cible est déjà ouvert
+
+**But :** ne pas perdre toute l'extraction (collecte + appels modèle) quand le
+fichier xlsx cible est verrouillé parce qu'ouvert dans Excel.
+
+- Aujourd'hui (Windows) : si `tapage_2026-11.xlsx` est ouvert dans Excel, la
+  sauvegarde openpyxl échoue (`PermissionError`) → le run entier est perdu, il
+  faut tout refaire (re-fetch + re-normalisation, même si le cache aide).
+- Voulu : en cas d'échec d'écriture sur le fichier cible, **écrire dans un
+  fichier de repli** (ex. `tapage_2026-11 (1).xlsx` ou suffixe horodaté
+  `tapage_2026-11__20261026_1742.xlsx`) au lieu de tout jeter, et **signaler
+  clairement** le chemin de repli dans le Résumé / une alerte.
+
+**Questions ouvertes :**
+- Détection : attraper `PermissionError` (et `OSError` « file in use ») autour
+  du `save()` dans `export_xlsx` / le chemin append (`_append_xlsx`).
+- Nommage du repli : suffixe `(n)` incrémental vs horodaté. Horodaté = jamais
+  de collision, plus lisible pour « c'est la version de secours ».
+- Re-tenter d'abord (demander à l'utilisateur de fermer le fichier puis retry),
+  ou basculer directement sur le repli sans interaction ? (le but étant de ne
+  pas reperdre le process → repli direct, mais proposer un bouton « réessayer »
+  serait un plus).
+- S'applique aussi au mode « tous les mois » (plusieurs fichiers) : repli par
+  fichier concerné.
+- Idem pour les autres formats de sortie (csv, etc.) si verrouillés.
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
