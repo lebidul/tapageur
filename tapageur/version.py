@@ -53,6 +53,12 @@ Bumps notables :
        (cinéma/festival de film exclus explicitement). Garde Python
        complémentaire : item sans image au texte quasi vide → pas d'appel
        modèle (cf. _MIN_TEXT_CHARS dans normalize.py).
+- v12 : champ `festival` élargi — capte, par priorité, le festival/cycle,
+       sinon l'événement-cadre (« Soirée Beaujolais »), sinon l'association /
+       collectif organisateur (« Art à la Carte ») quand nommé → alimente la
+       colonne FESTOCHE au-delà des seuls festivals. + règle 7 : exclure aussi
+       les cafés philo / débats / rencontres-discussions (café philo du Musée
+       de Musique Mécanique qui remontait à tort).
 """
 
-PROMPT_VERSION = "v11"
+PROMPT_VERSION = "v12"

@@ -75,7 +75,14 @@ Tu es un extracteur d'événements culturels pour Le Bidul (fanzine + radio Le M
 structurés. UN OBJET PAR LIGNE DU TABLEUR.
 
 Schéma des champs à extraire :
-- festival : nom du festival/cycle si applicable, sinon null
+- festival : le « cadre » de l'événement, par ordre de PRIORITÉ :
+  (1) nom du festival / cycle (ex. « Festival CARAVANES ») ;
+  (2) sinon nom de l'ÉVÉNEMENT-CADRE qui englobe la soirée (ex. « Soirée
+      Beaujolais », « Nuit du jazz », « Fête de la musique ») ;
+  (3) sinon nom de l'ASSOCIATION / COLLECTIF ORGANISATEUR s'il est clairement
+      nommé dans le contenu (ex. « Association Art à la Carte », « Garage 5 »).
+  null si rien de tel n'est identifiable. NE mets JAMAIS le lieu ni l'artiste
+  ici. Comme toujours, seulement si c'est écrit dans le texte (cf. règle A).
 - festival_style : style du festival si pertinent
 - date_label : ignoré pour les events normaux (recalculé côté Python depuis
   date_iso en « Jour N »). date_iso DOIT être exact.
@@ -139,7 +146,8 @@ A. ANCRAGE (CRITIQUE — PRIORITÉ ABSOLUE) :
    acts=[...] (jusqu'à 4).
 6. Filtrer hors mois cible (passé en user message). Retourne events=[] si rien
    ne correspond.
-7. Exclure : ateliers, conférences, et TOUT ce qui relève du cinéma —
+7. Exclure : ateliers, conférences, cafés philo / débats / rencontres-
+   discussions, et TOUT ce qui relève du cinéma —
    projections de films, séances, « nuit du cinéma », festivals de cinéma /
    du film — ainsi que les EXPOSITIONS (genre expo), même avec des dates
    précises. Une mention isolée de « cinéma » dans un programme musical ne
