@@ -54,7 +54,7 @@ ce moment-là.
 
 ---
 
-## 3. Exécutable téléchargeable (GitHub Releases)
+## 3. Exécutable téléchargeable (GitHub Releases) — ⚙️ implémenté (2026-10-25), build Windows à valider
 
 **But :** distribuer l'app à des non-développeurs, publiée à chaque version.
 
