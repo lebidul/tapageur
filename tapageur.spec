@@ -8,6 +8,7 @@ datas = [
     ("tapageur/gui/web/index.html", "tapageur/gui/web"),
     ("tapageur/gui/assets/template.xlsx", "tapageur/gui/assets"),
     ("config/mappings.yaml", "config"),
+    ("config/venue_defaults.yaml", "config"),
 ]
 binaries = []
 hiddenimports = []

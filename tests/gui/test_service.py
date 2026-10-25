@@ -132,6 +132,23 @@ def test_default_reference_year_normal_and_december():
     assert service.default_reference_year(date(2026, 12, 10)) == "2027"
 
 
+def test_pipeline_applies_venue_defaults(tmp_path, monkeypatch):
+    """_pipeline complète heure/prix via les défauts par lieu, après canonicalize."""
+    ev = _event(times=["?"], price="?", venue="Bistro Broc Café")
+    monkeypatch.setattr(service, "normalize_items",
+                        lambda *a, **k: [ev])
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
+    monkeypatch.setattr(service, "canonicalize", lambda e, m: e)
+    monkeypatch.setattr(service, "dedup", lambda e: e)
+    monkeypatch.setattr(service, "group_events", lambda e: e)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda e, names: e)
+    monkeypatch.setattr(service, "load_venue_defaults",
+                        lambda *a, **k: {"Bistro Broc Café": {"time": "20h00", "price": "au chapeau"}})
+    out = service._pipeline([], "2026-11", True, tmp_path / "c.json")
+    assert out[0].times == ["20h00"]
+    assert out[0].price == "au chapeau"
+
+
 def test_run_all_months_one_file_per_month(tmp_path, monkeypatch):
     """Mode all : events sur 2 mois → 2 fichiers groupés par mois."""
     evs = [_event(perf="Nov", times=["20h00"]), _event(perf="Dec", times=["21h00"])]

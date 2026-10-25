@@ -10,8 +10,8 @@ from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
-from tapageur.dedup import (canonicalize, convert_to_onliner, dedup,
-                            group_events, load_mappings)
+from tapageur.dedup import (apply_venue_defaults, canonicalize, convert_to_onliner,
+                            dedup, group_events, load_mappings, load_venue_defaults)
 from tapageur.gui import export_xlsx as _xlsx
 from tapageur.gui.inputs import (TextInput, UrlInput, items_from_files,
                                  items_from_texts, items_from_urls)
@@ -90,12 +90,19 @@ def _mappings_path() -> Path:
     return Path("config/mappings.yaml")
 
 
+def _venue_defaults_path() -> Path:
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "config" / "venue_defaults.yaml"
+    return Path("config/venue_defaults.yaml")
+
+
 def _pipeline(items, month: str, month_filter: bool, cache_out: Path,
               progress=None, reference_year: str | None = None) -> list[Event]:
     events = normalize_items(items, month, cache_out, model=None,
                              month_filter=month_filter, progress=progress,
                              reference_year=reference_year)
     events = canonicalize(events, load_mappings(_mappings_path()))
+    events = apply_venue_defaults(events, load_venue_defaults(_venue_defaults_path()))
     events = dedup(events)
     events = group_events(events)
     onliner_names = [ev.festival for ev in events if ev.is_festival and ev.festival]
