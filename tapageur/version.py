@@ -34,6 +34,10 @@ Bumps notables :
        programmes de festivals saisis en events normaux.
 - v7 : règle ANNÉE élargie pour couvrir le mode « tous les mois » (année de
        référence passée dans le user message au lieu d'un mois cible).
+- v8 : règle DATE — ne JAMAIS forcer le mois d'un event sur le mois cible
+       (ex. « 16 octobre » restait, à tort, 2026-11-16 au lieu de 2026-10-16) ;
+       + distinction genre (enum sv/c/expo/dj/autre) vs style (texte libre) —
+       un style (« dj », « techno »…) ne doit plus atterrir dans genre.
 """
 
-PROMPT_VERSION = "v7"
+PROMPT_VERSION = "v8"

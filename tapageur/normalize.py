@@ -79,19 +79,28 @@ Schéma des champs à extraire :
 - city : ville
 - price : "gratuit", "7€", "12 à 15€", "?" si inconnu
 - acts : liste de 1 à 4 actes ; chaque acte a {genre, title, performer, style}
-  - genre : "sv" (spectacle vivant), "c" (concert), "expo", "dj", "autre"
+  - genre : NATURE de l'acte, STRICTEMENT l'une de : "sv" (spectacle vivant),
+    "c" (concert), "expo", "dj" (soirée/set DJ), "autre". Ce n'est PAS le style
+    musical. Dans le doute : "c" pour un concert, "sv" pour du spectacle vivant.
   - title : nom du spectacle (pour SV) ou null (pour concerts)
   - performer : artiste / compagnie
-  - style : sous-genre / style (optionnel)
+  - style : sous-genre / style musical en TEXTE LIBRE, optionnel (ex. "Rock",
+    "Jazz", "Électro", "Chanson"). Les descriptifs de style (« rock », « techno »,
+    « DJ »…) vont ICI, JAMAIS dans genre.
 
 Règles importantes :
-0. ANNÉE (CRITIQUE) : le « Mois cible » du user message (ex. 2026-11), OU
-   l'« année de référence » qu'il indique, fixe l'année de référence. Pour
-   toute date du contenu SANS année explicite (ex. « mardi 17 novembre »),
-   date_iso DOIT utiliser cette année. Ne déduis JAMAIS l'année à partir du
-   seul jour de semaine (plusieurs années partagent le même jour — n'invente
-   pas une année passée). N'utilise une autre année que si elle est ÉCRITE
-   explicitement dans le contenu.
+0. DATE (CRITIQUE) :
+   - MOIS & JOUR : utilise le mois et le jour RÉELS écrits dans le contenu.
+     Le « Mois cible » du user message ne sert QU'À filtrer en aval et à
+     fournir l'année manquante — il ne doit JAMAIS changer le mois d'un event.
+     Ex. un event « 16 octobre » avec Mois cible 2026-11 → date_iso 2026-10-16
+     (il sera filtré ensuite), JAMAIS 2026-11-16. N'écris un event dans le mois
+     cible QUE si sa date réelle y tombe.
+   - ANNÉE : si le contenu ne précise PAS l'année, utilise l'année du « Mois
+     cible » / « année de référence » du user message. Ne déduis JAMAIS l'année
+     à partir du seul jour de semaine (plusieurs années partagent le même jour
+     — n'invente pas une année passée). N'utilise une autre année que si elle
+     est ÉCRITE explicitement dans le contenu.
 1. NE JAMAIS inventer un tarif. "?" si non trouvé.
 2. NE JAMAIS inventer une heure. Si l'heure est absente, mets times=["?"]
    (même convention que le prix) — ne PAS supprimer l'event. Fréquent pour les
