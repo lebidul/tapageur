@@ -221,7 +221,19 @@ def _webview_fetch(url: str, settle_ms: int = 5000, timeout: float = 60.0) -> st
     return result.get("html", "")
 
 
+def _force_utf8_stdio() -> None:
+    """En exe Windows, stdout/stderr sont souvent en cp1252 → un '→' dans les
+    logs lève UnicodeEncodeError. On force l'UTF-8 (errors='replace') pour ne
+    jamais planter l'extraction sur un caractère non encodable."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+
 def main() -> None:
+    _force_utf8_stdio()
     window = webview.create_window("tapageur", str(_WEB), js_api=Api(), width=900, height=720)
 
     def _wire_drop(*_) -> None:
