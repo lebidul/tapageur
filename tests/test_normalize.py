@@ -211,7 +211,7 @@ def _fake_client_returning(events_json):
 def test_month_filter_false_keeps_other_months(monkeypatch, tmp_path):
     item = CollectedItem(
         source_kind="web", source_ref="https://x.fr", fetched_at="2026-01-01T00:00:00Z",
-        raw_text="x", raw_metadata={},
+        raw_text="Concert le 3 novembre à 20h00, salle V, Le Mans.", raw_metadata={},
     )
     ev = {
         "date_label": "Mardi 3", "date_iso": "2026-11-03", "times": ["20h00"],
@@ -251,7 +251,7 @@ def _text_item(meta):
     from tapageur.schema import CollectedItem
     return CollectedItem(
         source_kind="text", source_ref="texte #1", fetched_at="2026-01-01T00:00:00Z",
-        raw_text="x", raw_metadata=meta,
+        raw_text="Concert le 3 novembre à 20h00, salle V, Le Mans.", raw_metadata=meta,
     )
 
 
@@ -437,6 +437,37 @@ def test_normalize_one_dj_without_style_gets_dj_in_style():
     out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
     assert out[0].acts[0].genre.value == "c"
     assert "dj" in (out[0].acts[0].style or "").lower()
+
+
+def test_normalize_one_empty_text_skips_model_call():
+    """Garde anti-confabulation : un item sans image au texte quasi vide ne
+    doit PAS appeler le modèle (il ne pourrait qu'halluciner) → retourne []."""
+    from tapageur import normalize as _norm
+    from tapageur.schema import CollectedItem
+    item = CollectedItem(
+        source_kind="web", source_ref="https://x.fr/vide",
+        fetched_at="2026-01-01T00:00:00Z", raw_text="   \n  ", raw_metadata={},
+    )
+    client = _fake_client_returning([_ev("V")])  # renverrait 1 event si appelé
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert out == []
+    client.messages.create.assert_not_called()
+
+
+def test_normalize_one_image_item_not_skipped_despite_empty_text(monkeypatch):
+    """Un item image (raw_text='' mais raw_image_b64 présent) n'est jamais
+    coupé par la garde contenu-vide : la vision porte l'info."""
+    from tapageur import normalize as _norm
+    from tapageur.schema import CollectedItem
+    item = CollectedItem(
+        source_kind="image", source_ref="flyer.png",
+        fetched_at="2026-01-01T00:00:00Z", raw_text="",
+        raw_image_b64="QUJD", raw_metadata={"mime": "image/png"},
+    )
+    client = _fake_client_returning([_ev("V")])
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert len(out) == 1
+    client.messages.create.assert_called_once()
 
 
 def test_normalize_items_emits_events_live(monkeypatch, tmp_path):

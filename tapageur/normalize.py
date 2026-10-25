@@ -51,6 +51,14 @@ MODEL_BY_KIND: dict[str, str] = {
 }
 DEFAULT_MODEL = "claude-opus-4-7"  # fallback si source_kind inconnu
 
+# Garde anti-confabulation : un item SANS image dont le texte est quasi vide
+# (page JS non rendue, mur de cookies, fetch raté) ne contient aucun event
+# réel. L'envoyer au modèle ne peut produire que des hallucinations (il
+# « remplit » depuis ses connaissances). En-dessous de ce seuil de caractères
+# utiles, on saute l'appel API et on retourne []. Les items image (flyers,
+# pages PDF rendues) ont raw_text="" mais portent une image → jamais concernés.
+_MIN_TEXT_CHARS = 40
+
 
 def _supports_adaptive_thinking(model: str) -> bool:
     """Adaptive thinking est une feature Opus 4.x. Sonnet 4.5 ne le supporte
@@ -90,6 +98,21 @@ Schéma des champs à extraire :
     « DJ »…) vont ICI, JAMAIS dans genre.
 
 Règles importantes :
+A. ANCRAGE (CRITIQUE — PRIORITÉ ABSOLUE) :
+   - N'extrais QUE des événements littéralement décrits dans le texte fourni.
+     Chaque festival, lieu, ville, artiste, spectacle et date que tu produis
+     DOIT apparaître explicitement dans le contenu. Tu n'es PAS autorisé à
+     compléter, deviner ou remplacer quoi que ce soit avec tes connaissances
+     externes (events réels que tu connaîtrais, festivals « typiques » du coin,
+     etc.).
+   - Si le texte ne décrit AUCUN événement concret et daté (page de
+     présentation, édito, « qui sommes-nous », menu de navigation, page
+     institutionnelle), retourne events=[]. Mieux vaut ne rien extraire que
+     d'inventer. NE FABRIQUE JAMAIS un event pour « remplir » une page qui
+     parle de festival sans en lister le programme.
+   - Interdiction formelle : produire un nom de festival, de lieu ou d'artiste
+     qui n'est pas présent mot pour mot dans le contenu. En cas de doute sur la
+     provenance d'une info → ne l'écris pas.
 0. DATE (CRITIQUE) :
    - MOIS & JOUR : utilise le mois et le jour RÉELS écrits dans le contenu.
      Le « Mois cible » du user message ne sert QU'À filtrer en aval et à
@@ -116,8 +139,12 @@ Règles importantes :
    acts=[...] (jusqu'à 4).
 6. Filtrer hors mois cible (passé en user message). Retourne events=[] si rien
    ne correspond.
-7. Exclure : ateliers, conférences, projections de films, et les EXPOSITIONS
-   (genre expo), même avec des dates précises.
+7. Exclure : ateliers, conférences, et TOUT ce qui relève du cinéma —
+   projections de films, séances, « nuit du cinéma », festivals de cinéma /
+   du film — ainsi que les EXPOSITIONS (genre expo), même avec des dates
+   précises. Une mention isolée de « cinéma » dans un programme musical ne
+   transforme PAS l'événement en festival de cinéma : n'extrais pas d'event
+   cinéma qui ne serait pas réellement décrit comme tel dans le texte.
 8. Si l'artiste / compagnie d'un acte n'est pas identifiable dans le contenu,
    mets "?" comme performer (même convention que pour price). NE PAS omettre
    l'event — le tapeur complètera à la main. performer doit toujours être une
@@ -314,6 +341,13 @@ def _normalize_one(
     # explicite > sélection auto via MODEL_BY_KIND. L'override permet à un
     # site ou path de forcer un modèle (ex: Sonnet → Opus pour les sources
     # où le défaut est instable).
+    # Garde anti-confabulation : pas d'image + texte quasi vide → aucun event
+    # réel possible, on n'appelle pas le modèle (cf. _MIN_TEXT_CHARS).
+    if not item.raw_image_b64 and len((item.raw_text or "").strip()) < _MIN_TEXT_CHARS:
+        print(f"[normalize] {item.source_kind}:{item.source_ref}: contenu vide "
+              f"(<{_MIN_TEXT_CHARS} car.), skip (pas d'appel modèle)")
+        return []
+
     meta = item.raw_metadata or {}
     model_override = meta.get("model_override")
     if model_override:

@@ -43,6 +43,16 @@ Bumps notables :
        "dj" → "c").
 - v10 : exclure les EXPOSITIONS (genre expo), même datées — règle 7 + drop
        déterministe dans _normalize_one (le fanzine ne liste pas les expos).
+- v11 : règle d'ANCRAGE anti-confabulation (règle A) — n'extraire que des
+       events littéralement présents dans le texte, events=[] sur une page
+       sans programme concret, interdiction d'inventer festival/lieu/artiste
+       depuis les connaissances du modèle. Corrige un cas observé sur
+       cpfi-lemans.com/festival/ (page du Festival CARAVANES / Musiques du
+       Monde) d'où Sonnet avait sorti un « Festival International du Film de
+       La Ferté-Bernard » totalement absent du contenu. + règle 7 durcie
+       (cinéma/festival de film exclus explicitement). Garde Python
+       complémentaire : item sans image au texte quasi vide → pas d'appel
+       modèle (cf. _MIN_TEXT_CHARS dans normalize.py).
 """
 
-PROMPT_VERSION = "v10"
+PROMPT_VERSION = "v11"
