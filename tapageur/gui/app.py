@@ -14,7 +14,12 @@ from tapageur.gui import settings as _settings
 from tapageur.gui.inputs import FileInput, TextInput, UrlInput
 from tapageur.gui.service import RunRequest, run
 
-_WEB = Path(__file__).parent / "web" / "index.html"
+# En exe PyInstaller one-file, les data sont extraites sous sys._MEIPASS et
+# Path(__file__).parent n'y pointe pas → résoudre via _MEIPASS quand figé.
+_GUI_DIR = (Path(sys._MEIPASS) / "tapageur" / "gui"
+            if getattr(sys, "frozen", False)
+            else Path(__file__).resolve().parent)
+_WEB = _GUI_DIR / "web" / "index.html"
 
 # Extensions acceptées au drop (mêmes que le dialogue natif choose_files).
 _SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"}

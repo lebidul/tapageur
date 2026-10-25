@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import openpyxl
@@ -9,7 +10,11 @@ import openpyxl
 from tapageur.schema import Event
 from tapageur.validate import event_to_row
 
-TEMPLATE_PATH = Path(__file__).parent / "assets" / "template.xlsx"
+# Idem app._WEB : résoudre sous sys._MEIPASS quand figé (exe PyInstaller).
+_GUI_DIR = (Path(sys._MEIPASS) / "tapageur" / "gui"
+            if getattr(sys, "frozen", False)
+            else Path(__file__).resolve().parent)
+TEMPLATE_PATH = _GUI_DIR / "assets" / "template.xlsx"
 DATA_SHEET = "lebiduleur"
 _N_FIXED_COLS = 12  # colonnes A-L (TYPE SOURCE, SOURCE, puis INFO TAPEUR … PRIX)
 
