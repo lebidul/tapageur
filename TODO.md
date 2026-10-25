@@ -118,7 +118,7 @@ secondaires.
 
 ---
 
-## 6. Message d'erreur clair sur échec d'authentification Anthropic (401)
+## 6. Message d'erreur clair sur échec d'authentification Anthropic (401) — ✅ FAIT (2026-10-25)
 
 **But :** quand la clé API Anthropic est invalide/expirée (HTTP 401), afficher
 un message explicite plutôt que l'erreur brute.
@@ -138,7 +138,7 @@ un message explicite plutôt que l'erreur brute.
 
 ---
 
-## 7. (minor) Inclure l'option « mode debug » dans la config exportée
+## 7. (minor) Inclure l'option « mode debug » dans la config exportée — ✅ FAIT (2026-10-25)
 
 **But :** que le fichier `config_<ts>.json` mémorise l'état de la case « mode
 debug », et que l'import la restaure.
@@ -153,7 +153,7 @@ dans `applyConfig`, `document.getElementById('debug-mode').checked = !!cfg.debug
 
 ---
 
-## 8. Afficher le détail des événements extraits dans le Résumé
+## 8. Afficher le détail des événements extraits dans le Résumé — ✅ FAIT (2026-10-25)
 
 **But :** pouvoir relire les events extraits directement dans l'app, sans
 ouvrir le xlsx.
