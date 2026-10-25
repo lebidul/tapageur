@@ -21,6 +21,29 @@ def load_mappings(path: Path = Path("config/mappings.yaml")) -> dict:
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def load_venue_defaults(path: Path = Path("config/venue_defaults.yaml")) -> dict:
+    """Charge les défauts heure/prix par lieu ; {} si absent/illisible."""
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def apply_venue_defaults(events: list[Event], defaults: dict) -> list[Event]:
+    """Complète heure/prix manquants selon le lieu (déjà canonicalisé).
+    N'écrase jamais une valeur extraite."""
+    for ev in events:
+        d = defaults.get(ev.venue)
+        if not d:
+            continue
+        if d.get("time") and (not ev.times or ev.times == ["?"]):
+            ev.times = [d["time"]]
+        if d.get("price") and (not ev.price or ev.price.strip() in ("", "?")):
+            ev.price = d["price"]
+    return events
+
+
 def _build_lookup(group: dict[str, list[str]]) -> dict[str, str]:
     """Inverse {canonical: [variants]} en {variant_lower: canonical}."""
     out: dict[str, str] = {}

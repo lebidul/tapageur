@@ -375,3 +375,47 @@ def test_convert_to_onliner_multiple_festivals_targeted():
     # 2 onliners + 1 event non-cible
     assert len(result) == 3
     assert sum(1 for e in result if e.is_festival) == 2
+
+
+# ---------- venue_defaults (heure/prix par lieu) ----------
+
+def _ev(venue, times, price):
+    from tapageur.schema import Event, Act
+    return Event(tapeur_email="t@b.fr", date_label="Mardi 2", date_iso="2026-11-02",
+                 times=times, venue=venue, city="Le Mans", price=price,
+                 acts=[Act(genre="c", title=None, performer="A", style=None)],
+                 source_kind="web", source_ref="x")
+
+
+def test_load_venue_defaults_reads_yaml(tmp_path):
+    from tapageur import dedup
+    p = tmp_path / "vd.yaml"
+    p.write_text('"Bistro Broc Café":\n  time: "20h00"\n  price: "au chapeau"\n', encoding="utf-8")
+    d = dedup.load_venue_defaults(p)
+    assert d["Bistro Broc Café"]["time"] == "20h00"
+    assert dedup.load_venue_defaults(tmp_path / "absent.yaml") == {}
+
+
+def test_apply_venue_defaults_fills_missing():
+    from tapageur import dedup
+    defaults = {"Bistro Broc Café": {"time": "20h00", "price": "au chapeau"}}
+    evs = [_ev("Bistro Broc Café", ["?"], "?")]
+    out = dedup.apply_venue_defaults(evs, defaults)
+    assert out[0].times == ["20h00"]
+    assert out[0].price == "au chapeau"
+
+
+def test_apply_venue_defaults_keeps_extracted():
+    from tapageur import dedup
+    defaults = {"Bistro Broc Café": {"time": "20h00", "price": "au chapeau"}}
+    evs = [_ev("Bistro Broc Café", ["18h30"], "7€")]
+    out = dedup.apply_venue_defaults(evs, defaults)
+    assert out[0].times == ["18h30"] and out[0].price == "7€"
+
+
+def test_apply_venue_defaults_ignores_other_venues():
+    from tapageur import dedup
+    defaults = {"Bistro Broc Café": {"time": "20h00", "price": "au chapeau"}}
+    evs = [_ev("Autre Lieu", ["?"], "?")]
+    out = dedup.apply_venue_defaults(evs, defaults)
+    assert out[0].times == ["?"] and out[0].price == "?"
