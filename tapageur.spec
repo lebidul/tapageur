@@ -1,4 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
+# NB : construire sous Windows natif (l'exe .exe + le backend EdgeChromium en
+# dépendent). Un build WSL/Linux produit un binaire Linux inutilisable ici.
+import sys
 from PyInstaller.utils.hooks import collect_all
 
 datas = [
@@ -6,9 +9,11 @@ datas = [
     ("tapageur/gui/assets/template.xlsx", "tapageur/gui/assets"),
 ]
 binaries = []
-# Backend pywebview Windows = EdgeChromium via pythonnet (paquets séparés non
-# ramenés par collect_all) → à déclarer explicitement, sinon ImportError au run.
-hiddenimports = ["clr", "clr_loader", "webview.platforms.edgechromium"]
+hiddenimports = []
+if sys.platform == "win32":
+    # Backend pywebview Windows = EdgeChromium via pythonnet (paquets séparés
+    # non ramenés par collect_all) → à déclarer, sinon ImportError au run.
+    hiddenimports += ["clr", "clr_loader", "webview.platforms.edgechromium"]
 # Collecter proprement les paquets à binaires / data cachés.
 for pkg in ("webview", "pypdfium2", "pdfplumber", "anthropic"):
     d, b, h = collect_all(pkg)
