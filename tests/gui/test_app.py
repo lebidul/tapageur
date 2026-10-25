@@ -102,9 +102,28 @@ def test_debug_config_excludes_api_key():
                "month_mode": "specific", "formats": ["xlsx"], "out_dir": "."}
     cfg = app._debug_config(payload)
     assert "api_key" not in cfg
-    assert "debug" not in cfg
+    assert cfg["debug"] is True            # conservé pour restaurer le mode debug
     assert cfg["months"] == ["2026-11"]
     assert cfg["month_mode"] == "specific"
+
+
+def test_friendly_error_auth_401():
+    class _Auth(Exception):
+        status_code = 401
+    assert "Clé API" in app._friendly_error(_Auth("401 unauthorized"))
+    assert app._friendly_error(ValueError("boom")) == "boom"
+
+
+def test_events_summary_shape():
+    from tapageur.schema import Event, Act
+    ev = Event(tapeur_email="t@b.fr", date_label="Mardi 10", date_iso="2026-11-10",
+               times=["20h00"], venue="Le Lieu", city="Le Mans", price="10€",
+               acts=[Act(genre="c", title=None, performer="Orange Blossom", style=None)],
+               source_kind="web", source_ref="https://x.fr")
+    s = app._events_summary([ev])
+    assert s[0]["date"] == "Mardi 10"
+    assert s[0]["artistes"] == "Orange Blossom"
+    assert s[0]["lieu"] == "Le Lieu" and s[0]["heure"] == "20h00"
 
 
 def test_read_config_valid_and_invalid(tmp_path):
@@ -137,7 +156,8 @@ def test_run_extraction_debug_writes_config_and_log(tmp_path, monkeypatch):
     logs = list(dbg.glob("run_*.log"))
     assert len(configs) == 1 and len(logs) == 1
     cfg = _json.loads(configs[0].read_text(encoding="utf-8"))
-    assert "api_key" not in cfg and "debug" not in cfg
+    assert "api_key" not in cfg          # secret exclu
+    assert cfg.get("debug") is True      # flag debug conservé
     assert cfg["months"] == ["2026-11"]
     assert "[1/1] text:texte #1" in logs[0].read_text(encoding="utf-8")
 

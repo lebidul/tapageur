@@ -47,6 +47,7 @@ class MonthResult:
     n_events: int
     files: list[Path] = field(default_factory=list)
     alerts: list[str] = field(default_factory=list)
+    events: list = field(default_factory=list)   # list[Event] (détail pour l'UI)
 
 
 def build_alerts(events: list[Event], ref_cities: set[str], ref_venues: set[str]) -> list[str]:
@@ -153,7 +154,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             files = _export(evs, req.out_dir, month, req.formats, append=req.append)
             alerts = build_alerts(evs, ref_cities, ref_venues)
             results.append(MonthResult(month=month, n_events=len(evs),
-                                       files=files, alerts=alerts))
+                                       files=files, alerts=alerts, events=evs))
         if not by_month:
             results.append(MonthResult(month=None, n_events=0, files=[],
                                        alerts=["Aucun event extrait."]))
@@ -168,7 +169,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             if req.append and "xlsx" not in req.formats:
                 alerts.append("Append ignoré : xlsx non sélectionné.")
             results.append(MonthResult(month=month, n_events=len(events),
-                                       files=files, alerts=alerts))
+                                       files=files, alerts=alerts, events=events))
 
     _emit("Terminé.")
     return results

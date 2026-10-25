@@ -26,9 +26,36 @@ _SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 
 def _debug_config(payload: dict) -> dict:
-    """Config rejouable : le payload sans secret ni flag debug."""
+    """Config rejouable : le payload sans secret (api_key / tapeur_email).
+    Le flag `debug` est conservé pour que l'import restaure le mode debug."""
     return {k: v for k, v in payload.items()
-            if k not in ("api_key", "debug", "tapeur_email")}
+            if k not in ("api_key", "tapeur_email")}
+
+
+def _friendly_error(exc: Exception) -> str:
+    """Message clair pour les erreurs fréquentes (auth Anthropic 401)."""
+    try:
+        import anthropic
+        if isinstance(exc, anthropic.AuthenticationError):
+            return "Clé API Anthropic invalide ou expirée — vérifie-la dans Réglages."
+    except Exception:
+        pass
+    if getattr(exc, "status_code", None) == 401:
+        return "Clé API Anthropic invalide ou expirée — vérifie-la dans Réglages."
+    return str(exc)
+
+
+def _events_summary(events) -> list[dict]:
+    """Représentation lisible des events pour l'affichage dans le Résumé."""
+    return [{
+        "date": ev.date_label,
+        "heure": ev.time_str(),
+        "lieu": ev.venue,
+        "ville": ev.city,
+        "festival": ev.festival or "",
+        "artistes": ", ".join(a.performer for a in ev.acts),
+        "source": ev.source_ref,
+    } for ev in events]
 
 
 def _read_config(path) -> dict:
@@ -173,10 +200,11 @@ class Api:
             try:
                 results = run(req, progress=progress)
             except Exception as e:  # remonte l'erreur à l'UI au lieu de crasher
-                return {"error": str(e)}
+                return {"error": _friendly_error(e)}
             return {"results": [
                 {"month": r.month, "n_events": r.n_events,
-                 "files": [str(p) for p in r.files], "alerts": r.alerts}
+                 "files": [str(p) for p in r.files], "alerts": r.alerts,
+                 "events": _events_summary(r.events)}
                 for r in results
             ]}
 

@@ -365,6 +365,7 @@ function applyConfig(cfg) {
   // dossier + append
   if (cfg.out_dir) { outDir = cfg.out_dir; document.getElementById('out-dir').textContent = outDir; }
   document.getElementById('append').checked = !!cfg.append;
+  document.getElementById('debug-mode').checked = !!cfg.debug;
 }
 
 // --- output dir ---
@@ -414,6 +415,12 @@ function renderSummary(results) {
     head.className = 'result-head';
     head.textContent = '[' + (r.month || 'tous') + '] ' + r.n_events + ' events';
     summary.appendChild(head);
+    for (const ev of (r.events || [])) {
+      const line = document.createElement('div');
+      const parts = [ev.date, ev.festival, ev.artistes, ev.lieu, ev.ville, ev.heure].filter(Boolean);
+      line.textContent = '  • ' + parts.join(' — ');
+      summary.appendChild(line);
+    }
     for (const f of (r.files || [])) {
       const line = document.createElement('div');
       line.textContent = '  ' + f;
