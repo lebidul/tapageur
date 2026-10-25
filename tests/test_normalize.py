@@ -437,3 +437,23 @@ def test_normalize_one_dj_without_style_gets_dj_in_style():
     out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
     assert out[0].acts[0].genre.value == "c"
     assert "dj" in (out[0].acts[0].style or "").lower()
+
+
+def test_normalize_items_emits_events_live(monkeypatch, tmp_path):
+    """Les events sont poussés via progress pendant l'extraction (log live)."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    from tapageur.schema import Event, Act
+    def fake_one(*a, **k):
+        return [Event(tapeur_email="t@b.fr", date_label="Mardi 10", date_iso="2026-11-10",
+                      times=["20h00"], venue="Le Lieu", city="Le Mans", price="?",
+                      acts=[Act(genre="c", title=None, performer="Orange Blossom", style=None)],
+                      source_kind="text", source_ref="texte #1")]
+    monkeypatch.setattr(_norm, "_normalize_one", fake_one)
+    monkeypatch.setattr(_norm, "get_cached", lambda item, month: None)
+    monkeypatch.setattr(_norm, "set_cached", lambda item, month, events: None)
+    item = CollectedItem(source_kind="text", source_ref="texte live",
+                         fetched_at="2026-01-01T00:00:00Z", raw_text="xyz", raw_metadata={})
+    seen = []
+    _norm.normalize_items([item], "2026-11", tmp_path / "out.json",
+                          progress=lambda m: seen.append(m))
+    assert any("Orange Blossom" in m and "Mardi 10" in m for m in seen)

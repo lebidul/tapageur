@@ -466,11 +466,21 @@ def normalize_items(
         if progress:
             progress(f"Extraction {i}/{len(items)} : {ref_short}")
 
+        def _emit_events(evs):
+            # Affiche les events en direct (log live de l'UI), pas seulement au
+            # bilan final. Pré-pipeline (avant canonicalize/dedup/onliner).
+            if not progress:
+                return
+            for ev in evs:
+                arts = ", ".join(a.performer for a in ev.acts)
+                progress(f"    • {ev.date_label} — {arts} @ {ev.venue}")
+
         cached = get_cached(item, month)
         if cached is not None:
             n_hit += 1
             console.print(f"  [{i}/{len(items)}] [dim]cache hit[/dim] {item.source_kind}:{ref_short} → {len(cached)} events")
             all_events.extend(cached)
+            _emit_events(cached)
             continue
 
         n_miss += 1
@@ -481,6 +491,7 @@ def normalize_items(
             console.print(f"    → {len(events)} events (mois {month})")
             set_cached(item, month, events)
             all_events.extend(events)
+            _emit_events(events)
         except Exception as e:
             console.print(f"    [red]error: {e}[/red]")
 
