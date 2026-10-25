@@ -188,6 +188,34 @@ class Api:
         return _do_run()
 
 
+def _webview_fetch(url: str, settle_ms: int = 5000, timeout: float = 60.0) -> str:
+    """Récupère le HTML d'une URL via une fenêtre pywebview cachée (WebView2).
+    Remplace Playwright dans le GUI. Renvoie '' en cas d'échec/timeout."""
+    import time
+    import threading
+    result: dict[str, str] = {}
+    done = threading.Event()
+    win = webview.create_window("fetch", url, hidden=True)
+
+    def _on_loaded():
+        try:
+            time.sleep(settle_ms / 1000)  # laisse le JS se stabiliser
+            result["html"] = win.evaluate_js(
+                "document.documentElement.outerHTML") or ""
+        except Exception:
+            result["html"] = ""
+        finally:
+            done.set()
+
+    win.events.loaded += _on_loaded
+    done.wait(timeout)
+    try:
+        win.destroy()
+    except Exception:
+        pass
+    return result.get("html", "")
+
+
 def main() -> None:
     window = webview.create_window("tapageur", str(_WEB), js_api=Api(), width=900, height=720)
 
@@ -209,6 +237,10 @@ def main() -> None:
         el.on("drop", DOMEventHandler(_on_drop, prevent_default=True))
 
     window.events.loaded += _wire_drop
+
+    from tapageur.connectors import web as _web
+    _web._BROWSER_FETCH = _webview_fetch
+
     webview.start()
 
 
