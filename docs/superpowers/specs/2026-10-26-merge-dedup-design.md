@@ -94,11 +94,37 @@ colonne SOURCE du fichier, en reproduisant `validate._source_ref_display` :
   SOURCE, et les blocs ACT (GENRE/NOM/ARTISTE/STYLE).
 - Conventions « vide » : chaîne vide ou « ? » = trou à compléter.
 
+## Cas d'usage : passe de complément cross-agenda (ex. clappin.fr)
+
+Workflow visé : après les extractions natives, relancer une passe en mode
+**Fusionner** avec **uniquement** des URLs d'un agenda tiers équivalent
+(ex. `https://clappin.fr/agenda-musique/`, `https://clappin.fr/agenda-theatre/`)
+pour **compléter** et **ajouter** des events manquants au fichier mensuel.
+
+- **Ajouter les manquants** → ✅ couvert (event tiers sans match = nouvelle ligne).
+- **Compléter les trous** → ✅ couvert (remplit HEURE/PRIX/FESTOCHE/… vides ou « ? »).
+- **Corriger** (remplacer une valeur déjà remplie) → ❌ **non supporté** : la
+  politique « compléter les trous » n'écrase jamais une cellule non vide (choix
+  explicite ; aucune provenance par cellule pour distinguer une correction
+  manuelle d'une valeur d'extraction). Pour corriger, le tapeur édite à la main.
+
+Ce use case ne demande **aucune mécanique spécifique** : c'est le mode
+Fusionner appliqué à une liste d'URLs tierces. La seule réserve est le matching
+cross-source (cf. Limites).
+
 ## Compte-rendu (Résumé / progress)
 
-À la fin d'une fusion, émettre un récap lisible dans le Résumé :
-« **N** events ajoutés · **M** lignes complétées · **K** inchangées »
-(et pour l'incrémental : « **S** sources déjà présentes ignorées »).
+À la fin d'une fusion, émettre un récap chiffré **et** le **détail par event**
+dans le log live / Résumé, pour que le tapeur voie exactement ce qui a bougé :
+
+- Récap : « **N** events ajoutés · **M** lignes complétées · **K** inchangées »
+  (+ pour l'incrémental : « **S** sources déjà présentes ignorées »).
+- Détail, une ligne par event touché :
+  - **AJOUTÉ** : `+ <DATE> · <LIEU> · <ARTISTE>` (nouvelle ligne).
+  - **COMPLÉTÉ** : `~ <DATE> · <LIEU> · <ARTISTE> → champs remplis : HEURE, PRIX`
+    (lister les champs effectivement remplis, et la source d'origine du
+    complément).
+  Les events inchangés ne sont pas listés individuellement (juste comptés).
 
 ## Impact code
 
@@ -134,6 +160,15 @@ colonne SOURCE du fichier, en reproduisant `validate._source_ref_display` :
   non-premier d'une ligne groupée pourrait être ré-ajouté (cas rare).
 - Mode incrémental : textes collés toujours re-traités ; nouveaux events d'une
   source déjà présente non récupérés (→ utiliser Fusionner).
+- **Matching cross-source** (passe clappin & co) : un même event annoncé par
+  deux agendas différents ne se complète QUE si DATE + LIEU + ARTISTE
+  coïncident après canonicalisation. Un nom d'artiste orthographié différemment
+  (ou un lieu absent de la liste d'alias) → pas de match → l'event tiers est
+  **ajouté en doublon** au lieu de compléter. Les alias de lieux atténuent le
+  risque côté LIEU ; côté ARTISTE il n'y a pas de normalisation (hors scope v1).
+- **Corriger non supporté** : Fusionner complète les trous et ajoute, mais
+  n'écrase jamais une valeur déjà présente (pas de mode « source prioritaire »
+  en v1).
 
 ## Tests (principes)
 
@@ -147,3 +182,7 @@ colonne SOURCE du fichier, en reproduisant `validate._source_ref_display` :
 - Fichier absent : les 3 modes se comportent comme « Créer ».
 - Préservation de la mise en forme (écriture in-place, pas de reconstruction
   depuis le template en mode merge).
+- Compte-rendu : une fusion qui ajoute 1 event et complète 1 ligne émet bien
+  les lignes de détail « AJOUTÉ » / « COMPLÉTÉ (champs : …) » attendues.
+- Use case clappin : passe Fusionner avec 2 URLs tierces → events manquants
+  ajoutés, trous complétés, valeurs déjà remplies inchangées.
