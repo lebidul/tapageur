@@ -236,5 +236,20 @@ def test_pdf_pages_to_images_skips_on_render_error(tmp_path, monkeypatch):
 # ---------- Constants ----------
 
 def test_image_exts_have_mime():
-    for ext in IMAGE_EXTS:
+    # .avif n'a pas d'entrée MIME : il est converti en PNG (pas de lookup).
+    for ext in IMAGE_EXTS - {".avif"}:
         assert ext in MIME_BY_EXT, f"{ext} listé sans MIME"
+
+
+def test_route_file_avif_converted_to_png(tmp_path):
+    import base64
+    from PIL import Image
+    from tapageur.connectors.docs import _route_file
+    p = tmp_path / "flyer.avif"
+    Image.new("RGB", (16, 16), (10, 20, 30)).save(p, format="AVIF")
+    items = _route_file(p)
+    assert len(items) == 1
+    it = items[0]
+    assert it.source_kind == "image"
+    assert it.raw_metadata["mime"] == "image/png"
+    assert base64.b64decode(it.raw_image_b64)[:8] == b"\x89PNG\r\n\x1a\n"

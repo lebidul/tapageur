@@ -22,7 +22,7 @@ _GUI_DIR = (Path(sys._MEIPASS) / "tapageur" / "gui"
 _WEB = _GUI_DIR / "web" / "index.html"
 
 # Extensions acceptées au drop (mêmes que le dialogue natif choose_files).
-_SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"}
+_SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
 
 
 def _debug_config(payload: dict) -> dict:
@@ -144,7 +144,7 @@ class Api:
     def choose_files(self) -> list[str]:
         res = webview.windows[0].create_file_dialog(
             webview.OPEN_DIALOG, allow_multiple=True,
-            file_types=("Sources (*.pdf;*.jpg;*.jpeg;*.png;*.webp;*.gif)", "Tous (*.*)"),
+            file_types=("Sources (*.pdf;*.jpg;*.jpeg;*.png;*.webp;*.gif;*.avif)", "Tous (*.*)"),
         )
         return list(res) if res else []
 

@@ -171,3 +171,8 @@ def test_run_extraction_no_debug_writes_nothing(tmp_path, monkeypatch):
         "month_mode": "specific", "formats": ["xlsx"], "out_dir": str(tmp_path),
     })
     assert not (tmp_path / "debug").exists()
+
+
+def test_dropped_paths_accepts_avif():
+    event = {"dataTransfer": {"files": [{"name": "f.avif", "pywebviewFullPath": r"C:\x\f.avif"}]}}
+    assert app._dropped_paths(event) == [r"C:\x\f.avif"]

@@ -35,7 +35,7 @@ from tapageur.connectors.base import Connector, register
 from tapageur.schema import CollectedItem
 
 
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
 PDF_EXTS = {".pdf"}
 MIME_BY_EXT = {
     ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
@@ -127,8 +127,21 @@ def _route_file(path: Path) -> list[CollectedItem]:
 
 
 def _image_to_item(path: Path) -> CollectedItem:
-    img_b64 = base64.b64encode(path.read_bytes()).decode("ascii")
-    mime = MIME_BY_EXT.get(path.suffix.lower(), "image/jpeg")
+    ext = path.suffix.lower()
+    if ext == ".avif":
+        # L'API vision d'Anthropic n'accepte pas l'AVIF → convertir en PNG.
+        import io
+        from PIL import Image
+        with Image.open(path) as im:
+            if im.mode not in ("RGB", "RGBA", "L", "LA"):
+                im = im.convert("RGB")
+            buf = io.BytesIO()
+            im.save(buf, format="PNG")
+        img_b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+        mime = "image/png"
+    else:
+        img_b64 = base64.b64encode(path.read_bytes()).decode("ascii")
+        mime = MIME_BY_EXT.get(ext, "image/jpeg")
     return CollectedItem(
         source_kind="image",
         source_ref=str(path),
