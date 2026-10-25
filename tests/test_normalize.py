@@ -457,3 +457,14 @@ def test_normalize_items_emits_events_live(monkeypatch, tmp_path):
     _norm.normalize_items([item], "2026-11", tmp_path / "out.json",
                           progress=lambda m: seen.append(m))
     assert any("Orange Blossom" in m and "Mardi 10" in m for m in seen)
+
+
+def test_normalize_one_drops_expo_events():
+    """Les expositions (genre 'expo') sont exclues du bidul, même datées."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {"date_iso": "2026-11-14", "times": ["?"], "venue": "V", "city": "Le Mans",
+          "price": "?",
+          "acts": [{"genre": "expo", "title": "Expo X", "performer": "?", "style": None}]}
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert out == []

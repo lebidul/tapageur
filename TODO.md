@@ -172,5 +172,26 @@ ouvrir le xlsx.
 
 ---
 
+## 9. Extraction des images d'une page web (vision)
+
+**But :** capter les events quand l'info est dans une **image** de la page (ex.
+sites Wix comme `rencontresencoreheureux.org` : flyers .png, aucun texte HTML
+exploitable → 0 event aujourd'hui).
+
+- Aujourd'hui : le connecteur web ne lit que le **texte** HTML ; les images de
+  page ne passent pas en vision.
+- **Contournement actuel** : enregistrer l'affiche depuis la page et l'ajouter
+  comme source **fichier** (qui passe déjà en vision).
+
+**Questions ouvertes :**
+- Quelles images envoyer en vision ? Une page Wix a des dizaines d'images
+  (logos, déco, plusieurs flyers) → heuristique (taille mini, zone contenu) ou
+  tout envoyer (coûteux/bruité) ?
+- Télécharger + encoder les images (comme `_pdf_pages_to_images`) et créer un
+  item image par flyer.
+- Déclencher seulement si la page ne donne (presque) pas de texte / 0 event ?
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.

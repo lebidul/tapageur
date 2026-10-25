@@ -116,8 +116,8 @@ Règles importantes :
    acts=[...] (jusqu'à 4).
 6. Filtrer hors mois cible (passé en user message). Retourne events=[] si rien
    ne correspond.
-7. Exclure : ateliers, conférences, projections de films, expos sans dates
-   précises.
+7. Exclure : ateliers, conférences, projections de films, et les EXPOSITIONS
+   (genre expo), même avec des dates précises.
 8. Si l'artiste / compagnie d'un acte n'est pas identifiable dans le contenu,
    mets "?" comme performer (même convention que pour price). NE PAS omettre
    l'event — le tapeur complètera à la main. performer doit toujours être une
@@ -411,6 +411,9 @@ def _normalize_one(
                 _act.genre = Genre.CONCERT
                 _s = (_act.style or "").strip()
                 _act.style = _s if "dj" in _s.lower() else (f"{_s} / DJ" if _s else "DJ")
+        # Expositions exclues du bidul (même datées).
+        if draft.acts and all(_a.genre.value == "expo" for _a in draft.acts):
+            continue
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici

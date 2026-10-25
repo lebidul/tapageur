@@ -41,6 +41,8 @@ Bumps notables :
 - v9 : un acte DJ est un concert (genre="c", « DJ » en style) — "dj" retiré des
        genres proposés + coercition déterministe dans _normalize_one (genre
        "dj" → "c").
+- v10 : exclure les EXPOSITIONS (genre expo), même datées — règle 7 + drop
+       déterministe dans _normalize_one (le fanzine ne liste pas les expos).
 """
 
-PROMPT_VERSION = "v9"
+PROMPT_VERSION = "v10"
