@@ -138,5 +138,20 @@ un message explicite plutôt que l'erreur brute.
 
 ---
 
+## 7. (minor) Inclure l'option « mode debug » dans la config exportée
+
+**But :** que le fichier `config_<ts>.json` mémorise l'état de la case « mode
+debug », et que l'import la restaure.
+
+- Aujourd'hui : `app._debug_config` **exclut** `debug` (et `api_key`,
+  `tapeur_email`) ; `applyConfig` ne touche pas `#debug-mode`.
+- Voulu : conserver `debug` dans la config et, à l'import, recocher la case
+  `#debug-mode` en conséquence.
+
+**À faire :** retirer `"debug"` de la liste d'exclusion de `_debug_config` ;
+dans `applyConfig`, `document.getElementById('debug-mode').checked = !!cfg.debug`.
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
