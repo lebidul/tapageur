@@ -6,7 +6,9 @@ datas = [
     ("tapageur/gui/assets/template.xlsx", "tapageur/gui/assets"),
 ]
 binaries = []
-hiddenimports = []
+# Backend pywebview Windows = EdgeChromium via pythonnet (paquets séparés non
+# ramenés par collect_all) → à déclarer explicitement, sinon ImportError au run.
+hiddenimports = ["clr", "clr_loader", "webview.platforms.edgechromium"]
 # Collecter proprement les paquets à binaires / data cachés.
 for pkg in ("webview", "pypdfium2", "pdfplumber", "anthropic"):
     d, b, h = collect_all(pkg)
@@ -31,6 +33,5 @@ exe = EXE(
     pyz, a.scripts, a.binaries, a.datas, [],
     name="tapageur-gui",
     console=False,
-    onefile=True,
     upx=False,
 )
