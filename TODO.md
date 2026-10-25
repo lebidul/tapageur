@@ -153,5 +153,24 @@ dans `applyConfig`, `document.getElementById('debug-mode').checked = !!cfg.debug
 
 ---
 
+## 8. Afficher le détail des événements extraits dans le Résumé
+
+**But :** pouvoir relire les events extraits directement dans l'app, sans
+ouvrir le xlsx.
+
+- Aujourd'hui : le Résumé montre la progression, le nombre d'events, le chemin
+  de sortie et les alertes — mais pas le **contenu** des events.
+- Voulu : lister chaque event extrait (date, lieu, artiste(s), heure, source…)
+  dans la section Résumé.
+
+**Questions ouvertes :**
+- `run_extraction` renvoie déjà `results[].n_events` ; il faudrait remonter
+  aussi les events (ex. `event_to_row` ou un sous-ensemble lisible) vers l'UI.
+- Rendu : tableau compact par mois ? repli/dépli ? Tout via DOM/textContent
+  (sécurité).
+- Volume : tronquer / scroller si beaucoup d'events.
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.
