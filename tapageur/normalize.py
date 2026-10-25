@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 from rich.console import Console
 
 from tapageur.cache import get_cached, set_cached
-from tapageur.schema import Act, CollectedItem, Event
+from tapageur.schema import Act, CollectedItem, Event, Genre
 
 
 # Modèle Claude par type de source.
@@ -80,8 +80,9 @@ Schéma des champs à extraire :
 - price : "gratuit", "7€", "12 à 15€", "?" si inconnu
 - acts : liste de 1 à 4 actes ; chaque acte a {genre, title, performer, style}
   - genre : NATURE de l'acte, STRICTEMENT l'une de : "sv" (spectacle vivant),
-    "c" (concert), "expo", "dj" (soirée/set DJ), "autre". Ce n'est PAS le style
-    musical. Dans le doute : "c" pour un concert, "sv" pour du spectacle vivant.
+    "c" (concert), "expo", "autre". Ce n'est PAS le style musical. Un DJ / set
+    DJ est un CONCERT → genre="c" (JAMAIS "dj") et mets "DJ" / "DJ set" dans
+    style. Dans le doute : "c" pour un concert, "sv" pour du spectacle vivant.
   - title : nom du spectacle (pour SV) ou null (pour concerts)
   - performer : artiste / compagnie
   - style : sous-genre / style musical en TEXTE LIBRE, optionnel (ex. "Rock",
@@ -402,6 +403,14 @@ def _normalize_one(
         # at_least_one_time. Fréquent sur les programmes de festivals.
         if not draft.times:
             draft.times = ["?"]
+        # Un acte DJ est un concert pour le bidul : genre="c", le « DJ » va en
+        # style (jamais genre="dj"). Coercition déterministe (le prompt seul ne
+        # garantit pas).
+        for _act in draft.acts:
+            if _act.genre.value == "dj":
+                _act.genre = Genre.CONCERT
+                _s = (_act.style or "").strip()
+                _act.style = _s if "dj" in _s.lower() else (f"{_s} / DJ" if _s else "DJ")
         # Asymétrie historique : Event a des validators (au moins 1 horaire,
         # au moins 1 act) que _EventDraft n'a pas. Donc un draft validé peut
         # encore échouer à la création Event. On catch event-par-event ici

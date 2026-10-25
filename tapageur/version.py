@@ -38,6 +38,9 @@ Bumps notables :
        (ex. « 16 octobre » restait, à tort, 2026-11-16 au lieu de 2026-10-16) ;
        + distinction genre (enum sv/c/expo/dj/autre) vs style (texte libre) —
        un style (« dj », « techno »…) ne doit plus atterrir dans genre.
+- v9 : un acte DJ est un concert (genre="c", « DJ » en style) — "dj" retiré des
+       genres proposés + coercition déterministe dans _normalize_one (genre
+       "dj" → "c").
 """
 
-PROMPT_VERSION = "v8"
+PROMPT_VERSION = "v9"

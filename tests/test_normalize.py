@@ -411,3 +411,29 @@ def test_normalize_one_passes_reference_year_hint(monkeypatch):
                          "t@b.fr", month_filter=False, reference_year="2026")
     assert "2026" in seen["hint"]
     assert "référence" in seen["hint"].lower()
+
+
+def test_normalize_one_dj_act_becomes_concert():
+    """Un acte DJ → genre 'c' (concert) avec 'DJ' conservé dans style."""
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {"date_iso": "2026-11-13", "times": ["20h00"], "venue": "V",
+          "city": "Le Mans", "price": "?",
+          "acts": [{"genre": "c", "title": None, "performer": "Orange Blossom", "style": None},
+                   {"genre": "dj", "title": None, "performer": "DJ Prosper", "style": "DJ set"}]}
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    acts = out[0].acts
+    assert acts[0].genre.value == "c"
+    assert acts[1].genre.value == "c"            # dj → c
+    assert "dj" in (acts[1].style or "").lower()  # DJ conservé en style
+
+
+def test_normalize_one_dj_without_style_gets_dj_in_style():
+    from tapageur import normalize as _norm
+    item = _text_item({})
+    ev = {"date_iso": "2026-11-13", "times": ["20h00"], "venue": "V",
+          "city": "Le Mans", "price": "?",
+          "acts": [{"genre": "dj", "title": None, "performer": "DJ X", "style": None}]}
+    out = _norm._normalize_one(_fake_client_returning([ev]), item, "2026-11", None, "t@b.fr")
+    assert out[0].acts[0].genre.value == "c"
+    assert "dj" in (out[0].acts[0].style or "").lower()
