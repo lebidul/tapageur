@@ -23,3 +23,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/tapageur-gui-${{ github.ref_name }}.exe
+          body_path: RELEASE.md

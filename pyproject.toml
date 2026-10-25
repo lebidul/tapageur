@@ -1,6 +1,6 @@
 [project]
 name = "tapageur"
-version = "0.1.0"
+version = "1.0.0"
 description = "Pipeline mensuel pour remplir le Google Sheet du tapage biduleur"
 requires-python = ">=3.11"
 dependencies = [
