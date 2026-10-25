@@ -156,6 +156,8 @@ class WebConnector(Connector):
             if progress:
                 progress(f"{len(event_urls)} pages à récupérer")
 
+            usable_items: list[CollectedItem] = []
+            n_error = 0
             for i, ev_url in enumerate(event_urls, 1):
                 if progress:
                     slug = [s for s in ev_url.rstrip("/").split("/") if s][-1]
@@ -166,8 +168,48 @@ class WebConnector(Connector):
                     print(f"[web]   {ev_url}: {e}")
                     continue
                 ev_text = BeautifulSoup(ev_html, "html.parser").get_text("\n", strip=True)
-                yield _web_item(ev_url, ev_text, site_name, mode, model_override,
-                                extra_meta={**overrides, "agenda_url": url})
+                # Soft-404 : page d'erreur servie en 200 → l'ignorer (elle ne
+                # donnerait que 0 event, et risquerait une confabulation).
+                if _is_error_page(ev_text):
+                    n_error += 1
+                    print(f"[web]   {ev_url}: page d'erreur (soft-404), ignorée")
+                    continue
+                usable_items.append(_web_item(
+                    ev_url, ev_text, site_name, mode, model_override,
+                    extra_meta={**overrides, "agenda_url": url}))
+
+            if usable_items:
+                yield from usable_items
+            else:
+                # Aucune page suivie exploitable (toutes en soft-404 ou fetch KO)
+                # alors qu'on avait des candidats : l'agenda est probablement
+                # auto-suffisant (programme inline). Repli : normaliser l'index
+                # au lieu de tout perdre.
+                print(f"[web]   0 page suivie exploitable ({n_error} erreur·s) → "
+                      f"repli sur l'index")
+                yield _web_item(url, agenda_text, site_name, mode, model_override,
+                                extra_meta=overrides)
+
+
+# Marqueurs de « soft-404 » : page détail renvoyée en HTTP 200 mais dont le
+# corps est en réalité une page d'erreur (fréquent sur les sites PHP/CMS où le
+# contenu détail est injecté en JS — un GET direct retombe sur un gabarit 404).
+# Sans ça, raise_for_status() ne les écarte pas et le modèle en sort 0 event,
+# tandis que l'agenda index (souvent auto-suffisant) n'est jamais normalisé.
+_ERROR_PAGE_MARKERS = (
+    "erreur 404",
+    "page introuvable",
+    "page n'a pas été trouvée",
+    "page not found",
+    "404 not found",
+    "error 404",
+)
+
+
+def _is_error_page(text: str) -> bool:
+    """True si le texte extrait ressemble à une page d'erreur / 404 (soft-404)."""
+    low = text.lower()
+    return any(m in low for m in _ERROR_PAGE_MARKERS)
 
 
 def _web_item(url: str, text: str, site_name: str,

@@ -274,6 +274,65 @@ def test_collect_follow_domain_fallback_index_when_prefilter_empty(monkeypatch):
     assert items[0].source_kind == "web"
 
 
+def test_is_error_page_detects_soft_404():
+    from tapageur.connectors.web import _is_error_page
+    assert _is_error_page("Musée\nErreur 404\nPage introuvable\nblabla")
+    assert _is_error_page("Oops — 404 Not Found")
+    assert not _is_error_page("Concert de Lena Haudecoeur, piano, 13 nov 20h30")
+
+
+def test_collect_follow_domain_soft404_pages_fall_back_to_index(monkeypatch):
+    """Toutes les pages suivies sont des soft-404 → repli sur l'index (qui
+    porte le programme inline). Cas réel musiquesmagiques.fr."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    index_html = (_html_with_links(["Agenda-1281", "Agenda-1282"])
+                  + "<p>Murmures au piano 13 NOV 20h30 Lena Haudecoeur</p>")
+    soft404 = "<h1>Erreur 404</h1><p>Page introuvable</p>"
+    monkeypatch.setattr(web, "_fetch",
+                        lambda url, needs_browser=False: index_html if url.endswith("/index.php")
+                        else soft404)
+    monkeypatch.setattr(web, "_filter_event_urls",
+                        lambda a, u, m: ["https://site.fr/Agenda/Agenda-1281",
+                                         "https://site.fr/Agenda/Agenda-1282"])
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/Agenda/index.php", "name": "mm",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": False,
+    }]})
+    items = list(conn.collect("2026-11"))
+    assert len(items) == 1
+    assert items[0].source_ref == "https://site.fr/Agenda/index.php"  # repli index
+    assert "Murmures au piano" in items[0].raw_text
+
+
+def test_collect_follow_domain_drops_soft404_keeps_usable(monkeypatch):
+    """Mix : une page soft-404 écartée, une page exploitable gardée, pas de repli."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    index_html = _html_with_links(["Agenda-1281", "Agenda-1282"])
+    def fake_fetch(url, needs_browser=False):
+        if url.endswith("/index.php"):
+            return index_html
+        if url.endswith("Agenda-1281"):
+            return "<h1>Erreur 404</h1><p>Page introuvable</p>"
+        return "<p>Concert réel 14 NOV 21h, Groupe X</p>"
+    monkeypatch.setattr(web, "_fetch", fake_fetch)
+    monkeypatch.setattr(web, "_filter_event_urls",
+                        lambda a, u, m: ["https://site.fr/Agenda/Agenda-1281",
+                                         "https://site.fr/Agenda/Agenda-1282"])
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/Agenda/index.php", "name": "mm",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": False,
+    }]})
+    items = list(conn.collect("2026-11"))
+    refs = [it.source_ref for it in items]
+    assert refs == ["https://site.fr/Agenda/Agenda-1282"]  # 1281 (soft-404) écartée
+
+
 def test_collect_follow_domain_fallback_index_when_no_key(monkeypatch):
     import tapageur.connectors.web as web
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
