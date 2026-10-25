@@ -324,3 +324,23 @@ def test_collect_propagates_overrides_to_items(monkeypatch):
     items = list(conn.collect("2026-11"))
     assert items[0].raw_metadata["default_venue"] == "Le Scarron"
     assert items[0].raw_metadata["default_festival"] == "Asso X"
+
+
+# ---------- hook _BROWSER_FETCH ----------
+
+def test_do_fetch_uses_browser_hook(monkeypatch):
+    from tapageur.connectors import web
+    monkeypatch.setattr(web, "_BROWSER_FETCH", lambda url: f"<html>{url}</html>")
+    out = web._do_fetch("https://exemple.fr/agenda", needs_browser=True)
+    assert out == "<html>https://exemple.fr/agenda</html>"
+
+
+def test_do_fetch_requests_path_without_hook(monkeypatch):
+    from tapageur.connectors import web
+    monkeypatch.setattr(web, "_BROWSER_FETCH", None)
+    class _Resp:
+        text = "<html>requests</html>"
+        def raise_for_status(self): pass
+    monkeypatch.setattr(web.requests, "get", lambda *a, **k: _Resp())
+    out = web._do_fetch("https://exemple.fr/", needs_browser=False)
+    assert out == "<html>requests</html>"

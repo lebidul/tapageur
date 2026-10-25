@@ -295,6 +295,11 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
 _FETCH_CACHE: dict[str, str] = {}
 
 
+# Hook optionnel : le GUI l'installe pour récupérer les pages via le navigateur
+# embarqué (WebView2) au lieu de Playwright. None = comportement CLI (Playwright).
+_BROWSER_FETCH = None  # type: "Callable[[str], str] | None"
+
+
 def clear_fetch_cache() -> None:
     """Vide le cache HTTP. Utile pour les tests ou un re-fetch forcé."""
     _FETCH_CACHE.clear()
@@ -330,6 +335,8 @@ def _fetch(url: str, needs_browser: bool = False) -> str:
 def _do_fetch(url: str, needs_browser: bool = False) -> str:
     """Implémentation pure (non-cachée). Utilisée par _fetch."""
     if needs_browser:
+        if _BROWSER_FETCH is not None:
+            return _BROWSER_FETCH(url)
         from playwright.sync_api import sync_playwright
         try:
             from playwright_stealth import Stealth
