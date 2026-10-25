@@ -99,3 +99,45 @@ def _append_xlsx(events: list[Event], out_path: Path) -> None:
         for c, value in enumerate(event_to_row(ev, n_acts=n_acts), start=1):
             ws.cell(row=r, column=c, value=value)
     _save_workbook(wb, out_path)
+
+
+# --- Primitives merge/dédoublonnage (clé de match sur colonnes visibles) ---
+import unicodedata  # noqa: E402  (regroupé avec les helpers merge en bas de module)
+
+# event_to_row est déjà importé en tête du module : ne pas redoubler.
+
+_COL_TYPE_SOURCE = 1
+_COL_SOURCE = 2
+_COL_FESTOCHE = 6
+_COL_STYLE_FESTOCHE = 7
+_COL_DATE = 8
+_COL_HEURE = 9
+_COL_LIEU = 10
+_COL_VILLE = 11
+_COL_PRIX = 12
+_COL_ARTISTE1 = _N_FIXED_COLS + 3  # 1er bloc ACT : GENRE=13,NOM=14,ARTISTE=15,STYLE=16
+
+
+def _norm(v) -> str:
+    s = "" if v is None else str(v)
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return s.strip().lower()
+
+
+def _is_blank(v) -> bool:
+    return v is None or str(v).strip() in ("", "?")
+
+
+def _cell(cells: list, col: int):
+    return cells[col - 1] if 0 <= col - 1 < len(cells) else ""
+
+
+def _key_from_cells(cells: list) -> tuple:
+    return (_norm(_cell(cells, _COL_DATE)),
+            _norm(_cell(cells, _COL_LIEU)),
+            _norm(_cell(cells, _COL_ARTISTE1)))
+
+
+def _event_cells(ev, n_acts: int) -> list:
+    return event_to_row(ev, n_acts=n_acts)
