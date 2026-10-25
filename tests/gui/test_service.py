@@ -39,7 +39,7 @@ def test_run_exports_requested_formats(tmp_path, monkeypatch):
     # normalize_items mocké : renvoie 1 event, ignore l'appel Claude
     monkeypatch.setattr(service, "normalize_items",
                         lambda items, month, out_path, model=None, month_filter=True, progress=None, reference_year=None: [_event()])
-    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
@@ -66,7 +66,7 @@ def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
         captured["progress"] = progress
         return [_event()]
     monkeypatch.setattr(service, "normalize_items", fake_normalize)
-    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
@@ -91,7 +91,7 @@ def test_export_append_adds_to_existing_xlsx(tmp_path):
 def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "normalize_items",
                         lambda *a, **k: [_event()])
-    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
@@ -110,7 +110,7 @@ def test_run_includes_text_inputs(tmp_path, monkeypatch):
         captured["items"] = list(items)
         return [_event()]
     monkeypatch.setattr(service, "normalize_items", fake_normalize)
-    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
     monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
     monkeypatch.setattr(service, "dedup", lambda evs: evs)
     monkeypatch.setattr(service, "group_events", lambda evs: evs)
@@ -140,7 +140,7 @@ def test_run_all_months_one_file_per_month(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "normalize_items",
                         lambda items, month, out_path, model=None, month_filter=True,
                                progress=None, reference_year=None: list(evs))
-    monkeypatch.setattr(service, "load_mappings", lambda: {})
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
     monkeypatch.setattr(service, "canonicalize", lambda e, m: e)
     monkeypatch.setattr(service, "dedup", lambda e: e)
     monkeypatch.setattr(service, "group_events", lambda e: e)

@@ -7,6 +7,7 @@ from PyInstaller.utils.hooks import collect_all
 datas = [
     ("tapageur/gui/web/index.html", "tapageur/gui/web"),
     ("tapageur/gui/assets/template.xlsx", "tapageur/gui/assets"),
+    ("config/mappings.yaml", "config"),
 ]
 binaries = []
 hiddenimports = []

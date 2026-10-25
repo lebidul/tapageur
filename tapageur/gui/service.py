@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -80,12 +81,20 @@ def _reference_lists() -> tuple[set[str], set[str]]:
     return cities, venues
 
 
+def _mappings_path() -> Path:
+    """config/mappings.yaml : embarqué sous sys._MEIPASS dans l'exe figé,
+    relatif au CWD sinon (comportement CLI inchangé)."""
+    if getattr(sys, "frozen", False):
+        return Path(sys._MEIPASS) / "config" / "mappings.yaml"
+    return Path("config/mappings.yaml")
+
+
 def _pipeline(items, month: str, month_filter: bool, cache_out: Path,
               progress=None, reference_year: str | None = None) -> list[Event]:
     events = normalize_items(items, month, cache_out, model=None,
                              month_filter=month_filter, progress=progress,
                              reference_year=reference_year)
-    events = canonicalize(events, load_mappings())
+    events = canonicalize(events, load_mappings(_mappings_path()))
     events = dedup(events)
     events = group_events(events)
     onliner_names = [ev.festival for ev in events if ev.is_festival and ev.festival]
