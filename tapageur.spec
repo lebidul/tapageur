@@ -17,7 +17,7 @@ if sys.platform == "win32":
     # non ramenés par collect_all) → à déclarer, sinon ImportError au run.
     hiddenimports += ["clr", "clr_loader", "webview.platforms.edgechromium"]
 # Collecter proprement les paquets à binaires / data cachés.
-for pkg in ("webview", "pypdfium2", "pdfplumber", "anthropic"):
+for pkg in ("webview", "pypdfium2", "pdfplumber", "anthropic", "PIL"):
     d, b, h = collect_all(pkg)
     datas += d; binaries += b; hiddenimports += h
 
