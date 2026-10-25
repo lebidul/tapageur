@@ -19,6 +19,10 @@ Première version distribuée (exécutable Windows one-file).
 - Events **sans horaire** conservés (`HEURE = « ? »`) avec alerte.
 - **Mode debug** : sauvegarde config + logs, import d'une config pour rejouer.
 - **Thème sombre**, **glisser-déposer** de fichiers, **append** xlsx.
+- **Suivi en direct** des événements extraits + **détail** dans le Résumé.
+- **Message clair** si la clé API Anthropic est invalide/expirée.
+- Extraction fiabilisée : l'année/le mois réels sont respectés (pas de report
+  sur le mois cible), un set **DJ** est traité comme un concert.
 
 ### Notes
 - Windows : nécessite le runtime **WebView2** (présent sur Windows récents).
