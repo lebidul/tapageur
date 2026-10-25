@@ -101,7 +101,7 @@ event déjà présent).
 
 ---
 
-## 5. Extraction : GENRE parfois rempli avec le STYLE
+## 5. Extraction : GENRE parfois rempli avec le STYLE — ✅ FAIT (2026-10-25, prompt v8) — à confirmer en extraction
 
 **Bug d'extraction observé** (mars 2027) : la colonne `GENRE 2` d'un event a été
 peuplée avec `dj` (qui est en réalité le **STYLE**) au lieu d'un genre attendu
