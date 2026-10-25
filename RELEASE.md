@@ -3,6 +3,28 @@
 > Ces notes sont publiées avec la Release GitHub du tag correspondant.
 > Ajouter la nouvelle version **en tête**, puis taguer `vX.Y.Z`.
 
+## 1.0.1 — 2026-10-26
+
+Fiabilisation de l'extraction (corrections suite aux tests).
+
+### Corrections
+- **Anti-confabulation (prompt v11)** : le modèle n'invente plus d'événements
+  absents du contenu. Cas observé : une page de festival d'où sortait un
+  festival de cinéma d'une autre ville, totalement absent du texte. Une page
+  sans programme concret ne produit plus rien, et un contenu vide n'est plus
+  envoyé au modèle.
+- **Exclusion cinéma** renforcée (projections, festivals de film, « nuit du
+  cinéma ») et **cafés philo / débats** désormais exclus.
+- **Pages suivies en erreur (soft-404)** ignorées : quand un site renvoie une
+  page « introuvable » en HTTP 200 pour ses liens d'événements, on se **replie
+  sur la page d'agenda** (qui contient souvent tout le programme) au lieu de
+  tout perdre.
+- **Colonne FESTOCHE élargie** : capte le festival/cycle, sinon l'événement-
+  cadre (ex. « Soirée Beaujolais »), sinon l'association/collectif organisateur.
+
+### Notes
+- Exécutable à reconstruire/retaguer pour embarquer ces correctifs.
+
 ## 1.0.0 — 2026-10-25
 
 Première version distribuée (exécutable Windows one-file).
