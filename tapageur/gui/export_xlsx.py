@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -103,9 +104,7 @@ def _append_xlsx(events: list[Event], out_path: Path) -> None:
 
 
 # --- Primitives merge/dédoublonnage (clé de match sur colonnes visibles) ---
-import unicodedata  # noqa: E402  (regroupé avec les helpers merge en bas de module)
-
-# event_to_row est déjà importé en tête du module : ne pas redoubler.
+# (unicodedata + event_to_row sont importés en tête du module)
 
 _COL_TYPE_SOURCE = 1
 _COL_SOURCE = 2
