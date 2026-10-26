@@ -438,6 +438,7 @@ venues:
   L'Éolienne:
   - Espace culturel l'Elolienne
   - L'Eolienne - Arnage
+  - L'éolienne - Espace culturel
   - L’Eolienne
   L'Épicerie sur le Zinc:
   - L'Epic sur le Zinc
@@ -491,7 +492,8 @@ venues:
   - Le St. Léo
   La Chaperie: []
   La Chicane: []
-  La Citadelle des Anges: []
+  La Citadelle des Anges:
+  - Citadelle des Anges
   La Cité du cirque:
   - Cité Cirque
   - Cité du cirque
@@ -888,8 +890,9 @@ venues:
   - MPT J. Moulin
   - MPT J.Moulin
   Mur plein champ Tessé: []
-  Musée de la musique mécanique:
+  Musée de la Musique Mécanique:
   - Musée de Musique de Dollon
+  - Musée de Musique Mécanique
   - Musée de Musique Mécanique de Dollon
   Musée de Tessé:
   - Musée de Tessée
@@ -1240,7 +1243,8 @@ venues:
   - Théâtre Paul Scarron)
   - Théâtre Scarron
   Théâtre Poche: []
-  Twin's Beer: []
+  Twin's Beer:
+  - TWINS BEER
   Un Singe en Hiver:
   - Au singe en hiver
   - Le Singe en Hiver
