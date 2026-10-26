@@ -127,12 +127,14 @@ def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
     if not present:
         return 0
     present_norm = {p.strip() for p in present}
+    # Fichiers : comparaison insensible à la casse (noms de fichiers Windows).
+    present_ci = {p.casefold() for p in present_norm}
     skipped = 0
     kept_files = []
     for fi in req.file_inputs:
         disp = _input_source_display("image", fi.path)  # basename, suffisant pour fichiers/pdf
         base = Path(fi.path).name
-        if base in present_norm or disp in present_norm:
+        if base.casefold() in present_ci or disp.casefold() in present_ci:
             skipped += 1
         else:
             kept_files.append(fi)

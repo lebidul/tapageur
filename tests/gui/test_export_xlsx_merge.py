@@ -123,3 +123,46 @@ def test_existing_sources_reads_source_column(tmp_path: Path):
 
 def test_existing_sources_absent_file():
     assert X.existing_sources(Path("nope-xyz.xlsx")) == set()
+
+
+# --- Collisions de clé entre events ENTRANTS (Finding revue) ---
+
+def test_merge_two_incoming_same_key_no_match_appended_once(tmp_path: Path):
+    """Deux entrants même clé (DATE+LIEU+ARTISTE) absents du fichier → UNE seule
+    ligne ajoutée (fusionnée), pas un doublon ; les trous sont complétés."""
+    out = tmp_path / "f.xlsx"
+    X.export_xlsx([_ev(perf="Base", date_label="Lundi 1", price="12€")], out)
+    a = _ev(perf="Dup", date_label="Mardi 3", heure="20h00", price="?")
+    a.source_ref = "https://a.fr/x"
+    b = _ev(perf="Dup", date_label="Mardi 3", heure="21h00", price="10€")
+    b.source_ref = "https://b.fr/y"
+    report = X._merge_xlsx([a, b], out)
+    assert report.added == 1
+    import openpyxl
+    ws = openpyxl.load_workbook(out)[X.DATA_SHEET]
+    dup = [r for r in ws.iter_rows(min_row=2, values_only=True)
+           if r[14] == "Dup"]
+    assert len(dup) == 1                      # un seul doublon, pas deux
+    assert dup[0][11] == "10€"                # trou PRIX comblé par le 2e
+    assert "a.fr" in dup[0][1] and "b.fr" in dup[0][1]  # sources accolées
+
+
+def test_merge_two_incoming_same_key_match_existing_no_clobber(tmp_path: Path):
+    """Deux entrants même clé matchant une ligne existante : pas d'écrasement,
+    les deux sources accolées, filled compté UNE fois."""
+    out = tmp_path / "f.xlsx"
+    base = _ev(perf="X", heure="20h00", price="?")
+    base.source_ref = "https://natif.fr/x"
+    X.export_xlsx([base], out)
+    a = _ev(perf="X", heure="20h00", price="10€")
+    a.source_ref = "https://a.fr/x"
+    b = _ev(perf="X", heure="20h00", price="20€")
+    b.source_ref = "https://b.fr/y"
+    report = X._merge_xlsx([a, b], out)
+    assert report.filled == 1 and report.added == 0
+    import openpyxl
+    ws = openpyxl.load_workbook(out)[X.DATA_SHEET]
+    row = [r for r in ws.iter_rows(min_row=2, values_only=True)][0]
+    assert row[8] == "20h00"                  # HEURE préservée
+    assert row[11] == "10€"                   # 1er comble le trou, 2e n'écrase PAS
+    assert all(s in row[1] for s in ("natif.fr", "a.fr", "b.fr"))  # 3 sources

@@ -233,36 +233,68 @@ def _merge_xlsx(events: list, out_path: Path) -> MergeReport:
 
     report = MergeReport()
     to_append: list = []
+    append_key_idx: dict[tuple, int] = {}   # clé → index dans to_append (dédup entrants)
+    matched_existing: set = set()           # lignes existantes touchées par ≥1 entrant
+    touched: dict[int, list] = {}           # ligne existante → libellés remplis (cumulés)
+
+    def _compute_changes(target: list, inc: list):
+        """{col: val} à appliquer (trous de contenu + SOURCE/TYPE accolées) et libellés."""
+        fills, labels = _plan_fill(target, inc, n_cols)
+        changes = dict(fills)
+        ns = _merge_source_cell(target[_COL_SOURCE - 1], inc[_COL_SOURCE - 1])
+        if ns is not None:
+            changes[_COL_SOURCE] = ns
+        nt = _merge_source_cell(target[_COL_TYPE_SOURCE - 1], inc[_COL_TYPE_SOURCE - 1])
+        if nt is not None:
+            changes[_COL_TYPE_SOURCE] = nt
+        return changes, labels
+
     for ev in events:
         inc = _event_cells(ev, target_blocks)
         k = _key_from_cells(inc)
         r = key_to_row.get(k)
-        if r is None:
-            to_append.append(inc)
-            report.added += 1
-            report.added_keys.append(k)
+        if r is not None:
+            # Match sur une ligne existante. Le snapshot `existing` est rafraîchi
+            # au fil des entrants → un 2e entrant de même clé ne clobbe pas et ne
+            # perd pas la source du 1er (il comble seulement de nouveaux trous).
+            matched_existing.add(r)
+            existing = row_cells[r]
+            changes, labels = _compute_changes(existing, inc)
+            for col, val in changes.items():
+                ws.cell(row=r, column=col, value=val)
+                existing[col - 1] = val
+            if changes:
+                acc = touched.setdefault(r, [])
+                for lab in labels:
+                    if lab not in acc:
+                        acc.append(lab)
             continue
-        existing = row_cells[r]
-        fills, labels = _plan_fill(existing, inc, n_cols)
-        new_src = _merge_source_cell(existing[_COL_SOURCE - 1], inc[_COL_SOURCE - 1])
-        new_type = _merge_source_cell(existing[_COL_TYPE_SOURCE - 1], inc[_COL_TYPE_SOURCE - 1])
-        if not fills and new_src is None and new_type is None:
-            report.unchanged += 1
+        j = append_key_idx.get(k)
+        if j is not None:
+            # 2e entrant de même clé absent du fichier : fusionner dans la ligne
+            # en attente plutôt que d'ajouter un doublon.
+            pending = to_append[j]
+            changes, _ = _compute_changes(pending, inc)
+            for col, val in changes.items():
+                pending[col - 1] = val
             continue
-        for col, val in fills.items():
-            ws.cell(row=r, column=col, value=val)
-        if new_src is not None:
-            ws.cell(row=r, column=_COL_SOURCE, value=new_src)
-        if new_type is not None:
-            ws.cell(row=r, column=_COL_TYPE_SOURCE, value=new_type)
-        report.filled += 1
-        report.filled_detail.append((k, labels))
+        append_key_idx[k] = len(to_append)
+        to_append.append(inc)
+        report.added += 1
+        report.added_keys.append(k)
 
-    # Append des non-matchés à la suite.
+    # Append des non-matchés (dédupliqués entre entrants) à la suite.
     start = ws.max_row + 1
     for i, inc in enumerate(to_append):
         for c, value in enumerate(inc, start=1):
             ws.cell(row=start + i, column=c, value=value)
+
+    # Compteurs : une ligne existante est « complétée » si ≥1 changement, sinon
+    # « inchangée » (comptée une seule fois quel que soit le nombre d'entrants).
+    report.filled = len(touched)
+    report.unchanged = len(matched_existing - set(touched))
+    row_key = {r: k for k, r in key_to_row.items()}
+    report.filled_detail = [(row_key.get(r, ("", "", "")), labs) for r, labs in touched.items()]
 
     _save_workbook(wb, out_path)
     return report
