@@ -159,6 +159,49 @@ def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
     return skipped
 
 
+def _input_source_ids(req: "RunRequest") -> list:
+    """(id, type) des sources saisies, pour le manifeste. id = URL (web),
+    basename (fichier), « texte #N » (texte)."""
+    ids: list = []
+    for fi in req.file_inputs:
+        ids.append((Path(fi.path).name, "Fichier"))
+    for u in req.url_inputs:
+        ids.append((u.url, "URL"))
+    n = 0
+    for t in req.text_inputs:
+        if getattr(t, "text", "") and t.text.strip():
+            n += 1
+            ids.append((f"texte #{n}", "Texte"))
+    return ids
+
+
+def _filter_by_manifest(req: "RunRequest", target: Path, emit) -> int:
+    """Skip via manifeste : retire les file/url inputs déjà traités. Textes
+    gardés. Fichiers insensibles à la casse, urls exact."""
+    manifest = _xlsx.read_processed_sources(target)
+    if not manifest:
+        return 0
+    manifest_ci = {m.casefold() for m in manifest}
+    skipped = 0
+    kept_files = []
+    for fi in req.file_inputs:
+        if Path(fi.path).name.casefold() in manifest_ci:
+            skipped += 1
+        else:
+            kept_files.append(fi)
+    kept_urls = []
+    for u in req.url_inputs:
+        if u.url in manifest:
+            skipped += 1
+        else:
+            kept_urls.append(u)
+    req.file_inputs = kept_files
+    req.url_inputs = kept_urls
+    if skipped:
+        emit(f"Incrémental : {skipped} source(s) déjà traitée(s) ignorée(s).")
+    return skipped
+
+
 def _export(events: list[Event], out_dir: Path, label: str, formats: list[str],
             write_mode: str = "create") -> tuple[list[Path], "_xlsx.MergeReport | None"]:
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -191,6 +234,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
 
     os.environ["TAPEUR_EMAIL"] = req.tapeur_email
     ref_cities, ref_venues = _reference_lists()
+    all_input_ids = _input_source_ids(req)
 
     def _apply_report(mr: MonthResult, report) -> None:
         if report is None:
@@ -207,7 +251,10 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
     sources_skipped = 0
     if req.month_mode != "all" and req.write_mode == "append" and len(req.months) == 1:
         target = req.out_dir / f"tapage_{req.months[0]}.xlsx"
-        sources_skipped = _filter_present_sources(req, target, _emit)
+        if _xlsx.has_manifest(target):
+            sources_skipped = _filter_by_manifest(req, target, _emit)
+        else:
+            sources_skipped = _filter_present_sources(req, target, _emit)  # repli
 
     _emit("Collecte des sources…")
     url_month = "" if req.month_mode == "all" else (req.months[0] if req.months else "")
@@ -232,6 +279,9 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             _emit(f"{month} : {len(evs)} events, export…")
             files, report = _export(evs, req.out_dir, month, req.formats,
                                      write_mode=req.write_mode)
+            if "xlsx" in req.formats:
+                _xlsx.record_processed_sources(req.out_dir / f"tapage_{month}.xlsx",
+                                               all_input_ids)
             alerts = build_alerts(evs, ref_cities, ref_venues)
             if req.write_mode in ("append", "merge") and "xlsx" not in req.formats:
                 alerts.append(f"Mode '{req.write_mode}' ignoré : xlsx non sélectionné.")
@@ -250,6 +300,9 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             _emit(f"{month} : {len(events)} events, export…")
             files, report = _export(events, req.out_dir, month, req.formats,
                                      write_mode=req.write_mode)
+            if "xlsx" in req.formats:
+                _xlsx.record_processed_sources(req.out_dir / f"tapage_{month}.xlsx",
+                                               all_input_ids)
             alerts = build_alerts(events, ref_cities, ref_venues)
             if req.write_mode in ("append", "merge") and "xlsx" not in req.formats:
                 alerts.append(f"Mode '{req.write_mode}' ignoré : xlsx non sélectionné.")

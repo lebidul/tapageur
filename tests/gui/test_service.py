@@ -182,6 +182,7 @@ def test_write_mode_append_skips_present_sources(monkeypatch, tmp_path):
                         lambda p: {"https://a.fr/present"})
     # export réel neutralisé : le fichier cible factice (b"x") n'est pas un xlsx.
     monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    monkeypatch.setattr(S._xlsx, "record_processed_sources", lambda *a, **k: None)
     captured = {}
     def fake_items_urls(url_inputs, month, progress=None):
         captured["urls"] = [u.url for u in url_inputs]
@@ -207,6 +208,7 @@ def test_write_mode_append_skips_follow_url_by_host(monkeypatch, tmp_path):
     monkeypatch.setattr(S._xlsx, "existing_sources",
                         lambda p: {"https://leo.fr/event/x"})  # page détail stockée
     monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    monkeypatch.setattr(S._xlsx, "record_processed_sources", lambda *a, **k: None)
     captured = {}
     monkeypatch.setattr(S, "items_from_urls",
                         lambda url_inputs, month, progress=None: captured.setdefault(
@@ -224,6 +226,90 @@ def test_write_mode_append_skips_follow_url_by_host(monkeypatch, tmp_path):
     )
     S.run(req)
     assert captured["urls"] == ["https://clappin.fr/agenda/"]  # leo.fr (hôte présent) filtré
+
+
+def test_input_source_ids(tmp_path):
+    from tapageur.gui.inputs import FileInput, UrlInput, TextInput
+    req = S.RunRequest(
+        url_inputs=[UrlInput(url="https://a.fr/x")],
+        file_inputs=[FileInput(path=r"C:\d\1.avif")],
+        text_inputs=[TextInput(text="coucou")],
+        months=["2026-11"], formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+    )
+    ids = S._input_source_ids(req)
+    assert ("1.avif", "Fichier") in ids
+    assert ("https://a.fr/x", "URL") in ids
+    assert any(t == "Texte" for _, t in ids)
+
+
+def test_append_skips_via_manifest(monkeypatch, tmp_path):
+    from tapageur.gui.inputs import UrlInput, FileInput
+    monkeypatch.setattr(S._xlsx, "has_manifest", lambda p: True)
+    monkeypatch.setattr(S._xlsx, "read_processed_sources",
+                        lambda p: {"https://a.fr/present", "1.avif"})
+    monkeypatch.setattr(S._xlsx, "record_processed_sources", lambda *a, **k: None)
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    captured = {}
+    monkeypatch.setattr(S, "items_from_urls",
+                        lambda ui, m, progress=None: captured.setdefault(
+                            "urls", [u.url for u in ui]) or [])
+    monkeypatch.setattr(S, "items_from_files",
+                        lambda fi, progress=None: captured.setdefault(
+                            "files", [__import__("pathlib").Path(f.path).name for f in fi]) or [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    (tmp_path / "tapage_2026-11.xlsx").write_bytes(b"x")
+    req = S.RunRequest(
+        url_inputs=[UrlInput(url="https://a.fr/present"), UrlInput(url="https://a.fr/new")],
+        file_inputs=[FileInput(path=r"C:\d\1.avif"), FileInput(path=r"C:\d\2.avif")],
+        months=["2026-11"], formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+        write_mode="append",
+    )
+    S.run(req)
+    assert captured["urls"] == ["https://a.fr/new"]
+    assert captured["files"] == ["2.avif"]       # 1.avif (au manifeste) skippé
+
+
+def test_append_falls_back_without_manifest(monkeypatch, tmp_path):
+    """Pas de feuille manifeste → repli sur l'heuristique SOURCE + hôte."""
+    from tapageur.gui.inputs import UrlInput
+    monkeypatch.setattr(S._xlsx, "has_manifest", lambda p: False)
+    called = {}
+    monkeypatch.setattr(S, "_filter_present_sources",
+                        lambda req, target, emit: called.setdefault("fallback", True) or 0)
+    monkeypatch.setattr(S._xlsx, "record_processed_sources", lambda *a, **k: None)
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    monkeypatch.setattr(S, "items_from_urls", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    (tmp_path / "tapage_2026-11.xlsx").write_bytes(b"x")
+    req = S.RunRequest(url_inputs=[UrlInput(url="https://a.fr/x")],
+                       months=["2026-11"], formats=["xlsx"], out_dir=tmp_path,
+                       tapeur_email="t@b.fr", write_mode="append")
+    S.run(req)
+    assert called.get("fallback")
+
+
+def test_run_records_manifest_after_pass(monkeypatch, tmp_path):
+    from tapageur.gui.inputs import UrlInput
+    rec = {}
+    monkeypatch.setattr(S._xlsx, "record_processed_sources",
+                        lambda path, sources: rec.setdefault("sources", sources))
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    monkeypatch.setattr(S, "items_from_urls", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    monkeypatch.setattr(S, "build_alerts", lambda *a, **k: [])
+    req = S.RunRequest(url_inputs=[UrlInput(url="https://a.fr/x")],
+                       months=["2026-11"], formats=["xlsx"], out_dir=tmp_path,
+                       tapeur_email="t@b.fr", write_mode="create")
+    S.run(req)
+    assert ("https://a.fr/x", "URL") in rec["sources"]
 
 
 def test_write_mode_merge_routes_to_merge(monkeypatch, tmp_path):
