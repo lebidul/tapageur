@@ -103,7 +103,10 @@
     <label><input type="checkbox" class="fmt" value="csv"> csv</label>
     <label><input type="checkbox" class="fmt" value="json"> json</label>
     <div style="margin-top:8px">
-      <label><input id="append" type="checkbox"> Ajouter au fichier existant (xlsx)</label>
+      <div>Écriture (xlsx) :</div>
+      <label><input type="radio" name="write-mode" value="create" checked> Créer / écraser</label>
+      <label><input type="radio" name="write-mode" value="append"> Ajouter (incrémental — ignore les sources déjà présentes)</label>
+      <label><input type="radio" name="write-mode" value="merge"> Fusionner (compléter / ajouter sans écraser)</label>
     </div>
     <div style="margin-top:8px">
       <button id="choose-dir">Dossier de sortie…</button>
@@ -364,7 +367,11 @@ function applyConfig(cfg) {
   document.querySelectorAll('.fmt').forEach(c => { c.checked = (cfg.formats || []).includes(c.value); });
   // dossier + append
   if (cfg.out_dir) { outDir = cfg.out_dir; document.getElementById('out-dir').textContent = outDir; }
-  document.getElementById('append').checked = !!cfg.append;
+  // write_mode (repli legacy append)
+  const wm = (['create','append','merge'].includes(cfg.write_mode)) ? cfg.write_mode
+             : (cfg.append ? 'append' : 'create');
+  const wmRadio = document.querySelector('input[name="write-mode"][value="' + wm + '"]');
+  if (wmRadio) wmRadio.checked = true;
   document.getElementById('debug-mode').checked = !!cfg.debug;
 }
 
@@ -485,7 +492,7 @@ document.getElementById('run').addEventListener('click', async () => {
     reference_year: refYear,
     formats: formats,
     out_dir: outDir,
-    append: document.getElementById('append').checked,
+    write_mode: (document.querySelector('input[name="write-mode"]:checked') || {}).value || 'create',
     debug: document.getElementById('debug-mode').checked,
     api_key: document.getElementById('api-key').value,
     tapeur_email: document.getElementById('email').value,
