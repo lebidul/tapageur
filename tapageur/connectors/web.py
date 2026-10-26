@@ -70,6 +70,9 @@ class WebConnector(Connector):
         for site in self.config.get("websites", []):
             url = site["url"]
             site_name = site.get("name", url)
+            # Label compact pour le log live : le nom configuré, sinon l'hôte de
+            # l'URL (en GUI, site_name == url → on affiche l'hôte).
+            src_label = site_name if site_name != url else (urlparse(url).netloc or url)
             needs_browser = site.get("needs_browser", False)
             follow = site.get("follow_event_links", True)
             # mode : flag opt-in propagé jusqu'à normalize via raw_metadata.
@@ -154,14 +157,14 @@ class WebConnector(Connector):
                 continue
 
             if progress:
-                progress(f"{len(event_urls)} pages à récupérer")
+                progress(f"{src_label} : {len(event_urls)} pages à récupérer")
 
             usable_items: list[CollectedItem] = []
             n_error = 0
             for i, ev_url in enumerate(event_urls, 1):
                 if progress:
                     slug = [s for s in ev_url.rstrip("/").split("/") if s][-1]
-                    progress(f"Page {i}/{len(event_urls)} : {slug}")
+                    progress(f"{src_label} — Page {i}/{len(event_urls)} : {slug}")
                 try:
                     ev_html = _fetch(ev_url, needs_browser=needs_browser)
                 except Exception as e:

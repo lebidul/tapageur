@@ -366,9 +366,10 @@ def test_collect_follow_domain_reports_page_progress(monkeypatch):
     seen = []
     items = list(conn.collect("2026-11", progress=lambda msg: seen.append(msg)))
     assert len(items) == 2
-    assert any("2 pages" in m for m in seen)
-    assert any("Page 1/2" in m and "diphonie" in m for m in seen)
-    assert any("Page 2/2" in m and "polyphonies" in m for m in seen)
+    # Le nom de la source est préfixé dans le log live (TODO #10).
+    assert any("fest" in m and "2 pages" in m for m in seen)
+    assert any("fest" in m and "Page 1/2" in m and "diphonie" in m for m in seen)
+    assert any("fest" in m and "Page 2/2" in m and "polyphonies" in m for m in seen)
 
 
 def test_collect_propagates_overrides_to_items(monkeypatch):

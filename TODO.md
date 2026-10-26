@@ -193,7 +193,11 @@ exploitable → 0 event aujourd'hui).
 
 ---
 
-## 10. Identifier la source dans le log live / Résumé
+## 10. Identifier la source dans le log live / Résumé — ⚙️ log live FAIT (2026-10-26), Résumé à faire
+
+**État :** le log live préfixe désormais la source (`<site> : N pages à
+récupérer` / `<site> — Page i/N : slug`, web.py). Reste à faire : grouper /
+titrer les events **par source dans le Résumé**.
 
 **But :** savoir à quelle source se rapportent les infos affichées pendant
 l'extraction (log live) et dans le Résumé — au moins un en-tête en début de
@@ -244,6 +248,38 @@ fichier xlsx cible est verrouillé parce qu'ouvert dans Excel.
 - S'applique aussi au mode « tous les mois » (plusieurs fichiers) : repli par
   fichier concerné.
 - Idem pour les autres formats de sortie (csv, etc.) si verrouillés.
+
+---
+
+## 12. Pré-filtre par mois avant fetch (lire la date sur la carte d'agenda)
+
+**But :** ne pas fetcher ni normaliser les pages détail d'events hors du mois
+cible quand leur date est déjà visible sur la page d'agenda.
+
+- Observé sur `https://leoliennearnage.fr/programme-concerts-spectacles/` : la
+  page `giedre-maxi-best-of` (16 octobre) est fetchée alors que la cible est
+  novembre → fetch + appel modèle inutiles (puis 0 event au filtre mois).
+- Diagnostic : la date EST sur la carte d'agenda (conteneur Elementor qui
+  contient le lien `/event/…` ET « 16 octobre 2026 »), mais `_filter_event_urls`
+  reçoit un `get_text` À PLAT + la liste d'URLs → le modèle ne relie pas le slug
+  à sa date et, par prudence (« en doute, inclure »), garde l'event.
+
+**Approche retenue (A) — enrichir le signal du pré-filtre :**
+- Extraire, pour chaque lien candidat, le texte de sa **carte** (plus petit
+  ancêtre contenant le lien + une date) et passer au modèle des **paires
+  explicites** `slug → texte de carte (avec date)` au lieu du blob à plat.
+- Ajuster `PREFILTER_SYSTEM` pour exploiter la date de chaque carte et exclure
+  les hors-mois ; garder la règle « en doute, inclure » quand aucune date n'est
+  lisible sur la carte (date seulement sur la page détail) → zéro event perdu.
+- Fichiers : `tapageur/connectors/web.py` (`_extract_subpages` / nouveau
+  `_extract_card_snippets`, `_filter_event_urls`, `PREFILTER_SYSTEM`).
+
+**Extension possible (C, plus tard) :** fast-path déterministe — parser la date
+FR sur la carte et droper les hors-mois sans appeler le modèle, uniquement sur
+une date lue avec certitude (sinon fallback A). Nécessite un parseur de dates FR
+et une garde anti-sur-filtrage.
+
+**À écarter :** le déterministe SEUL (risque de sur-filtrage = events perdus).
 
 ---
 
