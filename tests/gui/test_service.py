@@ -201,6 +201,31 @@ def test_write_mode_append_skips_present_sources(monkeypatch, tmp_path):
     assert captured["urls"] == ["https://a.fr/new"]  # source présente filtrée
 
 
+def test_write_mode_append_skips_follow_url_by_host(monkeypatch, tmp_path):
+    """Interim : un site à suivre dont la colonne SOURCE ne garde que les pages
+    détail est reconnu « déjà présent » par son HÔTE ; un nouvel hôte passe."""
+    monkeypatch.setattr(S._xlsx, "existing_sources",
+                        lambda p: {"https://leo.fr/event/x"})  # page détail stockée
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    captured = {}
+    monkeypatch.setattr(S, "items_from_urls",
+                        lambda url_inputs, month, progress=None: captured.setdefault(
+                            "urls", [u.url for u in url_inputs]) or [])
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    (tmp_path / "tapage_2026-11.xlsx").write_bytes(b"x")
+    req = S.RunRequest(
+        url_inputs=[UrlInput(url="https://leo.fr/programme/", follow_links=True),
+                    UrlInput(url="https://clappin.fr/agenda/", follow_links=True)],
+        months=["2026-11"], formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+        write_mode="append",
+    )
+    S.run(req)
+    assert captured["urls"] == ["https://clappin.fr/agenda/"]  # leo.fr (hôte présent) filtré
+
+
 def test_write_mode_merge_routes_to_merge(monkeypatch, tmp_path):
     calls = {}
     monkeypatch.setattr(S._xlsx, "_merge_xlsx",

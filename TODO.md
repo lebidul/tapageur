@@ -283,5 +283,21 @@ et une garde anti-sur-filtrage.
 
 ---
 
+## 13. Robustesse de l'arrêt (Ctrl+C) de l'extraction
+
+**But :** un Ctrl+C pendant l'extraction ne doit pas cracher avec des erreurs.
+
+- Observé à l'arrêt : `[pywebview] Failed to delete user data folder: [WinError
+  32] ... Extension Rules\000003.log` (dossier temp WebView2 encore verrouillé)
+  et `signal only works in main thread of the main interpreter` (l'extraction
+  tourne dans un thread de travail → l'install d'un handler de signal échoue).
+- Sans impact sur un run qui va au bout ; bruit/trace moche sur interruption.
+- Pistes : arrêt propre du thread d'extraction + fermeture des fenêtres
+  pywebview cachées (`_webview_fetch`) avant sortie ; ne pas installer de
+  handler de signal hors thread principal ; tolérer l'échec de suppression du
+  dossier temp WebView2 (retry/léger délai, ou ignorer silencieusement).
+
+---
+
 > Pour attaquer une feature : la cadrer (brainstorming) en répondant aux
 > questions ouvertes ci-dessus, puis spec → plan → implémentation.

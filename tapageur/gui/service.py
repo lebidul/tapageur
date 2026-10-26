@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
 
 from tapageur.dedup import (apply_venue_defaults, canonicalize, convert_to_onliner,
                             dedup, group_events, load_mappings, load_venue_defaults)
@@ -129,6 +130,11 @@ def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
     present_norm = {p.strip() for p in present}
     # Fichiers : comparaison insensible à la casse (noms de fichiers Windows).
     present_ci = {p.casefold() for p in present_norm}
+    # URLs à suivre : l'URL d'agenda saisie n'est PAS stockée (la colonne SOURCE
+    # garde les pages détail). On rapproche donc par HÔTE : si l'hôte de l'URL
+    # saisie apparaît déjà dans les sources, on considère la source présente.
+    # (Interim ; le fix exact = colonne « id source config ».)
+    present_hosts = {h for h in (urlparse(s).netloc for s in present_norm) if h}
     skipped = 0
     kept_files = []
     for fi in req.file_inputs:
@@ -140,7 +146,9 @@ def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
             kept_files.append(fi)
     kept_urls = []
     for u in req.url_inputs:
-        if u.url in present_norm:
+        host = urlparse(u.url).netloc
+        follow = getattr(u, "follow_links", False)
+        if u.url in present_norm or (follow and host and host in present_hosts):
             skipped += 1
         else:
             kept_urls.append(u)
