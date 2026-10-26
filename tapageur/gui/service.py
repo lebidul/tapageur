@@ -17,7 +17,7 @@ from tapageur.gui.inputs import (TextInput, UrlInput, items_from_files,
                                  items_from_texts, items_from_urls)
 from tapageur.normalize import normalize_items
 from tapageur.schema import Event
-from tapageur.validate import export_csv
+from tapageur.validate import _source_ref_display, export_csv
 
 
 def default_reference_year(today: date | None = None) -> str:
@@ -36,7 +36,7 @@ class RunRequest:
     tapeur_email: str
     month_mode: str = "specific"          # "specific" | "all"
     reference_year: str = ""              # mode "all" ; vide → default_reference_year()
-    append: bool = False
+    write_mode: str = "create"            # "create" | "append" | "merge"
     text_inputs: list[TextInput] = field(default_factory=list)
     file_inputs: list = field(default_factory=list)   # list[FileInput]
 
@@ -48,6 +48,10 @@ class MonthResult:
     files: list[Path] = field(default_factory=list)
     alerts: list[str] = field(default_factory=list)
     events: list = field(default_factory=list)   # list[Event] (détail pour l'UI)
+    added: int = 0
+    filled: int = 0
+    unchanged: int = 0
+    sources_skipped: int = 0
 
 
 def build_alerts(events: list[Event], ref_cities: set[str], ref_venues: set[str]) -> list[str]:
@@ -110,10 +114,46 @@ def _pipeline(items, month: str, month_filter: bool, cache_out: Path,
     return events
 
 
+def _input_source_display(kind: str, ref: str) -> str:
+    """Référence SOURCE telle qu'écrite dans le xlsx (miroir validate)."""
+    return _source_ref_display(kind, ref)
+
+
+def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
+    """En mode incrémental : retire les file/url inputs dont la SOURCE est déjà
+    dans le fichier cible. Retourne le nombre de sources ignorées. Textes gardés
+    (pas d'identifiant stable)."""
+    present = _xlsx.existing_sources(target)
+    if not present:
+        return 0
+    present_norm = {p.strip() for p in present}
+    skipped = 0
+    kept_files = []
+    for fi in req.file_inputs:
+        disp = _input_source_display("image", fi.path)  # basename, suffisant pour fichiers/pdf
+        base = Path(fi.path).name
+        if base in present_norm or disp in present_norm:
+            skipped += 1
+        else:
+            kept_files.append(fi)
+    kept_urls = []
+    for u in req.url_inputs:
+        if u.url in present_norm:
+            skipped += 1
+        else:
+            kept_urls.append(u)
+    req.file_inputs = kept_files
+    req.url_inputs = kept_urls
+    if skipped:
+        emit(f"Incrémental : {skipped} source(s) déjà présente(s) ignorée(s).")
+    return skipped
+
+
 def _export(events: list[Event], out_dir: Path, label: str, formats: list[str],
-            append: bool = False) -> list[Path]:
+            write_mode: str = "create") -> tuple[list[Path], "_xlsx.MergeReport | None"]:
     out_dir.mkdir(parents=True, exist_ok=True)
     written: list[Path] = []
+    report = None
     if "json" in formats:
         p = out_dir / f"tapage_{label}.json"
         p.write_text(json.dumps([e.model_dump() for e in events], indent=2, ensure_ascii=False),
@@ -125,9 +165,14 @@ def _export(events: list[Event], out_dir: Path, label: str, formats: list[str],
         written.append(p)
     if "xlsx" in formats:
         p = out_dir / f"tapage_{label}.xlsx"
-        _xlsx.export_xlsx(events, p, append=append)
+        if write_mode == "merge":
+            report = _xlsx._merge_xlsx(events, p)
+        elif write_mode == "append":
+            _xlsx.export_xlsx(events, p, append=True)
+        else:
+            _xlsx.export_xlsx(events, p)
         written.append(p)
-    return written
+    return written, report
 
 
 def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[MonthResult]:
@@ -136,6 +181,23 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
 
     os.environ["TAPEUR_EMAIL"] = req.tapeur_email
     ref_cities, ref_venues = _reference_lists()
+
+    def _apply_report(mr: MonthResult, report) -> None:
+        if report is None:
+            return
+        mr.added, mr.filled, mr.unchanged = report.added, report.filled, report.unchanged
+        _emit(f"Fusion : {report.added} ajoutés · {report.filled} complétés · "
+              f"{report.unchanged} inchangés.")
+        for k in report.added_keys:
+            _emit(f"  + AJOUTÉ  {k[0]} · {k[1]} · {k[2]}")
+        for k, labels in report.filled_detail:
+            _emit(f"  ~ COMPLÉTÉ {k[0]} · {k[1]} · {k[2]} → {', '.join(labels)}")
+
+    # Skip incrémental : uniquement en mode spécifique mono-mois + write_mode append.
+    sources_skipped = 0
+    if req.month_mode != "all" and req.write_mode == "append" and len(req.months) == 1:
+        target = req.out_dir / f"tapage_{req.months[0]}.xlsx"
+        sources_skipped = _filter_present_sources(req, target, _emit)
 
     _emit("Collecte des sources…")
     url_month = "" if req.month_mode == "all" else (req.months[0] if req.months else "")
@@ -158,10 +220,15 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
         for month in sorted(by_month):
             evs = by_month[month]
             _emit(f"{month} : {len(evs)} events, export…")
-            files = _export(evs, req.out_dir, month, req.formats, append=req.append)
+            files, report = _export(evs, req.out_dir, month, req.formats,
+                                     write_mode=req.write_mode)
             alerts = build_alerts(evs, ref_cities, ref_venues)
-            results.append(MonthResult(month=month, n_events=len(evs),
-                                       files=files, alerts=alerts, events=evs))
+            if req.write_mode in ("append", "merge") and "xlsx" not in req.formats:
+                alerts.append(f"Mode '{req.write_mode}' ignoré : xlsx non sélectionné.")
+            mr = MonthResult(month=month, n_events=len(evs),
+                             files=files, alerts=alerts, events=evs)
+            _apply_report(mr, report)
+            results.append(mr)
         if not by_month:
             results.append(MonthResult(month=None, n_events=0, files=[],
                                        alerts=["Aucun event extrait."]))
@@ -171,12 +238,16 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             _emit(f"{month} : extraction…")
             events = _pipeline(items, month, True, cache_out, progress=progress)
             _emit(f"{month} : {len(events)} events, export…")
-            files = _export(events, req.out_dir, month, req.formats, append=req.append)
+            files, report = _export(events, req.out_dir, month, req.formats,
+                                     write_mode=req.write_mode)
             alerts = build_alerts(events, ref_cities, ref_venues)
-            if req.append and "xlsx" not in req.formats:
-                alerts.append("Append ignoré : xlsx non sélectionné.")
-            results.append(MonthResult(month=month, n_events=len(events),
-                                       files=files, alerts=alerts, events=events))
+            if req.write_mode in ("append", "merge") and "xlsx" not in req.formats:
+                alerts.append(f"Mode '{req.write_mode}' ignoré : xlsx non sélectionné.")
+            mr = MonthResult(month=month, n_events=len(events),
+                             files=files, alerts=alerts, events=events,
+                             sources_skipped=sources_skipped)
+            _apply_report(mr, report)
+            results.append(mr)
 
     _emit("Terminé.")
     return results

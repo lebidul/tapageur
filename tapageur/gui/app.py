@@ -25,6 +25,14 @@ _WEB = _GUI_DIR / "web" / "index.html"
 _SUPPORTED_EXTS = {".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif"}
 
 
+def _resolve_write_mode(payload: dict) -> str:
+    """Mode d'écriture xlsx depuis le payload, avec repli legacy `append`."""
+    wm = payload.get("write_mode")
+    if wm in ("create", "append", "merge"):
+        return wm
+    return "append" if payload.get("append") else "create"
+
+
 def _debug_config(payload: dict) -> dict:
     """Config rejouable : le payload sans secret (api_key / tapeur_email).
     Le flag `debug` est conservé pour que l'import restaure le mode debug."""
@@ -187,7 +195,7 @@ class Api:
             formats=payload.get("formats", []),
             out_dir=Path(payload.get("out_dir") or "."),
             tapeur_email=cfg.get("tapeur_email", _settings.DEFAULT_TAPEUR_EMAIL),
-            append=payload.get("append", False),
+            write_mode=_resolve_write_mode(payload),
         )
         def progress(msg: str) -> None:
             # run_extraction tourne hors du thread UI : evaluate_js marshale sans danger.

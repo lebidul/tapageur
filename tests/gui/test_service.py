@@ -1,6 +1,8 @@
 from datetime import date
 from pathlib import Path
 from tapageur.gui import service
+from tapageur.gui import service as S
+from tapageur.gui.inputs import UrlInput, FileInput
 from tapageur.schema import Event, Act
 
 
@@ -82,8 +84,8 @@ def test_run_threads_progress_into_normalize(tmp_path, monkeypatch):
 
 def test_export_append_adds_to_existing_xlsx(tmp_path):
     import openpyxl
-    service._export([_event(perf="Un")], tmp_path, "2026-11", ["xlsx"], append=False)
-    service._export([_event(perf="Deux")], tmp_path, "2026-11", ["xlsx"], append=True)
+    service._export([_event(perf="Un")], tmp_path, "2026-11", ["xlsx"], write_mode="create")
+    service._export([_event(perf="Deux")], tmp_path, "2026-11", ["xlsx"], write_mode="append")
     ws = openpyxl.load_workbook(tmp_path / "tapage_2026-11.xlsx")["lebiduleur"]
     assert ws.max_row == 3   # en-tête + 2 events
 
@@ -98,10 +100,10 @@ def test_run_append_without_xlsx_warns(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
     req = service.RunRequest(
         file_inputs=[], url_inputs=[], months=["2026-11"], month_mode="specific",
-        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr", append=True,
+        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr", write_mode="append",
     )
     results = service.run(req)
-    assert any("xlsx" in a.lower() for a in results[0].alerts)
+    assert any("Mode 'append' ignoré : xlsx non sélectionné." == a for a in results[0].alerts)
 
 
 def test_run_includes_text_inputs(tmp_path, monkeypatch):
@@ -172,3 +174,45 @@ def test_run_all_months_one_file_per_month(tmp_path, monkeypatch):
     assert months == ["2026-11", "2026-12"]
     names = sorted(p.name for r in results for p in r.files)
     assert names == ["tapage_2026-11.xlsx", "tapage_2026-12.xlsx"]
+
+
+def test_write_mode_append_skips_present_sources(monkeypatch, tmp_path):
+    # fichier existant contenant déjà la source "https://a.fr/present"
+    monkeypatch.setattr(S._xlsx, "existing_sources",
+                        lambda p: {"https://a.fr/present"})
+    # export réel neutralisé : le fichier cible factice (b"x") n'est pas un xlsx.
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    captured = {}
+    def fake_items_urls(url_inputs, month, progress=None):
+        captured["urls"] = [u.url for u in url_inputs]
+        return []
+    monkeypatch.setattr(S, "items_from_urls", fake_items_urls)
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    (tmp_path / "tapage_2026-11.xlsx").write_bytes(b"x")  # existe
+    req = S.RunRequest(
+        url_inputs=[UrlInput(url="https://a.fr/present"), UrlInput(url="https://a.fr/new")],
+        months=["2026-11"], formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+        write_mode="append",
+    )
+    S.run(req)
+    assert captured["urls"] == ["https://a.fr/new"]  # source présente filtrée
+
+
+def test_write_mode_merge_routes_to_merge(monkeypatch, tmp_path):
+    calls = {}
+    monkeypatch.setattr(S._xlsx, "_merge_xlsx",
+                        lambda evs, p: calls.update(merge=True) or S._xlsx.MergeReport(added=1))
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: calls.setdefault("create", True))
+    monkeypatch.setattr(S, "items_from_urls", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_texts", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [object()])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    monkeypatch.setattr(S, "build_alerts", lambda *a, **k: [])
+    req = S.RunRequest(url_inputs=[], months=["2026-11"], formats=["xlsx"],
+                       out_dir=tmp_path, tapeur_email="t@b.fr", write_mode="merge")
+    res = S.run(req)
+    assert calls.get("merge") and res[0].added == 1

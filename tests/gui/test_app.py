@@ -19,7 +19,7 @@ def test_dropped_paths_empty_cases():
     assert app._dropped_paths({"dataTransfer": {}}) == []
 
 
-def test_run_extraction_passes_append(monkeypatch):
+def test_run_extraction_passes_write_mode(monkeypatch):
     # Clé présente → pas de court-circuit "clé absente".
     monkeypatch.setattr(app._settings, "load_settings",
                         lambda: {"anthropic_api_key": "sk-test", "tapeur_email": "t@b.fr"})
@@ -30,10 +30,34 @@ def test_run_extraction_passes_append(monkeypatch):
     res = app.Api().run_extraction({
         "file_paths": [], "urls": [], "months": ["2026-11"],
         "no_month_filter": False, "formats": ["xlsx"], "out_dir": ".",
-        "append": True,
+        "write_mode": "append",
     })
     assert "results" in res
-    assert captured["req"].append is True
+    assert captured["req"].write_mode == "append"
+
+
+def test_run_extraction_legacy_append_maps_to_write_mode(monkeypatch):
+    # Compat : un payload legacy {"append": True} → write_mode "append".
+    monkeypatch.setattr(app._settings, "load_settings",
+                        lambda: {"anthropic_api_key": "sk-test", "tapeur_email": "t@b.fr"})
+    captured = {}
+    monkeypatch.setattr(app, "run", lambda req, progress=None: captured.update(req=req) or [])
+    app.Api().run_extraction({
+        "file_paths": [], "urls": [], "months": ["2026-11"],
+        "no_month_filter": False, "formats": ["xlsx"], "out_dir": ".",
+        "append": True,
+    })
+    assert captured["req"].write_mode == "append"
+
+
+def test_resolve_write_mode():
+    from tapageur.gui.app import _resolve_write_mode
+    assert _resolve_write_mode({"write_mode": "merge"}) == "merge"
+    assert _resolve_write_mode({"write_mode": "append"}) == "append"
+    assert _resolve_write_mode({"write_mode": "create"}) == "create"
+    assert _resolve_write_mode({"append": True}) == "append"
+    assert _resolve_write_mode({"append": False}) == "create"
+    assert _resolve_write_mode({}) == "create"
 
 
 def test_run_extraction_passes_texts(monkeypatch):
