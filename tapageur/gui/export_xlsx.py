@@ -267,3 +267,36 @@ def _merge_xlsx(events: list, out_path: Path) -> MergeReport:
 
     _save_workbook(wb, out_path)
     return report
+
+
+# --- Lecture des sources présentes (skip incrémental) ---
+
+
+def existing_sources(out_path: Path) -> set:
+    """Ensemble des sources déjà présentes (colonne SOURCE), pour le skip
+    incrémental. Suffixe ' (p.N)' des PDF retiré. Vide si fichier absent."""
+    if not out_path.exists():
+        return set()
+    try:
+        wb = openpyxl.load_workbook(out_path, read_only=True, data_only=True)
+    except Exception:
+        return set()
+    try:
+        if DATA_SHEET not in wb.sheetnames:
+            return set()
+        ws = wb[DATA_SHEET]
+        out: set = set()
+        for r in ws.iter_rows(min_row=2, min_col=_COL_SOURCE, max_col=_COL_SOURCE,
+                              values_only=True):
+            val = r[0]
+            if not val:
+                continue
+            for part in str(val).split(";"):
+                s = part.strip()
+                if s.endswith(")") and " (p." in s:
+                    s = s[:s.rindex(" (p.")]
+                if s:
+                    out.add(s)
+        return out
+    finally:
+        wb.close()

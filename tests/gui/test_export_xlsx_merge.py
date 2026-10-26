@@ -108,3 +108,18 @@ def test_merge_appends_source(tmp_path: Path):
     ws = openpyxl.load_workbook(out)[X.DATA_SHEET]
     src = [r[1] for r in ws.iter_rows(min_row=2, values_only=True)][0]
     assert "natif.fr" in src and "clappin.fr" in src
+
+
+def test_existing_sources_reads_source_column(tmp_path: Path):
+    out = tmp_path / "f.xlsx"
+    e1 = _ev(); e1.source_ref = "https://clappin.fr/agenda-musique/"
+    e2 = _ev(perf="Y", date_label="Jeudi 5")
+    e2.source_kind = "image"; e2.source_ref = r"C:\x\flyer.png"
+    X.export_xlsx([e1, e2], out)
+    srcs = X.existing_sources(out)
+    assert "https://clappin.fr/agenda-musique/" in srcs
+    assert "flyer.png" in srcs  # image → basename
+
+
+def test_existing_sources_absent_file():
+    assert X.existing_sources(Path("nope-xyz.xlsx")) == set()
