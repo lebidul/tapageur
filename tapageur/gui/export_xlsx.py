@@ -141,3 +141,48 @@ def _key_from_cells(cells: list) -> tuple:
 
 def _event_cells(ev, n_acts: int) -> list:
     return event_to_row(ev, n_acts=n_acts)
+
+
+# --- Fill-gaps : plan de complétion d'une ligne existante ---
+
+_KEY_COLS = {_COL_DATE, _COL_LIEU, _COL_ARTISTE1}
+_META_COLS = {_COL_TYPE_SOURCE, _COL_SOURCE, 3, 4, 5}  # TYPE SOURCE, SOURCE, INFO TAPEUR, DATE TAPAGE, DATE EMISSION
+
+
+def _label_for(col: int) -> str:
+    fixed = {
+        _COL_FESTOCHE: "FESTOCHE", _COL_STYLE_FESTOCHE: "STYLE FESTOCHE",
+        _COL_HEURE: "HEURE", _COL_VILLE: "VILLE", _COL_PRIX: "PRIX",
+    }
+    if col in fixed:
+        return fixed[col]
+    # bloc ACT : i = (col-1 - _N_FIXED_COLS)//4 + 1 ; sous-champ selon offset
+    offset = (col - 1 - _N_FIXED_COLS) % 4
+    i = (col - 1 - _N_FIXED_COLS) // 4 + 1
+    sub = {0: "GENRE", 1: "NOM", 2: "ARTISTE", 3: "STYLE"}[offset]
+    return f"{sub} {i}"
+
+
+def _plan_fill(existing: list, incoming: list, n_cols: int):
+    fills: dict[int, object] = {}
+    labels: list[str] = []
+    for col in range(1, n_cols + 1):
+        if col in _KEY_COLS or col in _META_COLS:
+            continue
+        ex = _cell(existing, col)
+        inc = _cell(incoming, col)
+        if _is_blank(ex) and not _is_blank(inc):
+            fills[col] = inc
+            labels.append(_label_for(col))
+    return fills, labels
+
+
+def _merge_source_cell(existing_val, incoming_val) -> str | None:
+    inc = ("" if incoming_val is None else str(incoming_val)).strip()
+    if not inc:
+        return None
+    parts = [p.strip() for p in str(existing_val or "").split(";") if p.strip()]
+    if any(_norm(p) == _norm(inc) for p in parts):
+        return None
+    parts.append(inc)
+    return " ; ".join(parts)
