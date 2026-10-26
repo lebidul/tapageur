@@ -330,6 +330,35 @@ def _extract_json(text: str) -> str:
     return text
 
 
+def _salvage_events(raw: str) -> list:
+    """Parse tolérant : récupère les objets du tableau "events" complets avant
+    une troncature / erreur JSON (réponse très dense malformée), au lieu de
+    perdre toute la page. Renvoie [] si le tableau est introuvable."""
+    i = raw.find('"events"')
+    if i == -1:
+        return []
+    start = raw.find("[", i)
+    if start == -1:
+        return []
+    dec = json.JSONDecoder()
+    out: list = []
+    k = start + 1
+    n = len(raw)
+    while k < n:
+        while k < n and raw[k] in " \t\r\n,":
+            k += 1
+        if k >= n or raw[k] == "]":
+            break
+        try:
+            obj, end = dec.raw_decode(raw, k)
+        except json.JSONDecodeError:
+            break
+        if isinstance(obj, dict):
+            out.append(obj)
+        k = end
+    return out
+
+
 def _normalize_one(
     client: Anthropic,
     item: CollectedItem,
@@ -398,8 +427,15 @@ def _normalize_one(
     raw = _extract_json(text)
     try:
         data = json.loads(raw)
+        raw_events = data.get("events", [])
     except json.JSONDecodeError as e:
-        raise ValueError(f"JSON invalide : {e}\n--- début réponse ---\n{raw[:500]}")
+        # Parse tolérant : récupérer les events complets avant la troncature /
+        # l'erreur (réponse très dense malformée) au lieu de perdre toute la page.
+        raw_events = _salvage_events(raw)
+        if not raw_events:
+            raise ValueError(f"JSON invalide : {e}\n--- début réponse ---\n{raw[:500]}")
+        print(f"    [warn] JSON partiel ({e.msg}) — {len(raw_events)} events récupérés")
+        data = {"events": raw_events}
 
     # Validation event-par-event (au lieu du model_validate global) : si un
     # event est mal formé (ex. performer null), on log et on skip CET event,

@@ -439,6 +439,33 @@ def test_normalize_one_dj_without_style_gets_dj_in_style():
     assert "dj" in (out[0].acts[0].style or "").lower()
 
 
+def test_salvage_events_recovers_prefix():
+    from tapageur.normalize import _salvage_events
+    raw = '{"events": [{"a": 1}, {"b": 2}, {"c":'  # 3e objet tronqué
+    assert _salvage_events(raw) == [{"a": 1}, {"b": 2}]
+    assert _salvage_events("pas de events ici") == []
+
+
+def test_normalize_one_salvages_truncated_json():
+    """Réponse JSON malformée (dense/tronquée) : on récupère les events
+    complets avant l'erreur au lieu de tout perdre."""
+    from tapageur import normalize as _norm
+    import json as _json
+    item = _text_item({})
+    good = {"date_iso": "2026-11-13", "times": ["20h00"], "venue": "V",
+            "city": "Le Mans", "price": "?",
+            "acts": [{"genre": "c", "title": None, "performer": "A", "style": None}]}
+    # 2 events complets puis un 3e tronqué → JSON global invalide
+    txt = ('{"events": [' + _json.dumps(good) + ', ' + _json.dumps(good)
+           + ', {"date_iso": "2026-11-14", "times": [')
+    client = MagicMock()
+    block = MagicMock(); block.type = "text"; block.text = txt
+    resp = MagicMock(); resp.content = [block]
+    client.messages.create.return_value = resp
+    out = _norm._normalize_one(client, item, "2026-11", None, "t@b.fr")
+    assert len(out) == 2  # 2 events récupérés, le 3e tronqué ignoré
+
+
 def test_normalize_one_empty_text_skips_model_call():
     """Garde anti-confabulation : un item sans image au texte quasi vide ne
     doit PAS appeler le modèle (il ne pourrait qu'halluciner) → retourne []."""
