@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import os
 import sys
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import openpyxl
@@ -186,3 +187,83 @@ def _merge_source_cell(existing_val, incoming_val) -> str | None:
         return None
     parts.append(inc)
     return " ; ".join(parts)
+
+
+# --- Fusion in-place + compte-rendu ---
+
+
+@dataclass
+class MergeReport:
+    added: int = 0
+    filled: int = 0
+    unchanged: int = 0
+    added_keys: list = field(default_factory=list)       # list[tuple]
+    filled_detail: list = field(default_factory=list)     # list[(key, [labels])]
+
+
+def _merge_xlsx(events: list, out_path: Path) -> MergeReport:
+    """Fusionne `events` dans un xlsx existant : complète les trous des lignes
+    qui matchent (DATE+LIEU+ARTISTE1), ajoute les non-matchés. In-place."""
+    if not out_path.exists():
+        export_xlsx(events, out_path)  # création
+        return MergeReport(added=len(events),
+                           added_keys=[_key_from_cells(_event_cells(e, max(1, len(e.acts))))
+                                       for e in events])
+
+    wb = openpyxl.load_workbook(out_path)
+    if DATA_SHEET not in wb.sheetnames:
+        raise ValueError(f"{out_path} n'a pas de feuille '{DATA_SHEET}' : fusion impossible.")
+    ws = wb[DATA_SHEET]
+
+    existing_blocks = max(1, (ws.max_column - _N_FIXED_COLS) // 4)
+    target_blocks = max(existing_blocks, max((len(e.acts) for e in events), default=1))
+    if target_blocks > existing_blocks:
+        _write_act_headers(ws, existing_blocks + 1, target_blocks)
+    n_cols = _N_FIXED_COLS + target_blocks * 4
+
+    # Index des lignes existantes par clé (1re occurrence).
+    row_cells: dict[int, list] = {}
+    key_to_row: dict[tuple, int] = {}
+    for r in range(2, ws.max_row + 1):
+        cells = [ws.cell(row=r, column=c).value for c in range(1, n_cols + 1)]
+        k = _key_from_cells(cells)
+        if k == ("", "", ""):
+            continue  # ligne vide
+        row_cells[r] = cells
+        key_to_row.setdefault(k, r)
+
+    report = MergeReport()
+    to_append: list = []
+    for ev in events:
+        inc = _event_cells(ev, target_blocks)
+        k = _key_from_cells(inc)
+        r = key_to_row.get(k)
+        if r is None:
+            to_append.append(inc)
+            report.added += 1
+            report.added_keys.append(k)
+            continue
+        existing = row_cells[r]
+        fills, labels = _plan_fill(existing, inc, n_cols)
+        new_src = _merge_source_cell(existing[_COL_SOURCE - 1], inc[_COL_SOURCE - 1])
+        new_type = _merge_source_cell(existing[_COL_TYPE_SOURCE - 1], inc[_COL_TYPE_SOURCE - 1])
+        if not fills and new_src is None and new_type is None:
+            report.unchanged += 1
+            continue
+        for col, val in fills.items():
+            ws.cell(row=r, column=col, value=val)
+        if new_src is not None:
+            ws.cell(row=r, column=_COL_SOURCE, value=new_src)
+        if new_type is not None:
+            ws.cell(row=r, column=_COL_TYPE_SOURCE, value=new_type)
+        report.filled += 1
+        report.filled_detail.append((k, labels))
+
+    # Append des non-matchés à la suite.
+    start = ws.max_row + 1
+    for i, inc in enumerate(to_append):
+        for c, value in enumerate(inc, start=1):
+            ws.cell(row=start + i, column=c, value=value)
+
+    _save_workbook(wb, out_path)
+    return report
