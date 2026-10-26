@@ -166,3 +166,48 @@ def test_merge_two_incoming_same_key_match_existing_no_clobber(tmp_path: Path):
     assert row[8] == "20h00"                  # HEURE préservée
     assert row[11] == "10€"                   # 1er comble le trou, 2e n'écrase PAS
     assert all(s in row[1] for s in ("natif.fr", "a.fr", "b.fr"))  # 3 sources
+
+
+# --- Manifeste des sources traitées (feuille cachée) ---
+
+def test_manifest_record_then_read(tmp_path: Path):
+    out = tmp_path / "f.xlsx"
+    X.export_xlsx([_ev()], out)                 # crée un xlsx normal
+    assert X.has_manifest(out) is False
+    X.record_processed_sources(out, [("https://a.fr/x", "URL"),
+                                     ("flyer.avif", "Fichier")])
+    assert X.has_manifest(out) is True
+    got = X.read_processed_sources(out)
+    assert got == {"https://a.fr/x", "flyer.avif"}
+
+
+def test_manifest_union_no_dup_keeps_first_date(tmp_path: Path):
+    out = tmp_path / "f.xlsx"
+    X.export_xlsx([_ev()], out)
+    X.record_processed_sources(out, [("s1", "URL")])
+    import openpyxl
+    d1 = [r for r in openpyxl.load_workbook(out)[X.MANIFEST_SHEET]
+          .iter_rows(min_row=2, values_only=True)][0][2]
+    X.record_processed_sources(out, [("s1", "URL"), ("s2", "URL")])  # s1 déjà là
+    wb = openpyxl.load_workbook(out)
+    rows = [r for r in wb[X.MANIFEST_SHEET].iter_rows(min_row=2, values_only=True)]
+    ids = [r[0] for r in rows]
+    assert ids == ["s1", "s2"]                  # pas de doublon de s1
+    assert rows[0][2] == d1                      # date d'origine conservée
+    assert wb[X.MANIFEST_SHEET].sheet_state == "hidden"
+
+
+def test_manifest_read_absent_file():
+    assert X.read_processed_sources(Path("nope-xyz.xlsx")) == set()
+    assert X.has_manifest(Path("nope-xyz.xlsx")) is False
+
+
+def test_manifest_sheet_does_not_leak_into_data(tmp_path: Path):
+    """La feuille manifeste ne doit pas perturber la lecture des events."""
+    out = tmp_path / "f.xlsx"
+    X.export_xlsx([_ev(perf="X")], out)
+    X.record_processed_sources(out, [("s1", "URL")])
+    import openpyxl
+    ws = openpyxl.load_workbook(out)[X.DATA_SHEET]
+    perfs = [r[14] for r in ws.iter_rows(min_row=2, values_only=True)]
+    assert "X" in perfs

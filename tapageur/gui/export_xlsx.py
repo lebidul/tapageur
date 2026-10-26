@@ -331,3 +331,75 @@ def existing_sources(out_path: Path) -> set:
         return out
     finally:
         wb.close()
+
+
+# --- Manifeste des sources traitées (feuille cachée) ---
+
+MANIFEST_SHEET = "_sources_traitees"
+
+
+def has_manifest(out_path: Path) -> bool:
+    if not out_path.exists():
+        return False
+    try:
+        wb = openpyxl.load_workbook(out_path, read_only=True)
+    except Exception:
+        return False
+    try:
+        return MANIFEST_SHEET in wb.sheetnames
+    finally:
+        wb.close()
+
+
+def read_processed_sources(out_path: Path) -> set:
+    """Ids des sources déjà traitées (feuille cachée). set() si absent."""
+    if not out_path.exists():
+        return set()
+    try:
+        wb = openpyxl.load_workbook(out_path, read_only=True, data_only=True)
+    except Exception:
+        return set()
+    try:
+        if MANIFEST_SHEET not in wb.sheetnames:
+            return set()
+        ws = wb[MANIFEST_SHEET]
+        out: set = set()
+        for i, row in enumerate(ws.iter_rows(min_col=1, max_col=1, values_only=True)):
+            if i == 0:
+                continue  # en-tête
+            if row and row[0]:
+                out.add(str(row[0]).strip())
+        return out
+    finally:
+        wb.close()
+
+
+def record_processed_sources(out_path: Path, sources: list) -> None:
+    """Union des `(id, type)` dans la feuille cachée (date d'origine conservée).
+    No-op si le fichier n'existe pas ou `sources` vide."""
+    from datetime import date as _date
+    if not out_path.exists() or not sources:
+        return
+    wb = openpyxl.load_workbook(out_path)
+    if MANIFEST_SHEET in wb.sheetnames:
+        ws = wb[MANIFEST_SHEET]
+    else:
+        ws = wb.create_sheet(MANIFEST_SHEET)
+        ws.sheet_state = "hidden"
+        ws.append(["id", "type", "date_passe"])
+    existing: set = set()
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if row and row[0]:
+            existing.add(str(row[0]).strip())
+    today = _date.today().isoformat()
+    changed = False
+    for sid, stype in sources:
+        key = str(sid).strip()
+        if key and key not in existing:
+            ws.append([key, stype, today])
+            existing.add(key)
+            changed = True
+    if changed:
+        _save_workbook(wb, out_path)
+    else:
+        wb.close()
