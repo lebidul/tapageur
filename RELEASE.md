@@ -3,6 +3,40 @@
 > Ces notes sont publiées avec la Release GitHub du tag correspondant.
 > Ajouter la nouvelle version **en tête**, puis taguer `vX.Y.Z`.
 
+## 1.1.0 — 2026-10-27
+
+Modes d'écriture, fusion/dédoublonnage et fiabilité d'extraction.
+
+### Nouveautés
+- **Trois modes d'écriture (xlsx)** au lieu de la simple case « Ajouter » :
+  - **Créer / écraser** : fichier neuf.
+  - **Ajouter (incrémental)** : n'extrait que les sources **non encore
+    traitées** et ajoute leurs lignes.
+  - **Fusionner** : complète les lignes existantes (remplit les trous HEURE /
+    PRIX / FESTOCHE / … sans jamais écraser une valeur), ajoute les manquants,
+    et accole la source. Idéal pour compléter avec un agenda tiers.
+- **Manifeste des sources traitées** (feuille cachée `_sources_traitees`) :
+  le mode incrémental ignore fiablement les sources déjà traitées, **y compris
+  celles qui n'avaient produit aucun événement** (PDF/affiches hors-mois…).
+- **Détail de la fusion** dans le Résumé/log : lignes « ajouté » / « complété »
+  avec les champs renseignés.
+- **Log en direct préfixé par la source** (quel site pour « N pages à
+  récupérer »).
+
+### Corrections / fiabilité
+- **Extraction tolérante aux réponses très denses** : sur une page qui génère
+  beaucoup d'événements, la sortie du modèle pouvait être tronquée et faire
+  perdre **toute** la page ; désormais les événements valides sont conservés.
+- **Pages d'événements en erreur (soft-404)** ignorées, avec repli sur la page
+  d'agenda.
+- Nouveaux **alias de lieux** (Twin's Beer, La Citadelle des Anges, L'Éolienne,
+  Musée de la Musique Mécanique).
+
+### Notes
+- Ferme le fichier xlsx dans Excel avant une passe **Ajouter** / **Fusionner**
+  (sinon l'écriture échoue).
+- Exécutable à reconstruire/retaguer pour embarquer ces nouveautés.
+
 ## 1.0.1 — 2026-10-26
 
 Fiabilisation de l'extraction (corrections suite aux tests).
