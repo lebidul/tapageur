@@ -45,6 +45,7 @@
   .url-row input[type=text] { flex: 1; }
   #summary { white-space: pre-wrap; background: var(--panel-bg); padding: 12px; border-radius: 6px; border: 1px solid var(--border); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; }
   #summary .result-head { font-weight: 600; color: var(--accent-dark); }
+  #summary .source-head { font-weight: 600; color: var(--accent); margin-top: 4px; }
   .alert { color: var(--warning); }
   #elapsed { color: var(--accent); font-weight: 600; }
   #progress { color: var(--muted); font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 13px; margin-bottom: 8px; }
@@ -422,11 +423,25 @@ function renderSummary(results) {
     head.className = 'result-head';
     head.textContent = '[' + (r.month || 'tous') + '] ' + r.n_events + ' events';
     summary.appendChild(head);
+    // Groupe les events par source (en préservant l'ordre de première
+    // apparition) : un en-tête lisible par source, puis ses events indentés.
+    const groups = new Map();
     for (const ev of (r.events || [])) {
-      const line = document.createElement('div');
-      const parts = [ev.date, ev.festival, ev.artistes, ev.lieu, ev.ville, ev.heure].filter(Boolean);
-      line.textContent = '  • ' + parts.join(' — ');
-      summary.appendChild(line);
+      const key = ev.source_label || ev.source || '(source inconnue)';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(ev);
+    }
+    for (const [source, evs] of groups) {
+      const srcHead = document.createElement('div');
+      srcHead.className = 'source-head';
+      srcHead.textContent = '  ' + source;
+      summary.appendChild(srcHead);
+      for (const ev of evs) {
+        const line = document.createElement('div');
+        const parts = [ev.date, ev.festival, ev.artistes, ev.lieu, ev.ville, ev.heure].filter(Boolean);
+        line.textContent = '    • ' + parts.join(' — ');
+        summary.appendChild(line);
+      }
     }
     for (const f of (r.files || [])) {
       const line = document.createElement('div');
