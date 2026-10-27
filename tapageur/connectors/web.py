@@ -445,6 +445,87 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
     return sorted(out)
 
 
+# Nombre max de pages d'agenda visitées (page 1 incluse) : garde-fou
+# anti-emballement sur les paginations longues ou circulaires.
+_MAX_AGENDA_PAGES = 10
+
+# Segment de pagination « /page/N/ » (WordPress et consorts).
+_PAGE_SEGMENT = re.compile(r"/page/(\d+)/?$")
+
+
+def _page_param(query: str) -> int | None:
+    """N de page depuis une query string si elle porte un marqueur de pagination
+    (clé 'page', 'paged', ou clé commençant par 'e-page' — Elementor / WP Grid
+    Builder nomme la sienne 'e-page-<hash>'). Sinon None."""
+    from urllib.parse import parse_qs
+    for key, vals in parse_qs(query).items():
+        k = key.lower()
+        if k in ("page", "paged") or k.startswith("e-page"):
+            for v in vals:
+                if v.isdigit():
+                    return int(v)
+    return None
+
+
+def _extract_pagination_urls(html: str, base_url: str) -> list[str]:
+    """Liens vers les AUTRES pages du même agenda paginé trouvés dans `html`.
+
+    Un lien est une pagination s'il reste sur le MÊME chemin que l'agenda et
+    porte un marqueur de page : query `?page=N`/`?paged=N`/`?e-page*=N`, segment
+    `/page/N/`, ou attribut `rel="next"` / classe `…next` (même chemin). N >= 2
+    (la page 1 est exclue). Retourne des URLs canoniques (query préservée pour
+    les formes query ; chemin `/page/N/` sinon), ordonnées par N croissant, puis
+    les cibles « next » sans N numérique. Une page d'event (chemin différent) ou
+    cross-domaine n'est jamais prise pour une pagination."""
+    base = urlparse(base_url)
+    base_path = base.path.rstrip("/")
+    soup = BeautifulSoup(html, "html.parser")
+
+    numbered: dict[int, str] = {}
+    extra: list[str] = []  # cibles « next » sans N exploitable (sites next-only)
+    seen_extra: set[str] = set()
+
+    for tag in soup.find_all(["a", "link"], href=True):
+        p = urlparse(urljoin(base_url, tag["href"]))
+        if p.netloc != base.netloc or p.scheme not in ("http", "https"):
+            continue
+        path = p.path.rstrip("/")
+
+        # Forme segment « /page/N/ » (le préfixe doit être le chemin de l'agenda).
+        m = _PAGE_SEGMENT.search(p.path)
+        if m and path[: m.start()].rstrip("/") == base_path:
+            n = int(m.group(1))
+            if n >= 2:
+                numbered.setdefault(n, f"{p.scheme}://{p.netloc}{p.path}")
+            continue
+
+        if path != base_path:
+            continue  # pas le chemin de l'agenda → pas une pagination
+
+        # Forme query numérotée.
+        if p.query:
+            n = _page_param(p.query)
+            if n is not None and n >= 2:
+                numbered.setdefault(n, f"{p.scheme}://{p.netloc}{p.path}?{p.query}")
+                continue
+
+        # rel="next" / classe …next sur le même chemin, sans N exploitable.
+        rel = [r.lower() for r in (tag.get("rel") or [])]
+        cls = [c.lower() for c in (tag.get("class") or [])]
+        is_next = "next" in rel or any("next" in c for c in cls)
+        if is_next and p.query:
+            u = f"{p.scheme}://{p.netloc}{p.path}?{p.query}"
+            if u not in seen_extra:
+                seen_extra.add(u)
+                extra.append(u)
+
+    out = [numbered[n] for n in sorted(numbered)]
+    for u in extra:
+        if u not in out:
+            out.append(u)
+    return out
+
+
 # Cache HTTP in-process pour éviter de re-fetcher la même URL entre 2 mois
 # cibles (cas du `collect --month 07 --month 08`). Vidé manuellement entre
 # runs si besoin via clear_fetch_cache(). Pas de TTL : valide tant que le

@@ -708,3 +708,72 @@ def test_do_fetch_requests_path_without_hook(monkeypatch):
     monkeypatch.setattr(web.requests, "get", lambda *a, **k: _Resp())
     out = web._do_fetch("https://exemple.fr/", needs_browser=False)
     assert out == "<html>requests</html>"
+
+
+# ---------- _extract_pagination_urls ----------
+
+_PAGINATION_BASE = "https://site.fr/programme/"
+
+
+def test_pagination_elementor_e_page_hash():
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '''
+      <a class="page-numbers" href="https://site.fr/programme/?e-page-5e7f2769=2">2</a>
+      <a class="page-numbers" href="https://site.fr/programme/?e-page-5e7f2769=3">3</a>
+      <a class="page-numbers next" href="https://site.fr/programme/?e-page-5e7f2769=2">»</a>
+    '''
+    out = _extract_pagination_urls(html, _PAGINATION_BASE)
+    assert out == [
+        "https://site.fr/programme/?e-page-5e7f2769=2",
+        "https://site.fr/programme/?e-page-5e7f2769=3",
+    ]
+
+
+def test_pagination_query_page_and_paged():
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '''<a href="/programme/?page=2">2</a>
+              <a href="/programme/?paged=3">3</a>'''
+    out = _extract_pagination_urls(html, _PAGINATION_BASE)
+    assert out == ["https://site.fr/programme/?page=2",
+                   "https://site.fr/programme/?paged=3"]
+
+
+def test_pagination_path_segment():
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '<a href="/programme/page/2/">2</a><a href="/programme/page/3/">3</a>'
+    out = _extract_pagination_urls(html, _PAGINATION_BASE)
+    assert out == ["https://site.fr/programme/page/2/",
+                   "https://site.fr/programme/page/3/"]
+
+
+def test_pagination_rel_next_same_path_without_number():
+    """rel=next sur le même chemin mais query non numérotable -> suivi quand même."""
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '<a rel="next" href="/programme/?after=abc123">suivant</a>'
+    out = _extract_pagination_urls(html, _PAGINATION_BASE)
+    assert out == ["https://site.fr/programme/?after=abc123"]
+
+
+def test_pagination_excludes_page_one_and_non_page_query():
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '''<a href="/programme/?e-page-x=1">1</a>
+              <a href="/programme/?lang=en">EN</a>
+              <a href="/programme/?utm=foo">x</a>'''
+    assert _extract_pagination_urls(html, _PAGINATION_BASE) == []
+
+
+def test_pagination_ignores_event_pages_and_cross_domain():
+    """Un lien d'event (autre chemin) ou cross-domain n'est pas une pagination."""
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = '''<a href="/event/giedre/?page=2">event</a>
+              <a href="https://evil.com/programme/?page=2">evil</a>'''
+    assert _extract_pagination_urls(html, _PAGINATION_BASE) == []
+
+
+def test_page_param_detects_markers():
+    from tapageur.connectors.web import _page_param
+    assert _page_param("e-page-5e7f2769=4") == 4
+    assert _page_param("page=2") == 2
+    assert _page_param("paged=3") == 3
+    assert _page_param("lang=en") is None
+    assert _page_param("") is None
