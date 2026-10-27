@@ -216,6 +216,51 @@ def test_group_events_preserves_input_order_for_ungrouped():
     assert [r.acts[0].title for r in result] == ["A", "B", "C"]
 
 
+# ---------- Garde-fou FESTOCHE ≠ lieu ----------
+
+def test_canonicalize_clears_festival_equal_to_venue():
+    """Séquelle de l'élargissement FESTOCHE : si festival == venue, vider festival."""
+    ev = _make_event(venue="Théâtre du Passeur")
+    ev.festival = "Théâtre du Passeur"
+    out = canonicalize([ev], {})
+    assert out[0].festival is None
+    assert out[0].venue == "Théâtre du Passeur"
+
+
+def test_canonicalize_clears_festival_equal_to_venue_accent_case_insensitive():
+    """Comparaison normalisée (minuscule + accents)."""
+    ev = _make_event(venue="Théâtre du Passeur")
+    ev.festival = "theatre du PASSEUR"
+    out = canonicalize([ev], {})
+    assert out[0].festival is None
+
+
+def test_canonicalize_keeps_festival_different_from_venue():
+    ev = _make_event(venue="Théâtre du Passeur")
+    ev.festival = "Les Soirs d'été"
+    out = canonicalize([ev], {})
+    assert out[0].festival == "Les Soirs d'été"
+
+
+def test_canonicalize_festival_none_stays_none():
+    ev = _make_event(venue="Le Lézard")
+    ev.festival = None
+    out = canonicalize([ev], {})
+    assert out[0].festival is None
+
+
+def test_canonicalize_clears_festival_after_venue_canonicalized():
+    """Le garde-fou s'applique APRÈS canonicalisation du lieu : venue alias
+    « Th. Passeur » → canonique « Théâtre du Passeur », festival déjà sous la
+    forme canonique → vidé (il ne l'aurait pas été avant canonicalisation)."""
+    ev = _make_event(venue="Th. Passeur")
+    ev.festival = "Théâtre du Passeur"
+    mappings = {"venues": {"Théâtre du Passeur": ["Th. Passeur"]}}
+    out = canonicalize([ev], mappings)
+    assert out[0].venue == "Théâtre du Passeur"
+    assert out[0].festival is None
+
+
 # ---------- Test original (Andromaque) ----------
 
 def test_dedup_andromaque_real_case():

@@ -8,6 +8,7 @@ Stratégie :
 """
 from __future__ import annotations
 
+import unicodedata
 from pathlib import Path
 
 import yaml
@@ -56,8 +57,21 @@ def _build_lookup(group: dict[str, list[str]]) -> dict[str, str]:
     return out
 
 
+def _norm_compare(s: str) -> str:
+    """Normalise pour comparaison : minuscule, sans accents, espaces réduits."""
+    s = unicodedata.normalize("NFKD", s)
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return " ".join(s.lower().split())
+
+
 def canonicalize(events: list[Event], mappings: dict) -> list[Event]:
-    """Applique les mappings pour normaliser venue + performer."""
+    """Applique les mappings pour normaliser venue + performer + festival.
+
+    Garde-fou FESTOCHE ≠ lieu : après canonicalisation (lieu + festival sous
+    leur forme canonique), si `festival` est en fait le `venue` (comparaison
+    normalisée minuscule/accents), on vide `festival`. Séquelle de
+    l'élargissement FESTOCHE (v12) qui ne doit jamais mettre le lieu.
+    """
     venue_lookup = _build_lookup(mappings.get("venues", {}))
     artist_lookup = _build_lookup(mappings.get("artists", {}))
     fest_lookup = _build_lookup(mappings.get("festivals", {}))
@@ -68,6 +82,11 @@ def canonicalize(events: list[Event], mappings: dict) -> list[Event]:
             ev.festival = fest_lookup.get(ev.festival.lower().strip(), ev.festival)
         for act in ev.acts:
             act.performer = artist_lookup.get(act.performer.lower().strip(), act.performer)
+        # Garde-fou : festival ne doit jamais dupliquer le lieu.
+        if ev.festival and ev.venue and _norm_compare(ev.festival) == _norm_compare(ev.venue):
+            print(f"[canonicalize] FESTOCHE vidé (= lieu « {ev.venue} ») "
+                  f"from {ev.source_kind}:{ev.source_ref}")
+            ev.festival = None
     return events
 
 
