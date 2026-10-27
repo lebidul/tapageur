@@ -61,6 +61,41 @@ def test_build_alerts_no_empty_bracket_when_source_blank():
     assert not any("[]" in a for a in alerts), alerts
 
 
+def test_format_duration_under_a_minute():
+    assert service._format_duration(0) == "0s"
+    assert service._format_duration(5) == "5s"
+    assert service._format_duration(59.4) == "59s"
+
+
+def test_format_duration_minutes_and_seconds():
+    assert service._format_duration(65) == "1m 05s"
+    assert service._format_duration(125) == "2m 05s"
+    assert service._format_duration(600) == "10m 00s"
+
+
+def _patch_pipeline(monkeypatch):
+    monkeypatch.setattr(service, "normalize_items",
+                        lambda items, month, out_path, model=None, month_filter=True, progress=None, reference_year=None: [_event()])
+    monkeypatch.setattr(service, "load_mappings", lambda *a, **k: {})
+    monkeypatch.setattr(service, "canonicalize", lambda evs, m: evs)
+    monkeypatch.setattr(service, "dedup", lambda evs: evs)
+    monkeypatch.setattr(service, "group_events", lambda evs: evs)
+    monkeypatch.setattr(service, "convert_to_onliner", lambda evs, names: evs)
+
+
+def test_run_emits_total_duration_at_end(tmp_path, monkeypatch):
+    _patch_pipeline(monkeypatch)
+    msgs = []
+    req = service.RunRequest(
+        file_inputs=[], url_inputs=[], months=["2026-10"], month_mode="specific",
+        formats=["json"], out_dir=tmp_path, tapeur_email="t@b.fr",
+    )
+    service.run(req, progress=msgs.append)
+    # Dernière ligne = durée totale, plus le simple « Terminé. » historique.
+    assert msgs[-1].startswith("Terminé en "), msgs
+    assert msgs[-1].endswith("."), msgs
+
+
 def test_run_exports_requested_formats(tmp_path, monkeypatch):
     # normalize_items mocké : renvoie 1 event, ignore l'appel Claude
     monkeypatch.setattr(service, "normalize_items",
