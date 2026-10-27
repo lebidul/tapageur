@@ -54,7 +54,12 @@ def _friendly_error(exc: Exception) -> str:
 
 
 def _events_summary(events) -> list[dict]:
-    """Représentation lisible des events pour l'affichage dans le Résumé."""
+    """Représentation lisible des events pour l'affichage dans le Résumé.
+
+    `source_label` est la forme lisible (même logique que la colonne SOURCE de
+    l'xlsx) utilisée pour grouper/titrer les events par source dans le Résumé ;
+    `source` conserve la référence brute."""
+    from tapageur.validate import _source_ref_display
     return [{
         "date": ev.date_label,
         "heure": ev.time_str(),
@@ -63,6 +68,7 @@ def _events_summary(events) -> list[dict]:
         "festival": ev.festival or "",
         "artistes": ", ".join(a.performer for a in ev.acts),
         "source": ev.source_ref,
+        "source_label": _source_ref_display(ev.source_kind, ev.source_ref),
     } for ev in events]
 
 
