@@ -1,5 +1,5 @@
 # Heure / prix par défaut par lieu (nom canonique), appliqués UNIQUEMENT si
 # absents de la source. Ajouter d'autres lieux ici (puis rebuild pour l'exe).
 "Bistro Broc Café":
-  time: "20h00"
+  time: "20h30"
   price: "au chapeau"
