@@ -969,3 +969,50 @@ def test_leolienne_real_page1_pagination_detected():
         f"{_LEO_PROG_URL}?e-page-5e7f2769=3",
         f"{_LEO_PROG_URL}?e-page-5e7f2769=4",
     ]
+
+
+# ---------- _clean_query : blocklist tracking + pagination ----------
+
+def test_clean_query_strips_tracking():
+    """Les params de tracking (utm_*, fbclid, gclid, gad*, mc_*, ref) sont retirés."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("utm_source=newsletter&utm_medium=email") == ""
+    assert _clean_query("fbclid=abc") == ""
+    assert _clean_query("gclid=xyz&gad_source=1") == ""
+    assert _clean_query("mc_cid=123&ref=partner") == ""
+
+
+def test_clean_query_strips_pagination():
+    """Les params de pagination (page/paged/e-page*) ne sont pas des events → retirés."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("page=2") == ""
+    assert _clean_query("paged=3") == ""
+    assert _clean_query("e-page-5e7f2769=2") == ""
+
+
+def test_clean_query_keeps_meaningful_params():
+    """Les autres params (signifiants par défaut) sont préservés."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("saison_culturelle=bel-ami") == "saison_culturelle=bel-ami"
+    assert _clean_query("event=concert") == "event=concert"
+    assert _clean_query("p=42") == "p=42"
+
+
+def test_clean_query_mixed_keeps_only_meaningful():
+    """Query mixte tracking+signifiant : seul le signifiant survit."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("saison_culturelle=lumiere&utm_source=fb&fbclid=z") == \
+        "saison_culturelle=lumiere"
+
+
+def test_clean_query_sorts_for_stable_dedup():
+    """Les clés sont triées → ?a=1&b=2 et ?b=2&a=1 canonisent pareil."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("b=2&a=1") == _clean_query("a=1&b=2") == "a=1&b=2"
+
+
+def test_clean_query_empty_and_tracking_only():
+    """Query vide ou 100% tracking → chaîne vide (canonical = chemin nu)."""
+    from tapageur.connectors.web import _clean_query
+    assert _clean_query("") == ""
+    assert _clean_query("utm_campaign=x&fbclid=y") == ""
