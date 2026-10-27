@@ -334,11 +334,65 @@ _FR_DATE = re.compile(
 )
 
 
+# --- Canonisation query-aware (découverte d'events en paramètre de requête) ---
+#
+# Certains sites (WordPress custom post type sans permaliens jolis, ex.
+# la-ferte-bernard `/?saison_culturelle=<slug>`) identifient CHAQUE event par un
+# paramètre de requête sur un même chemin (souvent la racine `/`). Stripper toute
+# la query ferait s'effondrer ces events sur une URL unique. On canonise donc en
+# PRÉSERVANT la query, après avoir retiré par BLOCKLIST : (1) le tracking (jamais
+# distinctif d'un event) et (2) la pagination (déjà gérée en amont par
+# `_extract_pagination_urls` — ne pas la re-découvrir comme des events). Tout le
+# reste est « signifiant » par défaut (approche générique, pas d'allowlist par
+# site) ; le bruit résiduel est trié en aval par le pré-filtre mois.
+
+# Paramètres de tracking exacts à stripper (comparaison en minuscules).
+_TRACKING_PARAMS = frozenset({
+    "fbclid", "gclid", "gclsrc", "dclid", "gbraid", "wbraid",
+    "msclkid", "_gl", "igshid", "yclid", "ref", "ref_src", "spm",
+})
+# Préfixes de tracking (famille entière : utm_source, utm_medium, gad_source,
+# mc_cid, mc_eid…).
+_TRACKING_PREFIXES = ("utm_", "gad", "mc_")
+
+
+def _is_pagination_key(key: str) -> bool:
+    """Vrai si la clé de query est un marqueur de pagination (`page`, `paged`, ou
+    préfixe `e-page` — Elementor / WP Grid Builder nomme la sienne
+    `e-page-<hash>`). Ces pages sont gérées par `_extract_pagination_urls` ; on ne
+    les prend pas pour des events dans la découverte d'URL."""
+    k = key.lower()
+    return k in ("page", "paged") or k.startswith("e-page")
+
+
+def _is_tracking_key(key: str) -> bool:
+    """Vrai si la clé de query est un paramètre de tracking à stripper."""
+    k = key.lower()
+    return k in _TRACKING_PARAMS or k.startswith(_TRACKING_PREFIXES)
+
+
+def _clean_query(query: str) -> str:
+    """Query canonique : retire tracking + pagination, garde le reste, trie.
+
+    Le tri (par clé puis valeur) rend la déduplication stable
+    (`?a=1&b=2` == `?b=2&a=1`). Retourne `""` s'il ne reste rien de signifiant
+    (→ canonical = chemin nu, comme le comportement historique)."""
+    from urllib.parse import parse_qsl, urlencode
+    kept = [
+        (k, v) for k, v in parse_qsl(query, keep_blank_values=True)
+        if not _is_tracking_key(k) and not _is_pagination_key(k)
+    ]
+    kept.sort()
+    return urlencode(kept)
+
+
 def _canonical_url(base_url: str, href: str) -> str:
-    """URL canonique (scheme://host/path, sans query/fragment), identique à la
-    forme produite par _extract_subpages — pour matcher ses sorties."""
+    """URL canonique (scheme://host/path[?query_signifiante]), identique à la
+    forme produite par _extract_subpages — pour matcher ses sorties. La query est
+    nettoyée (tracking + pagination retirés) via `_clean_query`."""
     p = urlparse(urljoin(base_url, href))
-    return f"{p.scheme}://{p.netloc}{p.path}"
+    clean = _clean_query(p.query)
+    return f"{p.scheme}://{p.netloc}{p.path}" + (f"?{clean}" if clean else "")
 
 
 def _extract_card_snippets(
@@ -471,8 +525,7 @@ def _page_param(query: str) -> int | None:
     Builder nomme la sienne 'e-page-<hash>'). Sinon None."""
     from urllib.parse import parse_qs
     for key, vals in parse_qs(query).items():
-        k = key.lower()
-        if k in ("page", "paged") or k.startswith("e-page"):
+        if _is_pagination_key(key):
             for v in vals:
                 if v.isdigit():
                     return int(v)
