@@ -239,7 +239,39 @@ def test_input_source_ids(tmp_path):
     ids = S._input_source_ids(req)
     assert ("1.avif", "Fichier") in ids
     assert ("https://a.fr/x", "URL") in ids
-    assert any(t == "Texte" for _, t in ids)
+    # id texte = hash de contenu (stable), pas « texte #N »
+    tid = S._text_id("coucou")
+    assert tid.startswith("texte:")
+    assert (tid, "Texte") in ids
+    assert S._text_id("coucou") == tid and S._text_id("autre") != tid
+
+
+def test_append_skips_text_already_in_manifest(monkeypatch, tmp_path):
+    """Un texte identique déjà traité (hash au manifeste) est skippé → pas de
+    doublon ; un texte modifié passe."""
+    from tapageur.gui.inputs import TextInput
+    seen_id = S._text_id("concert le 3")
+    monkeypatch.setattr(S._xlsx, "has_manifest", lambda p: True)
+    monkeypatch.setattr(S._xlsx, "read_processed_sources", lambda p: {seen_id})
+    monkeypatch.setattr(S._xlsx, "record_processed_sources", lambda *a, **k: None)
+    monkeypatch.setattr(S._xlsx, "export_xlsx", lambda *a, **k: None)
+    captured = {}
+    monkeypatch.setattr(S, "items_from_texts",
+                        lambda ti, progress=None: captured.setdefault(
+                            "texts", [t.text for t in ti]) or [])
+    monkeypatch.setattr(S, "items_from_urls", lambda *a, **k: [])
+    monkeypatch.setattr(S, "items_from_files", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_pipeline", lambda *a, **k: [])
+    monkeypatch.setattr(S, "_reference_lists", lambda: (set(), set()))
+    (tmp_path / "tapage_2026-11.xlsx").write_bytes(b"x")
+    req = S.RunRequest(
+        url_inputs=[],
+        text_inputs=[TextInput(text="concert le 3"), TextInput(text="nouveau texte")],
+        months=["2026-11"], formats=["xlsx"], out_dir=tmp_path, tapeur_email="t@b.fr",
+        write_mode="append",
+    )
+    S.run(req)
+    assert captured["texts"] == ["nouveau texte"]  # texte déjà traité skippé
 
 
 def test_append_skips_via_manifest(monkeypatch, tmp_path):

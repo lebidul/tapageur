@@ -33,10 +33,12 @@ pas sur les events → le service le calcule directement depuis `RunRequest`,
   l'URL d'agenda, exactement ce que l'utilisateur re-saisira.
 - **Fichier / image** : le **basename** (`Path(path).name`). Robuste si le
   fichier est redéposé depuis un autre dossier.
-- **Texte collé** : « texte #N » — **positionnel, non stable** entre passes →
-  les textes sont **toujours traités** (jamais skippés) et **non pris en
-  compte** pour le skip (ils peuvent figurer au manifeste pour info, mais la
-  logique de skip les ignore).
+- **Texte collé** : `texte:<hash>` — **hash SHA1 du contenu** (stable).
+  Un texte identique déjà traité est reconnu dans le manifeste et **skippé**
+  en mode Ajouter (évite le ré-ajout de ses events = doublons). Un texte
+  modifié a un hash différent → retraité. (Révision du choix initial « texte
+  #N positionnel, toujours traité » qui dupliquait les events du texte à
+  chaque passe « Ajouter ».)
 
 ### Feuille cachée `_sources_traitees`
 
@@ -85,7 +87,7 @@ fichier crée/complète désormais le manifeste → les passes suivantes l'utili
 - `tapageur/gui/service.py` :
   - `_input_source_ids(req) -> list[tuple[str,str]]` : (id, type) pour
     files (basename, "Document"/"Image"), urls (url, "URL"), texts
-    ("texte #N", "Texte").
+    ("texte:<hash>", "Texte") — hash du contenu.
   - `_filter_present_sources` (mode Ajouter) : si `has_manifest(target)` →
     skip via `read_processed_sources` (exact, textes gardés) ; sinon repli
     heuristique actuelle (SOURCE + hôte).
@@ -96,7 +98,8 @@ fichier crée/complète désormais le manifeste → les passes suivantes l'utili
 
 ## Limites assumées
 
-- **Textes collés** : jamais skippés (id positionnel non stable).
+- **Textes collés** : matchés par hash de contenu ; un texte modifié est
+  retraité (events potentiellement en double si l'ancien reste dans le fichier).
 - Si l'utilisateur **supprime manuellement** la feuille cachée, on retombe sur
   le repli (re-traitement possible).
 - Le manifeste suit le fichier (feuille cachée) → robuste au

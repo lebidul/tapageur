@@ -159,25 +159,33 @@ def _filter_present_sources(req: "RunRequest", target: Path, emit) -> int:
     return skipped
 
 
+def _text_id(text: str) -> str:
+    """Id stable d'un texte collé = hash de son contenu. Permet au manifeste de
+    reconnaître un texte déjà traité (vs l'ancien « texte #N » positionnel qui,
+    toujours retraité, dupliquait ses events à chaque passe « Ajouter »)."""
+    import hashlib
+    return "texte:" + hashlib.sha1(text.strip().encode("utf-8")).hexdigest()[:10]
+
+
 def _input_source_ids(req: "RunRequest") -> list:
     """(id, type) des sources saisies, pour le manifeste. id = URL (web),
-    basename (fichier), « texte #N » (texte)."""
+    basename (fichier), « texte:<hash> » (texte collé)."""
     ids: list = []
     for fi in req.file_inputs:
         ids.append((Path(fi.path).name, "Fichier"))
     for u in req.url_inputs:
         ids.append((u.url, "URL"))
-    n = 0
     for t in req.text_inputs:
-        if getattr(t, "text", "") and t.text.strip():
-            n += 1
-            ids.append((f"texte #{n}", "Texte"))
+        txt = (getattr(t, "text", "") or "").strip()
+        if txt:
+            ids.append((_text_id(txt), "Texte"))
     return ids
 
 
 def _filter_by_manifest(req: "RunRequest", target: Path, emit) -> int:
-    """Skip via manifeste : retire les file/url inputs déjà traités. Textes
-    gardés. Fichiers insensibles à la casse, urls exact."""
+    """Skip via manifeste : retire les file/url/text inputs déjà traités.
+    Fichiers insensibles à la casse ; urls exact ; textes par hash de contenu
+    (un texte identique déjà traité n'est pas ré-ajouté → pas de doublon)."""
     manifest = _xlsx.read_processed_sources(target)
     if not manifest:
         return 0
@@ -195,8 +203,16 @@ def _filter_by_manifest(req: "RunRequest", target: Path, emit) -> int:
             skipped += 1
         else:
             kept_urls.append(u)
+    kept_texts = []
+    for t in req.text_inputs:
+        txt = (getattr(t, "text", "") or "").strip()
+        if txt and _text_id(txt) in manifest:
+            skipped += 1
+        else:
+            kept_texts.append(t)
     req.file_inputs = kept_files
     req.url_inputs = kept_urls
+    req.text_inputs = kept_texts
     if skipped:
         emit(f"Incrémental : {skipped} source(s) déjà traitée(s) ignorée(s).")
     return skipped
