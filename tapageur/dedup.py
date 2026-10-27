@@ -31,7 +31,7 @@ def load_venue_defaults(path: Path = Path("config/venue_defaults.yaml")) -> dict
 
 
 def apply_venue_defaults(events: list[Event], defaults: dict) -> list[Event]:
-    """Complète heure/prix manquants selon le lieu (déjà canonicalisé).
+    """Complète heure/prix/ville manquants selon le lieu (déjà canonicalisé).
     N'écrase jamais une valeur extraite."""
     for ev in events:
         d = defaults.get(ev.venue)
@@ -41,6 +41,8 @@ def apply_venue_defaults(events: list[Event], defaults: dict) -> list[Event]:
             ev.times = [d["time"]]
         if d.get("price") and (not ev.price or ev.price.strip() in ("", "?")):
             ev.price = d["price"]
+        if d.get("city") and (not ev.city or ev.city.strip() in ("", "?")):
+            ev.city = d["city"]
     return events
 
 

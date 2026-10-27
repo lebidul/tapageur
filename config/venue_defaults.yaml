@@ -1,5 +1,18 @@
-# Heure / prix par défaut par lieu (nom canonique), appliqués UNIQUEMENT si
-# absents de la source. Ajouter d'autres lieux ici (puis rebuild pour l'exe).
+# Défauts par lieu (nom CANONIQUE, cf. config/mappings.yaml), appliqués
+# UNIQUEMENT si le champ est absent/« ? » dans la source. Champs supportés :
+#   time  : horaire par défaut (ex. "20h30")
+#   price : tarif par défaut (ex. "au chapeau")
+#   city  : ville par défaut (remplit city quand vide ou « ? »)
+# Ajouter d'autres lieux ici (puis rebuild pour l'exe).
 "Bistro Broc Café":
   time: "20h30"
   price: "au chapeau"
+
+# Lieux manceaux : la ville se déduit du lieu quand le texte ne la donne pas.
+# (L'utilisateur complétera cette liste.)
+"Le Lézard":
+  city: "Le Mans"
+"Blue Zinc":
+  city: "Le Mans"
+"La Fonderie":
+  city: "Le Mans"

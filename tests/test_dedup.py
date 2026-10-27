@@ -419,3 +419,43 @@ def test_apply_venue_defaults_ignores_other_venues():
     evs = [_ev("Autre Lieu", ["?"], "?")]
     out = dedup.apply_venue_defaults(evs, defaults)
     assert out[0].times == ["?"] and out[0].price == "?"
+
+
+# ---------- venue_defaults : ville par lieu ----------
+
+def _ev_city(venue, city):
+    from tapageur.schema import Event, Act
+    return Event(tapeur_email="t@b.fr", date_label="Mardi 2", date_iso="2026-11-02",
+                 times=["20h00"], venue=venue, city=city, price="gratuit",
+                 acts=[Act(genre="c", title=None, performer="A", style=None)],
+                 source_kind="web", source_ref="x")
+
+
+def test_apply_venue_defaults_fills_city_when_question_mark():
+    from tapageur import dedup
+    defaults = {"Le Lézard": {"city": "Le Mans"}}
+    out = dedup.apply_venue_defaults([_ev_city("Le Lézard", "?")], defaults)
+    assert out[0].city == "Le Mans"
+
+
+def test_apply_venue_defaults_fills_city_when_empty():
+    from tapageur import dedup
+    defaults = {"Le Lézard": {"city": "Le Mans"}}
+    out = dedup.apply_venue_defaults([_ev_city("Le Lézard", "")], defaults)
+    assert out[0].city == "Le Mans"
+
+
+def test_apply_venue_defaults_never_overwrites_extracted_city():
+    from tapageur import dedup
+    defaults = {"Le Lézard": {"city": "Le Mans"}}
+    out = dedup.apply_venue_defaults([_ev_city("Le Lézard", "Arnage")], defaults)
+    assert out[0].city == "Arnage"
+
+
+def test_apply_venue_defaults_city_independent_of_time_price():
+    """Un défaut avec seulement `city` ne touche ni times ni price."""
+    from tapageur import dedup
+    defaults = {"Le Lézard": {"city": "Le Mans"}}
+    ev = _ev_city("Le Lézard", "?")
+    out = dedup.apply_venue_defaults([ev], defaults)
+    assert out[0].times == ["20h00"] and out[0].price == "gratuit"
