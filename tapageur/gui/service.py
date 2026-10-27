@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from collections import defaultdict
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,6 +20,13 @@ from tapageur.gui.inputs import (TextInput, UrlInput, items_from_files,
 from tapageur.normalize import normalize_items
 from tapageur.schema import Event
 from tapageur.validate import _source_ref_display, export_csv
+
+
+def _format_duration(secs: float) -> str:
+    """Durée lisible pour le log : « 42s » sous la minute, « 2m 05s » au-delà."""
+    total = int(secs)
+    m, s = divmod(total, 60)
+    return f"{m}m {s:02d}s" if m else f"{s}s"
 
 
 def default_reference_year(today: date | None = None) -> str:
@@ -254,6 +262,7 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
     def _emit(msg):
         progress and progress(msg)
 
+    started = time.monotonic()
     os.environ["TAPEUR_EMAIL"] = req.tapeur_email
     ref_cities, ref_venues = _reference_lists()
     all_input_ids = _input_source_ids(req)
@@ -334,5 +343,5 @@ def run(req: RunRequest, progress: Callable[[str], None] | None = None) -> list[
             _apply_report(mr, report)
             results.append(mr)
 
-    _emit("Terminé.")
+    _emit(f"Terminé en {_format_duration(time.monotonic() - started)}.")
     return results
