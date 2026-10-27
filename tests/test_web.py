@@ -314,7 +314,32 @@ def test_filter_event_urls_passes_month_and_cards_in_prompt():
     assert kept == ["https://site.fr/a/"]
 
 
+def test_prefilter_system_compares_month_and_year():
+    """Le pré-filtre doit exclure une carte dont l'ANNÉE diffère de la cible,
+    même si le nom de mois correspond (cas theatre-epidaure : saisons 2024-2025
+    archivées listées à côté de 2026-2027)."""
+    from tapageur.connectors.web import PREFILTER_SYSTEM
+    low = PREFILTER_SYSTEM.lower()
+    # Compare bien l'année, pas seulement le nom de mois.
+    assert "année" in low
+    # Garde-fou anti-perte préservé : pas de date lisible → INCLURE.
+    assert "ne jamais exclure" in low
+
+
 # ---------- Cas de référence #12 (live, opt-in) ----------
+
+# Cartes représentatives du cas theatre-epidaure : une page liste plusieurs
+# saisons. « novembre » apparaît en 2024 (archive) ET en 2026 (cible) ; seul le
+# 2026-11 doit survivre au filtre. Les cartes sans date restent incluses.
+_EPIDAURE_CARDS = [
+    ("https://www.theatre-epidaure.com/event/archive-nov-2024/",
+     "Sam. 30 novembre 2024 - 20h30 SPECTACLE ARCHIVE"),
+    ("https://www.theatre-epidaure.com/event/archive-jan-2025/",
+     "15 janvier 2025 - 20h00 AUTRE ARCHIVE"),
+    ("https://www.theatre-epidaure.com/event/concert-nov-2026/",
+     "Ven. 13 novembre 2026 - 20h30 CONCERT CIBLE"),
+    ("https://www.theatre-epidaure.com/event/sans-date/", ""),
+]
 
 # Cartes réelles extraites de leoliennearnage.fr/programme-concerts-spectacles/
 # (validées par _extract_card_snippets sur le HTML live). Seul berengere est en
@@ -355,6 +380,28 @@ def test_prefilter_drops_giedre_keeps_berengere_live():
     assert giedre not in kept, "giedre (16 octobre) doit être écarté avant le fetch"
     # Aucun event d'octobre/septembre ne doit survivre au filtre mois.
     assert kept == [berengere]
+
+
+@pytest.mark.skipif(not os.environ.get("TAPAGEUR_LIVE_TESTS"),
+                    reason="test live opt-in : exporter TAPAGEUR_LIVE_TESTS=1")
+def test_prefilter_year_strict_drops_wrong_year_live():
+    """Cas theatre-epidaure : cible 2026-11, la carte « 30 novembre 2024 » doit
+    être écartée (même mois, mauvaise année) ; le 2026-11 et la carte sans date
+    sont gardés."""
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY absente (.env)")
+    from tapageur.connectors.web import _filter_event_urls
+    kept = set(_filter_event_urls(_EPIDAURE_CARDS, month="2026-11"))
+    nov_2024 = "https://www.theatre-epidaure.com/event/archive-nov-2024/"
+    jan_2025 = "https://www.theatre-epidaure.com/event/archive-jan-2025/"
+    nov_2026 = "https://www.theatre-epidaure.com/event/concert-nov-2026/"
+    sans_date = "https://www.theatre-epidaure.com/event/sans-date/"
+    assert nov_2026 in kept, "l'event de novembre 2026 doit être gardé"
+    assert sans_date in kept, "une carte sans date lisible doit rester incluse"
+    assert nov_2024 not in kept, "novembre 2024 (mauvaise année) doit être écarté"
+    assert jan_2025 not in kept, "janvier 2025 (hors cible) doit être écarté"
 
 
 # ---------- collect() follow_scope domaine + fallback index ----------

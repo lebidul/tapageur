@@ -52,18 +52,26 @@ Retourne UNIQUEMENT les URLs qui pointent vers une PAGE D'ÉVÉNEMENT (concert, 
 spectacle, date programmée), et PAS vers une page de menu/navigation (accueil, \
 à-propos, contact, mentions légales, presse, cours, stages génériques…).
 
-Si une ligne "Mois cible : YYYY-MM" est fournie, applique EN PLUS ce filtre par date :
-- Si la carte du lien porte une date LISIBLE et que cette date est clairement HORS du \
-mois cible → EXCLURE l'URL.
-- Si la carte porte une date lisible DANS le mois cible → garder.
+Si une ligne "Mois cible : YYYY-MM" est fournie, applique EN PLUS ce filtre par date. \
+La cible porte un MOIS (MM) ET une ANNÉE (YYYY) : compare TOUJOURS les deux.
+- Si la carte du lien porte une date LISIBLE dont le MOIS **et** l'ANNÉE correspondent \
+à la cible → garder.
+- Si la carte porte une date lisible dont le mois OU l'année diffère clairement de la \
+cible → EXCLURE l'URL. ATTENTION : un même nom de mois peut revenir sur plusieurs \
+années (un site liste parfois plusieurs saisons / archives sur la même page). Une \
+carte « 30 novembre 2024 » est HORS cible pour « 2026-11 » MALGRÉ le mois identique : \
+exclus-la. Ne te fie jamais au seul nom du mois : l'année doit aussi coller.
 - Si la carte N'A PAS de date lisible (vide, ou aucune date exploitable) → INCLURE : \
 la date est peut-être seulement sur la page détail. NE JAMAIS exclure un event faute \
 de date. Mieux vaut un fetch inutile qu'un event raté.
+- Si la carte porte un jour et un mois mais AUCUNE année lisible → INCLURE (année \
+indéterminée, on ne tranche pas sur l'année ; applique seulement le filtre mois).
 
 Heuristiques :
 - Le slug d'URL contient souvent le nom de l'artiste/spectacle.
-- Un mois en toutes lettres (« 16 octobre 2026 ») se mappe sur YYYY-MM.
-- En cas d'INCERTITUDE sur la nature event/nav ou sur la date : INCLURE l'URL.
+- Une date en toutes lettres (« 16 octobre 2026 ») se mappe sur YYYY-MM = 2026-10.
+- En cas d'INCERTITUDE sur la nature event/nav, ou sur le mois quand l'année est bien \
+dans la cible : INCLURE l'URL.
 
 Réponds UNIQUEMENT par un JSON valide :
 {"urls": ["...", "..."]}
