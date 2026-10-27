@@ -144,7 +144,17 @@ class WebConnector(Connector):
             # non-standard (ex: msj.world/ofcourselemans/86 → pages event sous
             # /ofcourselemans/card/<slug>, pas sous /ofcourselemans/86/<slug>).
             event_pattern = site.get("event_link_pattern")
-            event_urls = _extract_subpages(html, base_url=url, pattern=event_pattern, scope=follow_scope)
+            # paginate (défaut True) : suit les pages 2..N de l'agenda et unit la
+            # découverte des events. No-op sur un site non paginé (0 lien trouvé)
+            # → aucune régression sur les sites mono-page.
+            if site.get("paginate", True):
+                cards_pairs = _collect_paginated_cards(
+                    html, url, lambda u: _fetch(u, needs_browser=needs_browser),
+                    pattern=event_pattern, scope=follow_scope)
+            else:
+                urls0 = _extract_subpages(html, base_url=url, pattern=event_pattern, scope=follow_scope)
+                cards_pairs = _extract_card_snippets(html, url, urls0)
+            event_urls = [u for u, _ in cards_pairs]
             agenda_text = BeautifulSoup(html, "html.parser").get_text("\n", strip=True)
             print(f"[web] {site_name}: {len(event_urls)} URLs candidates (scope={follow_scope})")
 
@@ -157,7 +167,9 @@ class WebConnector(Connector):
                 # Approche A (#12) : paires (URL, texte de carte avec date) au
                 # lieu du blob d'agenda à plat → le modèle relie slug ↔ date et
                 # peut écarter les hors-mois avant le fetch.
-                cards = _extract_card_snippets(html, url, event_urls)
+                # Cartes déjà extraites page par page (toutes les pages d'agenda),
+                # dates des events des pages 2..N incluses.
+                cards = cards_pairs
                 try:
                     kept = _filter_event_urls(cards, pf_month)
                     print(f"[web]   {len(kept)}/{len(event_urls)} retenues")
