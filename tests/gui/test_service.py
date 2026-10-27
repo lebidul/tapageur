@@ -6,12 +6,13 @@ from tapageur.gui.inputs import UrlInput, FileInput
 from tapageur.schema import Event, Act
 
 
-def _event(price="10€", perf="A", city="Le Mans", venue="Le Lieu", times=None):
+def _event(price="10€", perf="A", city="Le Mans", venue="Le Lieu", times=None,
+           source_kind="web", source_ref="https://x.fr"):
     return Event(
         tapeur_email="t@b.fr", date_label="Vendredi 2", date_iso="2026-10-02",
         times=times or ["20h00"], venue=venue, city=city, price=price,
         acts=[Act(genre="c", title=None, performer=perf, style=None)],
-        source_kind="web", source_ref="https://x.fr",
+        source_kind=source_kind, source_ref=source_ref,
     )
 
 
@@ -35,6 +36,29 @@ def test_build_alerts_flags_missing_and_unknown():
     assert "performer" in joined.lower() or "artiste" in joined.lower()
     assert "Ailleurs" in joined
     assert "Inconnu" in joined
+
+
+def test_build_alerts_tags_each_alert_with_source_image():
+    # Fichier image : la source lisible est le basename (cf. _source_ref_display).
+    evs = [_event(price="?", times=["?"], perf="?", city="Ailleurs", venue="Inconnu",
+                  source_kind="image", source_ref="C:/dl/1.avif")]
+    alerts = service.build_alerts(evs, ref_cities={"Le Mans"}, ref_venues={"Le Lieu"})
+    assert alerts, "au moins une alerte attendue"
+    # Chaque alerte porte la source entre crochets.
+    assert all(a.endswith(" [1.avif]") for a in alerts), alerts
+
+
+def test_build_alerts_source_web_is_full_url():
+    evs = [_event(price="?", source_kind="web", source_ref="https://clappin.fr/agenda/x/")]
+    alerts = service.build_alerts(evs, ref_cities={"Le Mans"}, ref_venues={"Le Lieu"})
+    assert any(a.endswith(" [https://clappin.fr/agenda/x/]") for a in alerts), alerts
+
+
+def test_build_alerts_no_empty_bracket_when_source_blank():
+    evs = [_event(price="?", source_kind="web", source_ref="")]
+    alerts = service.build_alerts(evs, ref_cities={"Le Mans"}, ref_venues={"Le Lieu"})
+    assert alerts
+    assert not any("[]" in a for a in alerts), alerts
 
 
 def test_run_exports_requested_formats(tmp_path, monkeypatch):
