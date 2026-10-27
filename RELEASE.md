@@ -3,14 +3,27 @@
 > Ces notes sont publiées avec la Release GitHub du tag correspondant.
 > Ajouter la nouvelle version **en tête**, puis taguer `vX.Y.Z`.
 
-## 1.1.1 — 2026-10-27
+## 1.2.0 — 2026-10-27
 
-Correction de doublons en mode « Ajouter ».
+Pré-filtre par mois, Résumé groupé par source, et correction de doublons.
+
+### Nouveautés
+- **Pré-filtre par mois avant téléchargement** : sur les agendas en ligne, les
+  événements hors du mois cible sont écartés **dès la page d'agenda** (date lue
+  sur la carte), sans télécharger ni analyser leur page détail — plus rapide et
+  moins coûteux. Quand la date n'est pas visible sur l'agenda, l'événement est
+  conservé (aucune perte).
+- **Résumé groupé par source** : les événements extraits sont regroupés et
+  titrés **par source** (site / fichier) dans le Résumé, pour voir d'où vient
+  quoi.
 
 ### Corrections
 - **Textes collés ne créent plus de doublons** en mode **Ajouter** : un texte
-  identique déjà traité est désormais reconnu (via le contenu) et ignoré, au
-  lieu d'être réajouté à chaque passe. Un texte modifié reste bien retraité.
+  identique déjà traité est reconnu (via son contenu) et ignoré, au lieu d'être
+  réajouté à chaque passe. Un texte modifié reste bien retraité.
+
+### Notes
+- Exécutable à reconstruire/retaguer pour embarquer ces nouveautés.
 
 ## 1.1.0 — 2026-10-27
 
