@@ -3,6 +3,36 @@
 > Ces notes sont publiées avec la Release GitHub du tag correspondant.
 > Ajouter la nouvelle version **en tête**, puis taguer `vX.Y.Z`.
 
+## 1.3.0 — 2026-10-27
+
+Pagination des agendas, fiabilité du pré-filtre, et qualité d'extraction.
+
+### Nouveautés
+- **Pagination des agendas** : les pages d'agenda en ligne qui s'étalent sur
+  plusieurs pages (2, 3, 4…) sont désormais parcourues (jusqu'à 10) — plus
+  d'events ratés au-delà de la première page.
+- **Events identifiés par un paramètre d'URL** : les sites qui distinguent
+  chaque event par une query (ex. `?saison_culturelle=…`) sont maintenant
+  correctement découverts.
+- **Horodatage du log** : chaque ligne porte l'heure système et le temps écoulé
+  `[HH:MM:SS] [mm:ss]`, et le total s'affiche à la fin.
+
+### Corrections / fiabilité
+- **Pré-filtre par mois plus fiable** : les events hors du mois cible sont
+  mieux écartés avant téléchargement (gestion des cartes d'agenda contenant des
+  liens de catégorie, et comparaison stricte mois + année).
+- **Qualité d'extraction** : horaire par défaut corrigé pour le Bistro Broc Café
+  (20h30), **ville déduite du lieu** quand le texte ne la donne pas, alias de
+  lieu supplémentaires (CPFI), et la colonne FESTOCHE ne reprend plus le lieu
+  par erreur.
+
+### Documentation
+- Nouveau **guide utilisateur** (`docs/guide-utilisateur.md`) et une page
+  **architecture** avec diagrammes (`docs/architecture.md`).
+
+### Notes
+- Exécutable à reconstruire/retaguer pour embarquer ces nouveautés.
+
 ## 1.2.0 — 2026-10-27
 
 Pré-filtre par mois, Résumé groupé par source, et correction de doublons.
