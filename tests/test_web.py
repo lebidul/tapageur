@@ -950,3 +950,22 @@ def test_collect_prefilter_receives_cards_from_all_pages(monkeypatch):
     list(conn.collect("2026-11"))
     assert "16 octobre 2026" in captured["cards"]["https://site.fr/event/a/"]
     assert "6 novembre 2026" in captured["cards"]["https://site.fr/event/b/"]  # page 2
+
+
+# ---------- Régression : vraie page léolienne (pagination Elementor) ----------
+
+_LEO_PROG_FIXTURE = Path(__file__).parent / "fixtures" / "leolienne_programme_page1.html"
+_LEO_PROG_URL = "https://leoliennearnage.fr/programme-concerts-spectacles/"
+
+
+def test_leolienne_real_page1_pagination_detected():
+    """Sur la vraie page 1 léolienne (markup Elementor `page-numbers`), les 3
+    pages suivantes (?e-page-5e7f2769=2/3/4) sont détectées — ni plus, ni moins."""
+    from tapageur.connectors.web import _extract_pagination_urls
+    html = _LEO_PROG_FIXTURE.read_text(encoding="utf-8")
+    out = _extract_pagination_urls(html, _LEO_PROG_URL)
+    assert out == [
+        f"{_LEO_PROG_URL}?e-page-5e7f2769=2",
+        f"{_LEO_PROG_URL}?e-page-5e7f2769=3",
+        f"{_LEO_PROG_URL}?e-page-5e7f2769=4",
+    ]
