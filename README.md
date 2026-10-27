@@ -17,6 +17,13 @@ Sources hétérogènes → Connecteurs → JSON brut → Claude (extraction) →
 | Page Facebook       | `fb`        | Sonnet    | **Désactivé** — Meta cache les reposts cross-page |
 | Outlook (Graph API) | `outlook`   | Sonnet    | **Désactivé** — pas de tenant Azure sur compte MSA |
 
+## Documentation
+
+- [Guide utilisateur — tapageur-gui](docs/guide-utilisateur.md) : prise en main
+  de l'application (sources, mois, modes d'écriture, Résumé, conseils).
+- [Architecture](docs/architecture.md) : composants, flux de données et zoom sur
+  le connecteur web (diagrammes Mermaid).
+
 ## Setup
 
 ```bash
