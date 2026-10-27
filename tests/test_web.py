@@ -971,6 +971,26 @@ def test_leolienne_real_page1_pagination_detected():
     ]
 
 
+# ---------- Régression : vraie page la-ferte-bernard (events en query param) ----------
+
+_FERTE_FIXTURE = Path(__file__).parent / "fixtures" / "laferte_centre_culturel.html"
+_FERTE_URL = "https://www.la-ferte-bernard.fr/culture-animations/centre-culturel/"
+
+
+def test_laferte_real_page_query_param_events_distinct():
+    """Sur la vraie page la-ferte-bernard, les 25 events `/?saison_culturelle=<slug>`
+    (même chemin racine, distingués par la query) ressortent DISTINCTS en scope
+    domaine. Avant le fix, ils s'effondraient tous sur `…/` (0 candidat query)."""
+    from tapageur.connectors.web import _extract_subpages
+    html = _FERTE_FIXTURE.read_text(encoding="utf-8")
+    subs = _extract_subpages(html, base_url=_FERTE_URL, scope="domain")
+    saison = [u for u in subs if "saison_culturelle=" in u]
+    assert len(saison) == 25
+    assert len(set(saison)) == 25  # tous distincts
+    assert "https://www.la-ferte-bernard.fr/?saison_culturelle=bel-ami" in saison
+    assert "https://www.la-ferte-bernard.fr/?saison_culturelle=emily-loizeau" in saison
+
+
 # ---------- _clean_query : blocklist tracking + pagination ----------
 
 def test_clean_query_strips_tracking():
