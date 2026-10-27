@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime
 from typing import Iterator
 from urllib.parse import urljoin, urlparse
@@ -42,17 +43,27 @@ USER_AGENT = (
 # court (quelques KB). Pas besoin d'Opus ici, ×5 moins cher.
 PREFILTER_MODEL = "claude-sonnet-4-5"
 PREFILTER_SYSTEM = """\
-Tu es un router d'URLs. À partir d'un texte d'agenda et d'une liste d'URLs candidates \
-(du même site), retourne UNIQUEMENT les URLs qui pointent vers une PAGE D'ÉVÉNEMENT \
-(concert, spectacle, date programmée), et PAS vers une page de menu/navigation \
-(accueil, à-propos, contact, mentions légales, presse, cours, stages génériques…).
+Tu es un router d'URLs. On te donne une liste de liens candidats d'un site, et pour \
+chaque lien le texte de sa CARTE d'agenda (le petit bloc qui l'entoure sur la page \
+liste, souvent avec une date). Certaines cartes sont vides (date/texte uniquement sur \
+la page détail).
 
-Si une ligne "Mois cible" est fournie, ne garde en plus que les événements de ce mois.
+Retourne UNIQUEMENT les URLs qui pointent vers une PAGE D'ÉVÉNEMENT (concert, \
+spectacle, date programmée), et PAS vers une page de menu/navigation (accueil, \
+à-propos, contact, mentions légales, presse, cours, stages génériques…).
+
+Si une ligne "Mois cible : YYYY-MM" est fournie, applique EN PLUS ce filtre par date :
+- Si la carte du lien porte une date LISIBLE et que cette date est clairement HORS du \
+mois cible → EXCLURE l'URL.
+- Si la carte porte une date lisible DANS le mois cible → garder.
+- Si la carte N'A PAS de date lisible (vide, ou aucune date exploitable) → INCLURE : \
+la date est peut-être seulement sur la page détail. NE JAMAIS exclure un event faute \
+de date. Mieux vaut un fetch inutile qu'un event raté.
 
 Heuristiques :
-- Le slug d'URL contient souvent le nom de l'artiste/spectacle listé dans l'agenda.
-- Le texte d'agenda donne les événements (et parfois leurs dates).
-- En cas d'INCERTITUDE : INCLURE l'URL. Mieux vaut un fetch inutile qu'un event raté.
+- Le slug d'URL contient souvent le nom de l'artiste/spectacle.
+- Un mois en toutes lettres (« 16 octobre 2026 ») se mappe sur YYYY-MM.
+- En cas d'INCERTITUDE sur la nature event/nav ou sur la date : INCLURE l'URL.
 
 Réponds UNIQUEMENT par un JSON valide :
 {"urls": ["...", "..."]}
@@ -135,8 +146,12 @@ class WebConnector(Connector):
 
             if run_prefilter:
                 pf_month = month if prefilter_by_month else None
+                # Approche A (#12) : paires (URL, texte de carte avec date) au
+                # lieu du blob d'agenda à plat → le modèle relie slug ↔ date et
+                # peut écarter les hors-mois avant le fetch.
+                cards = _extract_card_snippets(html, url, event_urls)
                 try:
-                    kept = _filter_event_urls(agenda_text, event_urls, pf_month)
+                    kept = _filter_event_urls(cards, pf_month)
                     print(f"[web]   {len(kept)}/{len(event_urls)} retenues")
                     event_urls = kept
                 except Exception as e:
@@ -236,14 +251,17 @@ def _web_item(url: str, text: str, site_name: str,
 
 
 def _filter_event_urls(
-    agenda_text: str,
-    urls: list[str],
+    cards: list[tuple[str, str]],
     month: str | None,
 ) -> list[str]:
-    """Pré-filtrage Claude : quelles URLs candidates sont des pages d'événement
-    (optionnellement dans `month` = 'YYYY-MM'), d'après le texte d'agenda.
+    """Pré-filtrage Claude : quels liens candidats sont des pages d'événement
+    (optionnellement dans `month` = 'YYYY-MM').
 
-    Retourne un sous-ensemble strict de `urls` (sanity check côté Python).
+    `cards` : paires (URL, texte de la carte d'agenda). La carte porte souvent la
+    date de l'event (approche A, TODO #12) ; elle peut être vide quand la date
+    n'est visible que sur la page détail — dans ce cas, « en doute, inclure ».
+
+    Retourne un sous-ensemble strict des URLs de `cards` (sanity check Python).
     En cas d'erreur API/parse, lève l'exception : le caller décide du fallback."""
     from anthropic import Anthropic
 
@@ -251,10 +269,15 @@ def _filter_event_urls(
 
     client = Anthropic()
     header = f"Mois cible : {month}\n\n" if month else ""
+    no_date = "(aucune date lisible sur l'agenda)"
+    lines = []
+    for i, (url, snippet) in enumerate(cards, 1):
+        card = snippet.strip() if snippet else ""
+        lines.append(f"[{i}] {url}\n    carte: {card or no_date}")
     user = (
         header
-        + f"=== Agenda overview ===\n{agenda_text}\n\n"
-        + f"=== URLs candidates ({len(urls)}) ===\n" + "\n".join(urls)
+        + f"=== Liens candidats ({len(cards)}) ===\n"
+        + "\n".join(lines)
     )
     response = client.messages.create(
         model=PREFILTER_MODEL,
@@ -274,8 +297,74 @@ def _filter_event_urls(
 
     # Sanity : ne garde que les URLs réellement présentes dans l'input
     # (évite les hallucinations / typos qui mèneraient à un 404).
-    valid = set(urls)
+    valid = {u for u, _ in cards}
     return [u for u in candidates if u in valid]
+
+
+# Date FR sur une carte d'agenda : « 16 octobre 2026 » / « 6 nov » (jour + mois
+# en toutes lettres, accents tolérés) ou forme numérique « jj/mm[/aaaa] ». Sert
+# UNIQUEMENT à localiser la carte (plus petit ancêtre daté) ; c'est le modèle
+# qui lit ensuite la date réelle.
+_FR_DATE = re.compile(
+    r"\b\d{1,2}\s*(?:er\s+)?"
+    r"(?:janv|févr|fevr|mars|avr|mai|juin|juil|ao[ûu]t|sept|oct|nov|déc|dec)"
+    r"[a-zéèûô.]*\b"
+    r"|\b\d{1,2}/\d{1,2}(?:/\d{2,4})?\b",
+    re.IGNORECASE,
+)
+
+
+def _canonical_url(base_url: str, href: str) -> str:
+    """URL canonique (scheme://host/path, sans query/fragment), identique à la
+    forme produite par _extract_subpages — pour matcher ses sorties."""
+    p = urlparse(urljoin(base_url, href))
+    return f"{p.scheme}://{p.netloc}{p.path}"
+
+
+def _extract_card_snippets(
+    html: str,
+    base_url: str,
+    urls: list[str],
+    max_len: int = 300,
+) -> list[tuple[str, str]]:
+    """Pour chaque URL de `urls`, texte de sa CARTE d'agenda (approche A, #12).
+
+    La carte = plus petit ancêtre du `<a>` qui (1) contient une date FR ET (2)
+    n'enveloppe aucun AUTRE lien candidat (sinon c'est le conteneur de liste,
+    pas une carte). Aucune carte qualifiante → `""` (date pas sur l'agenda →
+    le pré-filtre inclura par prudence). Ordre de sortie = ordre de `urls`."""
+    target = set(urls)
+    soup = BeautifulSoup(html, "html.parser")
+
+    # Map URL canonique -> premier <a> qui la cible.
+    anchor_by_url: dict[str, object] = {}
+    for a in soup.find_all("a", href=True):
+        canon = _canonical_url(base_url, a["href"])
+        if canon in target and canon not in anchor_by_url:
+            anchor_by_url[canon] = a
+
+    def _candidate_links_in(node) -> int:
+        return sum(
+            1 for a in node.find_all("a", href=True)
+            if _canonical_url(base_url, a["href"]) in target
+        )
+
+    out: list[tuple[str, str]] = []
+    for url in urls:
+        anchor = anchor_by_url.get(url)
+        snippet = ""
+        if anchor is not None:
+            node = anchor
+            for _ in range(10):  # garde-fou : ne pas remonter indéfiniment
+                node = node.parent
+                if node is None:
+                    break
+                text = node.get_text(" ", strip=True)
+                if _FR_DATE.search(text) and _candidate_links_in(node) <= 1:
+                    snippet = text[:max_len]
+                    break
+        out.append((url, snippet))
+    return out
 
 
 def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scope: str = "subpath") -> list[str]:

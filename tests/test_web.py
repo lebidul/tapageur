@@ -5,6 +5,7 @@ lourds) ; on teste juste les helpers introduits pour le routage PDF.
 """
 from __future__ import annotations
 
+import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -199,34 +200,161 @@ def test_fetch_pdf_url_extracts_text():
     assert item.raw_metadata["n_pages"] == 2
 
 
+# ---------- _extract_card_snippets ----------
+
+# Structure Elementor réelle (leoliennearnage.fr) : dans une carte, la date et
+# le lien vivent dans des widgets distincts sous un conteneur commun (e-con).
+_GIEDRE = "https://leoliennearnage.fr/event/giedre-maxi-best-of/"
+_BERENGERE = "https://leoliennearnage.fr/event/berengere-krief-sexe/"
+_LEO_BASE = "https://leoliennearnage.fr/programme-concerts-spectacles/"
+
+_ELEMENTOR_HTML = f'''<html><body>
+  <nav><a href="https://leoliennearnage.fr/contact/">Contact</a></nav>
+  <div class="e-con">
+    <div class="widget datetime">
+      <span class="datetime-date">16 octobre 2026</span>
+      <span class="datetime-time">20h00</span>
+    </div>
+    <div class="widget title"><h2>GIÉDRÉ MAXI BEST OF</h2></div>
+    <div class="widget button"><a href="{_GIEDRE}">Découvrir</a></div>
+  </div>
+  <div class="e-con">
+    <div class="widget datetime"><span>6 novembre 2026</span><span>20h00</span></div>
+    <div class="widget button"><a href="{_BERENGERE}">Découvrir</a></div>
+  </div>
+</body></html>'''
+
+
+def test_extract_card_snippets_finds_date_from_sibling_widget():
+    """La carte du lien giedre contient la date de son widget frère."""
+    from tapageur.connectors.web import _extract_card_snippets
+    cards = dict(_extract_card_snippets(_ELEMENTOR_HTML, _LEO_BASE,
+                                        [_GIEDRE, _BERENGERE]))
+    assert "16 octobre 2026" in cards[_GIEDRE]
+    assert "GIÉDRÉ" in cards[_GIEDRE]
+    assert "6 novembre 2026" in cards[_BERENGERE]
+
+
+def test_extract_card_snippets_preserves_order_and_length():
+    from tapageur.connectors.web import _extract_card_snippets
+    out = _extract_card_snippets(_ELEMENTOR_HTML, _LEO_BASE, [_BERENGERE, _GIEDRE])
+    assert [u for u, _ in out] == [_BERENGERE, _GIEDRE]
+
+
+def test_extract_card_snippets_no_date_link_returns_empty():
+    """Un lien dont aucun ancêtre ne porte de date → snippet vide (inclure)."""
+    from tapageur.connectors.web import _extract_card_snippets
+    html = '''<div class="e-con">
+      <div class="title"><h2>Concert</h2></div>
+      <div class="button"><a href="https://site.fr/event/nodate/">Découvrir</a></div>
+    </div>'''
+    out = dict(_extract_card_snippets(html, "https://site.fr/a/",
+                                      ["https://site.fr/event/nodate/"]))
+    assert out["https://site.fr/event/nodate/"] == ""
+
+
+def test_extract_card_snippets_list_container_not_a_card():
+    """Garde anti-liste : si le seul ancêtre daté enveloppe aussi un autre lien
+    candidat, ce n'est pas une carte → snippet vide."""
+    from tapageur.connectors.web import _extract_card_snippets
+    a = "https://site.fr/event/a/"
+    b = "https://site.fr/event/b/"
+    html = f'''<div class="list">
+      <p>Agenda du 5 novembre 2026</p>
+      <a href="{a}">A</a>
+      <a href="{b}">B</a>
+    </div>'''
+    out = dict(_extract_card_snippets(html, "https://site.fr/x/", [a, b]))
+    assert out[a] == "" and out[b] == ""
+
+
+def test_extract_card_snippets_matches_subpages_canonicalization():
+    """Les URLs à matcher sont celles produites par _extract_subpages (slash
+    final conservé) ; un href relatif doit se résoudre pareillement."""
+    from tapageur.connectors.web import _extract_card_snippets
+    html = '''<div class="e-con">
+      <span>12 novembre 2026</span>
+      <a href="/event/x/">lien relatif</a>
+    </div>'''
+    out = dict(_extract_card_snippets(html, "https://site.fr/agenda/",
+                                      ["https://site.fr/event/x/"]))
+    assert "12 novembre 2026" in out["https://site.fr/event/x/"]
+
+
 # ---------- _filter_event_urls ----------
 
 def test_filter_event_urls_month_none_sanity_filters_hallucinations():
     from unittest.mock import Mock, patch
     import tapageur.connectors.web as web
-    urls = ["https://site.fr/a/", "https://site.fr/b/"]
+    cards = [("https://site.fr/a/", "concert 5 nov 2026"),
+             ("https://site.fr/b/", "")]
     fake = Mock()
     block = Mock(); block.type = "text"
     block.text = '{"urls": ["https://site.fr/a/", "https://site.fr/HALLUCINE/"]}'
     fake.messages.create.return_value = Mock(content=[block])
     with patch("anthropic.Anthropic", return_value=fake):
-        kept = web._filter_event_urls("agenda overview", urls, month=None)
+        kept = web._filter_event_urls(cards, month=None)
     assert kept == ["https://site.fr/a/"]  # b non choisie, HALLUCINE filtrée
 
 
-def test_filter_event_urls_month_set_passes_month_in_prompt():
+def test_filter_event_urls_passes_month_and_cards_in_prompt():
     from unittest.mock import Mock, patch
     import tapageur.connectors.web as web
-    urls = ["https://site.fr/a/"]
+    cards = [("https://site.fr/a/", "spectacle 16 octobre 2026 - 20h00 GIÉDRÉ")]
     fake = Mock()
     block = Mock(); block.type = "text"
     block.text = '{"urls": ["https://site.fr/a/"]}'
     fake.messages.create.return_value = Mock(content=[block])
     with patch("anthropic.Anthropic", return_value=fake):
-        kept = web._filter_event_urls("agenda", urls, month="2026-11")
+        kept = web._filter_event_urls(cards, month="2026-11")
     sent = fake.messages.create.call_args.kwargs["messages"][0]["content"]
     assert "2026-11" in sent
+    assert "16 octobre 2026" in sent   # la carte (avec date) est transmise
+    assert "https://site.fr/a/" in sent
     assert kept == ["https://site.fr/a/"]
+
+
+# ---------- Cas de référence #12 (live, opt-in) ----------
+
+# Cartes réelles extraites de leoliennearnage.fr/programme-concerts-spectacles/
+# (validées par _extract_card_snippets sur le HTML live). Seul berengere est en
+# novembre 2026 ; giedre (16 oct) et les autres sont hors cible.
+_LEO_CARDS_2026 = [
+    ("https://leoliennearnage.fr/event/soiree-ouverture-saison-avec-spectacle-on-netait-que-deux/",
+     "spectacle 25 septembre 2026 - 19h00 SOIRÉE OUVERTURE SAISON"),
+    ("https://leoliennearnage.fr/event/jazz-magic/",
+     "spectacle 10 octobre 2026 - 15h30 JAZZ MAGIC"),
+    ("https://leoliennearnage.fr/event/jazz-magic-18h30/",
+     "spectacle 10 octobre 2026 - 18h30 JAZZ MAGIC"),
+    ("https://leoliennearnage.fr/event/giedre-maxi-best-of/",
+     "spectacle 16 octobre 2026 - 20h00 GIÉDRÉ MAXI BEST OF"),
+    ("https://leoliennearnage.fr/event/par-monts-et-par-soi/",
+     "projection 28 octobre 2026 - 19h00 PAR MONTS ET PAR SOI"),
+    ("https://leoliennearnage.fr/event/berengere-krief-sexe/",
+     "spectacle 6 novembre 2026 - 20h00 BÉRENGÈRE KRIEF : SEXE"),
+]
+
+
+# Opt-in explicite : la suite ne fait AUCUN appel modèle réel par défaut (comme
+# le reste du repo, tout est mocké). Pour lancer ce cas de référence en vrai :
+#   TAPAGEUR_LIVE_TESTS=1 pytest -k drops_giedre   (clé .env requise)
+@pytest.mark.skipif(not os.environ.get("TAPAGEUR_LIVE_TESTS"),
+                    reason="test live opt-in : exporter TAPAGEUR_LIVE_TESTS=1")
+def test_prefilter_drops_giedre_keeps_berengere_live():
+    """Cas de référence TODO #12 : pré-filtre mois 2026-11 sur les cartes réelles
+    → giedre (16 oct) écarté, berengere (6 nov) gardé."""
+    from dotenv import load_dotenv
+    load_dotenv(override=True)  # clé API depuis .env, comme l'app (cli.py)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY absente (.env)")
+    from tapageur.connectors.web import _filter_event_urls
+    kept = _filter_event_urls(_LEO_CARDS_2026, month="2026-11")
+    giedre = "https://leoliennearnage.fr/event/giedre-maxi-best-of/"
+    berengere = "https://leoliennearnage.fr/event/berengere-krief-sexe/"
+    assert berengere in kept, "l'event de novembre doit être gardé"
+    assert giedre not in kept, "giedre (16 octobre) doit être écarté avant le fetch"
+    # Aucun event d'octobre/septembre ne doit survivre au filtre mois.
+    assert kept == [berengere]
 
 
 # ---------- collect() follow_scope domaine + fallback index ----------
@@ -244,7 +372,7 @@ def test_collect_follow_domain_prefilters_events(monkeypatch):
                         lambda url, needs_browser=False: index_html if url.endswith("/festival/")
                         else "<p>page event diphonie 20 NOV 20h</p>")
     monkeypatch.setattr(web, "_filter_event_urls",
-                        lambda agenda, urls, month: ["https://site.fr/diphonie/"])
+                        lambda cards, month: ["https://site.fr/diphonie/"])
     monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)  # pas de HEAD réseau
     conn = web.WebConnector({"websites": [{
         "url": "https://site.fr/festival/", "name": "fest",
@@ -256,12 +384,45 @@ def test_collect_follow_domain_prefilters_events(monkeypatch):
     assert refs == ["https://site.fr/diphonie/"]  # event gardé, menu + index écartés
 
 
+def test_collect_passes_card_pairs_and_month_to_prefilter(monkeypatch):
+    """Le pré-filtre reçoit des paires (URL, texte de carte) + le mois cible
+    quand prefilter_by_month est actif (approche A, TODO #12)."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    # Agenda : carte datée pour /event/giedre/ (16 oct) + lien nav /contact/.
+    giedre = "https://site.fr/event/giedre/"
+    index_html = f'''<body>
+      <div class="card"><span>16 octobre 2026</span><a href="{giedre}">voir</a></div>
+      <a href="https://site.fr/contact/">Contact</a>
+    </body>'''
+    monkeypatch.setattr(web, "_fetch",
+                        lambda url, needs_browser=False: index_html if url.endswith("/agenda/")
+                        else "<p>event</p>")
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    captured = {}
+    def fake_prefilter(cards, month):
+        captured["cards"] = cards
+        captured["month"] = month
+        return [u for u, _ in cards]  # garde tout
+    monkeypatch.setattr(web, "_filter_event_urls", fake_prefilter)
+    conn = web.WebConnector({"websites": [{
+        "url": "https://site.fr/agenda/", "name": "a",
+        "follow_event_links": True, "follow_scope": "domain",
+        "prefilter_by_month": True,
+    }]})
+    list(conn.collect("2026-11"))
+    assert captured["month"] == "2026-11"
+    cards = dict(captured["cards"])
+    assert "16 octobre 2026" in cards[giedre]              # carte datée transmise
+    assert cards["https://site.fr/contact/"] == ""          # nav : pas de carte
+
+
 def test_collect_follow_domain_fallback_index_when_prefilter_empty(monkeypatch):
     import tapageur.connectors.web as web
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     index_html = _html_with_links(["/contact/", "/a-propos/"])
     monkeypatch.setattr(web, "_fetch", lambda url, needs_browser=False: index_html)
-    monkeypatch.setattr(web, "_filter_event_urls", lambda agenda, urls, month: [])
+    monkeypatch.setattr(web, "_filter_event_urls", lambda cards, month: [])
     monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)  # pas de HEAD réseau
     conn = web.WebConnector({"websites": [{
         "url": "https://site.fr/festival/", "name": "fest",
@@ -293,7 +454,7 @@ def test_collect_follow_domain_soft404_pages_fall_back_to_index(monkeypatch):
                         lambda url, needs_browser=False: index_html if url.endswith("/index.php")
                         else soft404)
     monkeypatch.setattr(web, "_filter_event_urls",
-                        lambda a, u, m: ["https://site.fr/Agenda/Agenda-1281",
+                        lambda cards, m: ["https://site.fr/Agenda/Agenda-1281",
                                          "https://site.fr/Agenda/Agenda-1282"])
     monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
     conn = web.WebConnector({"websites": [{
@@ -320,7 +481,7 @@ def test_collect_follow_domain_drops_soft404_keeps_usable(monkeypatch):
         return "<p>Concert réel 14 NOV 21h, Groupe X</p>"
     monkeypatch.setattr(web, "_fetch", fake_fetch)
     monkeypatch.setattr(web, "_filter_event_urls",
-                        lambda a, u, m: ["https://site.fr/Agenda/Agenda-1281",
+                        lambda cards, m: ["https://site.fr/Agenda/Agenda-1281",
                                          "https://site.fr/Agenda/Agenda-1282"])
     monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
     conn = web.WebConnector({"websites": [{
@@ -357,7 +518,7 @@ def test_collect_follow_domain_reports_page_progress(monkeypatch):
                         lambda url, needs_browser=False: index_html if url.endswith("/festival/")
                         else "<p>event</p>")
     monkeypatch.setattr(web, "_filter_event_urls",
-                        lambda a, u, m: ["https://site.fr/diphonie/", "https://site.fr/polyphonies/"])
+                        lambda cards, m: ["https://site.fr/diphonie/", "https://site.fr/polyphonies/"])
     monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
     conn = web.WebConnector({"websites": [{
         "url": "https://site.fr/festival/", "name": "fest",
