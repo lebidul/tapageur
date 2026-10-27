@@ -459,3 +459,21 @@ def test_apply_venue_defaults_city_independent_of_time_price():
     ev = _ev_city("Le Lézard", "?")
     out = dedup.apply_venue_defaults([ev], defaults)
     assert out[0].times == ["20h00"] and out[0].price == "gratuit"
+
+
+# ---------- Alias CPFI (sur le vrai config/mappings.yaml) ----------
+
+@pytest.mark.parametrize("raw", [
+    "CPFI",
+    "CPFI - Musiques du Monde",   # trait d'union
+    "CPFI – Musiques du Monde",   # tiret cadratin
+])
+def test_canonicalize_cpfi_variants(raw):
+    """Les variantes « CPFI … Musiques du Monde » doivent canonicaliser en CPFI."""
+    from pathlib import Path
+    from tapageur.dedup import canonicalize, load_mappings
+    mappings = load_mappings(Path("config/mappings.yaml"))
+    assert "CPFI" in mappings["venues"], "CPFI doit être une canonique"
+    ev = _make_event(venue=raw)
+    out = canonicalize([ev], mappings)
+    assert out[0].venue == "CPFI"
