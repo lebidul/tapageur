@@ -868,3 +868,85 @@ def test_collect_paginated_cards_no_pagination_single_page():
     pairs = _collect_paginated_cards(p1, base, lambda u: calls.append(u) or "", scope="domain")
     assert calls == []                                   # aucun fetch
     assert [u for u, _ in pairs] == ["https://site.fr/event/a/"]
+
+
+# ---------- collect() : suivi de la pagination ----------
+
+def test_collect_follows_pagination_unions_events(monkeypatch):
+    """collect() en scope domaine suit la pagination et collecte les events des
+    pages 2..N (fetch + pré-filtre mockés, pré-filtre garde tout)."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    base = "https://site.fr/programme/"
+    p1 = (f'<div><span>5 nov 2026</span><a href="/event/a/">A</a></div>'
+          f'<a class="page-numbers" href="{base}?e-page-h=2">2</a>')
+    p2 = '<div><span>6 nov 2026</span><a href="/event/b/">B</a></div>'
+    def fake_fetch(url, needs_browser=False):
+        if url == base:
+            return p1
+        if url == f"{base}?e-page-h=2":
+            return p2
+        return "<p>Concert detail</p>"
+    monkeypatch.setattr(web, "_fetch", fake_fetch)
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    monkeypatch.setattr(web, "_filter_event_urls", lambda cards, m: [u for u, _ in cards])
+    conn = web.WebConnector({"websites": [{
+        "url": base, "name": "s", "follow_event_links": True,
+        "follow_scope": "domain", "prefilter_by_month": False,
+    }]})
+    refs = {it.source_ref for it in conn.collect("2026-11")}
+    assert "https://site.fr/event/a/" in refs
+    assert "https://site.fr/event/b/" in refs   # page 2 suivie
+
+
+def test_collect_paginate_false_single_page(monkeypatch):
+    """paginate:false -> page 1 seule (pas de suivi des liens de pagination)."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    base = "https://site.fr/programme/"
+    p1 = (f'<div><span>5 nov 2026</span><a href="/event/a/">A</a></div>'
+          f'<a class="page-numbers" href="{base}?e-page-h=2">2</a>')
+    fetched = []
+    def fake_fetch(url, needs_browser=False):
+        fetched.append(url)
+        return p1 if url == base else "<p>detail</p>"
+    monkeypatch.setattr(web, "_fetch", fake_fetch)
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    monkeypatch.setattr(web, "_filter_event_urls", lambda cards, m: [u for u, _ in cards])
+    conn = web.WebConnector({"websites": [{
+        "url": base, "name": "s", "follow_event_links": True,
+        "follow_scope": "domain", "prefilter_by_month": False, "paginate": False,
+    }]})
+    refs = {it.source_ref for it in conn.collect("2026-11")}
+    assert refs == {"https://site.fr/event/a/"}
+    assert f"{base}?e-page-h=2" not in fetched   # page 2 jamais fetchée
+
+
+def test_collect_prefilter_receives_cards_from_all_pages(monkeypatch):
+    """Le pré-filtre reçoit les cartes (datées) des events de TOUTES les pages."""
+    import tapageur.connectors.web as web
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    base = "https://site.fr/programme/"
+    p1 = (f'<div><span>16 octobre 2026</span><a href="/event/a/">A</a></div>'
+          f'<a class="page-numbers" href="{base}?e-page-h=2">2</a>')
+    p2 = '<div><span>6 novembre 2026</span><a href="/event/b/">B</a></div>'
+    def fake_fetch(url, needs_browser=False):
+        if url == base:
+            return p1
+        if url == f"{base}?e-page-h=2":
+            return p2
+        return "<p>detail</p>"
+    monkeypatch.setattr(web, "_fetch", fake_fetch)
+    monkeypatch.setattr(web, "_is_pdf_url", lambda url: False)
+    captured = {}
+    def fake_prefilter(cards, month):
+        captured["cards"] = dict(cards)
+        return [u for u, _ in cards]
+    monkeypatch.setattr(web, "_filter_event_urls", fake_prefilter)
+    conn = web.WebConnector({"websites": [{
+        "url": base, "name": "s", "follow_event_links": True,
+        "follow_scope": "domain", "prefilter_by_month": True,
+    }]})
+    list(conn.collect("2026-11"))
+    assert "16 octobre 2026" in captured["cards"]["https://site.fr/event/a/"]
+    assert "6 novembre 2026" in captured["cards"]["https://site.fr/event/b/"]  # page 2
