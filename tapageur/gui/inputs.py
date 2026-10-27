@@ -58,7 +58,8 @@ def _url_to_site(u: UrlInput) -> dict:
         "needs_browser": True,          # navigateur embarqué v1 : toute URL lisible
         "follow_event_links": u.follow_links,
         "follow_scope": "domain",       # GUI : « suivre les liens » = découverte domaine + pré-filtre
-        "prefilter_by_month": False,    # filtrage mois fait en aval par normalize
+        "prefilter_by_month": True,     # #12 : filtre mois dès l'agenda (date lue sur la carte ;
+                                        # « pas de date → inclure » → aucun event perdu)
     }
     if u.is_festival:
         site["mode"] = "festival_onliner"

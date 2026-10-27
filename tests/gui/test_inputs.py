@@ -77,7 +77,9 @@ def test_url_input_builds_synthetic_config(monkeypatch):
     assert site["needs_browser"] is True
     assert site["follow_event_links"] is True
     assert site["mode"] == "festival_onliner"
-    assert site["prefilter_by_month"] is False
+    # TODO #12 : pré-filtre par mois actif en GUI (date lue sur la carte d'agenda,
+    # « pas de date → inclure » évite toute perte).
+    assert site["prefilter_by_month"] is True
     assert captured["month"] == "2026-10"
 
 
