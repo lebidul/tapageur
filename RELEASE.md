@@ -3,6 +3,15 @@
 > Ces notes sont publiées avec la Release GitHub du tag correspondant.
 > Ajouter la nouvelle version **en tête**, puis taguer `vX.Y.Z`.
 
+## 1.1.1 — 2026-10-27
+
+Correction de doublons en mode « Ajouter ».
+
+### Corrections
+- **Textes collés ne créent plus de doublons** en mode **Ajouter** : un texte
+  identique déjà traité est désormais reconnu (via le contenu) et ignoré, au
+  lieu d'être réajouté à chaque passe. Un texte modifié reste bien retraité.
+
 ## 1.1.0 — 2026-10-27
 
 Modes d'écriture, fusion/dédoublonnage et fiabilité d'extraction.
