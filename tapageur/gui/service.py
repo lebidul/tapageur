@@ -56,20 +56,26 @@ class MonthResult:
 
 
 def build_alerts(events: list[Event], ref_cities: set[str], ref_venues: set[str]) -> list[str]:
-    """Signale prix/performer manquants et lieux/villes hors listes de référence."""
+    """Signale prix/performer manquants et lieux/villes hors listes de référence.
+
+    Chaque alerte est suffixée par la SOURCE lisible de l'event (entre crochets,
+    même forme que la colonne SOURCE du xlsx : nom de fichier / URL), pour qu'on
+    sache d'où vient le problème sans fouiller le détail."""
     alerts: list[str] = []
     for ev in events:
+        src = _source_ref_display(ev.source_kind, ev.source_ref)
+        tag = f" [{src}]" if src else ""
         if ev.price == "?":
-            alerts.append(f"Prix manquant : {ev.date_label} — {ev.acts[0].performer}")
+            alerts.append(f"Prix manquant : {ev.date_label} — {ev.acts[0].performer}{tag}")
         if "?" in ev.times:
-            alerts.append(f"Horaire manquant : {ev.date_label} — {ev.acts[0].performer}")
+            alerts.append(f"Horaire manquant : {ev.date_label} — {ev.acts[0].performer}{tag}")
         for act in ev.acts:
             if act.performer == "?":
-                alerts.append(f"Artiste/performer inconnu : {ev.date_label} @ {ev.venue}")
+                alerts.append(f"Artiste/performer inconnu : {ev.date_label} @ {ev.venue}{tag}")
         if ref_cities and ev.city and ev.city not in ref_cities:
-            alerts.append(f"Ville hors liste de référence : {ev.city}")
+            alerts.append(f"Ville hors liste de référence : {ev.city}{tag}")
         if ref_venues and ev.venue and ev.venue not in ref_venues:
-            alerts.append(f"Lieu hors liste de référence : {ev.venue}")
+            alerts.append(f"Lieu hors liste de référence : {ev.venue}{tag}")
     return alerts
 
 
