@@ -6,6 +6,7 @@ lourds) ; on teste juste les helpers introduits pour le routage PDF.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -435,6 +436,68 @@ def test_prefilter_year_strict_drops_wrong_year_live():
     assert sans_date in kept, "une carte sans date lisible doit rester incluse"
     assert nov_2024 not in kept, "novembre 2024 (mauvaise année) doit être écarté"
     assert jan_2025 not in kept, "janvier 2025 (hors cible) doit être écarté"
+
+
+# ---------- Régression #12 : vraie page theatre-epidaure (fixture HTML rendu) ----------
+
+# HTML rendu (WebView2/JS, identique à ce que capture le navigateur embarqué du
+# GUI) de la page /programmation/ d'epidaure, capturé le 2026-10-27. La page
+# liste 58 events sur plusieurs saisons (archives 2024-2025 + saison 2026-2027) ;
+# seuls 3 tombent en novembre 2026. C'est le cas qui faisait garder les 58 :
+# avant ed24560, _extract_card_snippets rendait des cartes VIDES sur cette
+# structure (liens de taxonomie comptés dans l'ancêtre daté → carte rejetée),
+# donc « pas de date → inclure » n'écartait aucun hors-mois. Depuis ed24560 les
+# cartes ressortent datées et le pré-filtre ne garde que les 3 de novembre.
+_EPIDAURE_FIXTURE = Path(__file__).parent / "fixtures" / "epidaure_programmation.html"
+_EPIDAURE_URL = "https://www.theatre-epidaure.com/programmation/"
+_EPIDAURE_NOV_2026 = {
+    "https://www.theatre-epidaure.com/programmation/habiter-ensemble/",
+    "https://www.theatre-epidaure.com/programmation/mon-pere-avait-trois-vaches/",
+    "https://www.theatre-epidaure.com/programmation/pourparlers/",
+}
+
+
+def test_epidaure_real_page_cards_are_dated_not_empty():
+    """Régression #12 (pur Python, aucun appel modèle) : sur la vraie page
+    epidaure en scope=domaine (comme le GUI), les cartes des events portent bien
+    leur date → snippets NON vides. Ce test échoue sur le code d'avant ed24560
+    (toutes les cartes vides) et garde le bug corrigé."""
+    from tapageur.connectors.web import _extract_subpages, _extract_card_snippets
+    html = _EPIDAURE_FIXTURE.read_text(encoding="utf-8")
+    urls = _extract_subpages(html, base_url=_EPIDAURE_URL, scope="domain")
+    # Les 3 events de novembre 2026 sont bien découverts comme liens candidats.
+    assert _EPIDAURE_NOV_2026 <= set(urls)
+    cards = dict(_extract_card_snippets(html, _EPIDAURE_URL, urls))
+    # Le cœur du bug : les cartes event doivent être datées, pas vides.
+    event_dated = [s for u, s in cards.items()
+                   if "/programmation/" in u and s.strip()]
+    assert len(event_dated) >= 50, (
+        "les cartes event doivent porter leur date (bug #12 : toutes vides)")
+    # Dates réelles lisibles, dans la cible comme hors cible.
+    assert "novembre 2026" in cards[
+        "https://www.theatre-epidaure.com/programmation/habiter-ensemble/"].lower()
+    assert "janvier 2027" in cards[
+        "https://www.theatre-epidaure.com/programmation/potomitan/"].lower()
+
+
+@pytest.mark.skipif(not os.environ.get("TAPAGEUR_LIVE_TESTS"),
+                    reason="test live opt-in : exporter TAPAGEUR_LIVE_TESTS=1")
+def test_epidaure_real_page_prefilter_keeps_only_november_live():
+    """Cas #12 bout-en-bout sur la vraie page epidaure (scope=domaine, cible
+    2026-11) : parmi les 58 events + pages de nav, le pré-filtre ne retient que
+    les 3 events de novembre 2026 (les hors-mois et les pages de navigation sans
+    date sont écartés). Opt-in : TAPAGEUR_LIVE_TESTS=1, clé .env requise."""
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        pytest.skip("ANTHROPIC_API_KEY absente (.env)")
+    from tapageur.connectors.web import (
+        _extract_subpages, _extract_card_snippets, _filter_event_urls)
+    html = _EPIDAURE_FIXTURE.read_text(encoding="utf-8")
+    urls = _extract_subpages(html, base_url=_EPIDAURE_URL, scope="domain")
+    cards = _extract_card_snippets(html, _EPIDAURE_URL, urls)
+    kept = set(_filter_event_urls(cards, month="2026-11"))
+    assert kept == _EPIDAURE_NOV_2026
 
 
 # ---------- collect() follow_scope domaine + fallback index ----------
