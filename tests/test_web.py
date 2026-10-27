@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
+from bs4 import BeautifulSoup
 
 from tapageur.connectors.web import (
     _fetch,
@@ -989,6 +990,46 @@ def test_laferte_real_page_query_param_events_distinct():
     assert len(set(saison)) == 25  # tous distincts
     assert "https://www.la-ferte-bernard.fr/?saison_culturelle=bel-ami" in saison
     assert "https://www.la-ferte-bernard.fr/?saison_culturelle=emily-loizeau" in saison
+
+
+# ---------- Diagnostic : La Perche Comedy Club = billetterie EXTERNE ----------
+
+_PERCHE_FIXTURE = Path(__file__).parent / "fixtures" / "laperche_billetterie.html"
+_PERCHE_URL = "https://www.laperchecomedyclub.fr/billetterie/"
+
+
+def test_laperche_is_external_ticketing_not_url_discovery():
+    """La Perche Comedy Club : les events ne sont PAS découvrables par URL.
+
+    Diagnostic (fixture réelle) : la page `/billetterie/` ne contient AUCUN lien
+    détail same-host — chaque event pointe vers une billetterie tierce
+    (my.weezevent.com, fnacspectacles.com), cross-domaine, donc légitimement non
+    suivie (sécurité same-host). Ce n'est donc pas un cas de découverte d'URL
+    (ni query-param comme la-ferte, ni sous-page).
+
+    Mais l'index est AUTO-SUFFISANT : noms, dates et lieux des 6 events sont en
+    clair dans son texte → `collect` retombe sur l'index (repli déjà en place) et
+    les extrait. Ce test verrouille le diagnostic : 0 lien détail same-host, et
+    les events sont présents dans le texte de l'index."""
+    from tapageur.connectors.web import _extract_subpages
+    html = _PERCHE_FIXTURE.read_text(encoding="utf-8")
+
+    # Scope subpath (défaut) : aucune sous-page sous /billetterie/ → 0 candidat
+    # → collect repli sur l'index (qui porte les events).
+    assert _extract_subpages(html, base_url=_PERCHE_URL, scope="subpath") == []
+
+    # Scope domaine : seulement des pages de navigation same-host, AUCUN lien
+    # portant un slug d'artiste (tous les détails sont cross-domaine).
+    subs = _extract_subpages(html, base_url=_PERCHE_URL, scope="domain")
+    artist_slugs = ("baldetti", "tramoni", "duth", "belabbes", "bellabes",
+                    "guillarme", "lemarchand", "marchand")
+    assert not [u for u in subs if any(a in u.lower() for a in artist_slugs)]
+
+    # L'index est auto-suffisant : les 6 events datés y figurent (→ repli-index).
+    text = BeautifulSoup(html, "html.parser").get_text(" ", strip=True).upper()
+    assert "TOM BALDETTI" in text and "06 NOVEMBRE 2026" in text
+    assert "GREG DUTH" in text and "04 DECEMBRE 2026" in text
+    assert "YANN GUILLARME" in text and "22 MAI 2027" in text
 
 
 # ---------- _clean_query : blocklist tracking + pagination ----------
