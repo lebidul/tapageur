@@ -467,8 +467,11 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
     msj.world/ofcourselemans/card/<slug> ; pattern :
     "https://msj\\.world/ofcourselemans/card/.+"
 
-    Dans les 2 modes : exclut ancres, query strings (déduplique sur path),
-    URLs cross-domaine.
+    Dans les 2 modes : exclut ancres et URLs cross-domaine. La canonisation
+    (via `_canonical_url`) PRÉSERVE les query params signifiants et strippe le
+    tracking + la pagination — déduplique donc sur chemin + query utile. Ainsi
+    les events identifiés uniquement par un paramètre (ex. WordPress
+    `/?saison_culturelle=<slug>`) ne s'effondrent plus sur un chemin unique.
     """
     import re
 
@@ -488,8 +491,9 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
         if compiled_pattern is not None:
             if p.netloc != base.netloc:
                 continue
-            # Test sur l'URL canonisée (sans fragment/query) pour cohérence.
-            canonical = f"{p.scheme}://{p.netloc}{p.path}"
+            # Test sur l'URL canonisée (query signifiante préservée, tracking et
+            # pagination strippés) pour cohérence avec _extract_card_snippets.
+            canonical = _canonical_url(base_url, a["href"])
             if not compiled_pattern.match(canonical):
                 continue
             out.add(canonical)
@@ -506,8 +510,7 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
             continue
         if _TAXONOMY.search(p.path):
             continue  # page de catégorie/tag/commune… (pas un event)
-        clean = f"{p.scheme}://{p.netloc}{p.path}"
-        out.add(clean)
+        out.add(_canonical_url(base_url, a["href"]))
     return sorted(out)
 
 

@@ -1016,3 +1016,72 @@ def test_clean_query_empty_and_tracking_only():
     from tapageur.connectors.web import _clean_query
     assert _clean_query("") == ""
     assert _clean_query("utm_campaign=x&fbclid=y") == ""
+
+
+# ---------- _extract_subpages : events en paramètre de requête ----------
+
+def test_extract_subpages_keeps_distinct_query_events():
+    """Des events sur le MÊME chemin (racine) distingués par un query param
+    signifiant ressortent DISTINCTS (cas WordPress ?saison_culturelle=<slug>)."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/?saison_culturelle=bel-ami">Bel Ami</a>
+      <a href="/?saison_culturelle=lumiere">Lumière</a>
+      <a href="/?saison_culturelle=modulus">Modulus</a>
+    '''
+    base = "https://site.fr/culture/centre-culturel/"
+    subs = _extract_subpages(html, base_url=base, scope="domain")
+    assert "https://site.fr/?saison_culturelle=bel-ami" in subs
+    assert "https://site.fr/?saison_culturelle=lumiere" in subs
+    assert "https://site.fr/?saison_culturelle=modulus" in subs
+    assert len([u for u in subs if "saison_culturelle" in u]) == 3
+
+
+def test_extract_subpages_merges_tracking_variants():
+    """Deux liens même chemin ne différant que par du tracking fusionnent."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/agenda/concert">clean</a>
+      <a href="/agenda/concert?utm_source=fb">tracked</a>
+      <a href="/agenda/concert?fbclid=xyz">tracked2</a>
+    '''
+    subs = _extract_subpages(html, base_url="https://site.fr/agenda")
+    assert subs == ["https://site.fr/agenda/concert"]
+
+
+def test_extract_subpages_pagination_param_not_an_event():
+    """Un lien distingué seulement par un param de pagination n'est pas un event
+    distinct (il retombe sur son chemin nu, pas N candidats fantômes)."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/agenda/concert">event</a>
+      <a href="/agenda/concert?page=2">pagination-like</a>
+      <a href="/agenda/concert?e-page-abc=3">pagination-like2</a>
+    '''
+    subs = _extract_subpages(html, base_url="https://site.fr/agenda")
+    assert subs == ["https://site.fr/agenda/concert"]
+
+
+def test_canonical_url_cleans_query():
+    """_canonical_url préserve les params signifiants, strippe tracking/pagination."""
+    from tapageur.connectors.web import _canonical_url
+    base = "https://site.fr/agenda/"
+    assert _canonical_url(base, "/?saison_culturelle=bel-ami") == \
+        "https://site.fr/?saison_culturelle=bel-ami"
+    assert _canonical_url(base, "/x/?utm_source=fb") == "https://site.fr/x/"
+    assert _canonical_url(base, "/x/?page=2") == "https://site.fr/x/"
+
+
+def test_extract_subpages_query_event_card_matches():
+    """La carte d'un event query-param est bien retrouvée (même canonical entre
+    _extract_subpages et _extract_card_snippets)."""
+    from tapageur.connectors.web import _extract_subpages, _extract_card_snippets
+    html = ('<article>'
+            '<span>16 octobre 2026 - 20h00</span>'
+            '<a href="/?saison_culturelle=lumiere">Lumière</a>'
+            '</article>')
+    base = "https://site.fr/culture/centre-culturel/"
+    subs = _extract_subpages(html, base_url=base, scope="domain")
+    cards = dict(_extract_card_snippets(html, base, subs))
+    url = next(u for u in subs if "lumiere" in u)
+    assert "16 octobre 2026" in cards[url]
