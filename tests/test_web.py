@@ -148,6 +148,39 @@ def test_extract_subpages_domain_scope_keeps_siblings():
     assert not any(u.startswith("mailto") or "#" in u for u in subs)
 
 
+def test_extract_subpages_excludes_taxonomy():
+    """Les pages de taxonomie/filtre (catégorie, tag, commune…) ne sont pas des
+    events et polluaient le comptage des liens par carte → exclues."""
+    from tapageur.connectors.web import _extract_subpages
+    html = '''
+      <a href="/event/giedre-maxi-best-of/">GIÉDRÉ</a>
+      <a href="/events/categorie/spectacle-pres-du-mans/">catégorie</a>
+      <a href="/event/berengere/">Bérengère</a>
+      <a href="/agenda/commune/le-mans/">commune</a>
+    '''
+    subs = _extract_subpages(html, base_url="https://leo.fr/programme/", scope="domain")
+    assert any("giedre" in u for u in subs) and any("berengere" in u for u in subs)
+    assert not any("categorie" in u for u in subs)
+    assert not any("/commune/" in u for u in subs)
+
+
+def test_card_snippet_found_despite_taxonomy_link():
+    """Une carte avec un lien de catégorie + le lien event garde quand même sa
+    date (régression léolienne : la carte était faussement rejetée)."""
+    from tapageur.connectors.web import _extract_subpages, _extract_card_snippets
+    html = ('<article><div class="badge">'
+            '<a href="/events/categorie/spectacle/">SPECTACLE</a>'
+            '<span>16 octobre 2026 - 20h00</span>'
+            '<a href="/event/giedre/">GIÉDRÉ</a>'
+            '<a href="/event/giedre/">Découvrir</a>'
+            '</div></article>')
+    base = "https://leo.fr/programme/"
+    subs = _extract_subpages(html, base_url=base, scope="domain")
+    cards = dict(_extract_card_snippets(html, base, subs))
+    giedre = next(u for u in subs if "giedre" in u)
+    assert "16 octobre 2026" in cards[giedre]
+
+
 def test_extract_subpages_domain_scope_dedups_fragment_and_query():
     from tapageur.connectors.web import _extract_subpages
     html = '''

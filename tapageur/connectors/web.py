@@ -352,10 +352,13 @@ def _extract_card_snippets(
             anchor_by_url[canon] = a
 
     def _candidate_links_in(node) -> int:
-        return sum(
-            1 for a in node.find_all("a", href=True)
+        # URLs candidates DISTINCTES (une carte a souvent plusieurs <a> vers le
+        # même event : image + titre + bouton → ne compter qu'une fois).
+        return len({
+            _canonical_url(base_url, a["href"])
+            for a in node.find_all("a", href=True)
             if _canonical_url(base_url, a["href"]) in target
-        )
+        })
 
     out: list[tuple[str, str]] = []
     for url in urls:
@@ -373,6 +376,16 @@ def _extract_card_snippets(
                     break
         out.append((url, snippet))
     return out
+
+
+# Pages de taxonomie / filtre (catégorie, tag, commune, type…) : ce ne sont pas
+# des pages d'event, et elles polluent le comptage des liens par carte (→ cartes
+# faussement rejetées par _extract_card_snippets, dates non lues avant fetch).
+_TAXONOMY = re.compile(
+    r"/(categorie|categories|category|categories|cat|tag|tags|type|types"
+    r"|rubrique|rubriques|theme|themes|commune|communes|lieu|lieux|ville|villes)/",
+    re.IGNORECASE,
+)
 
 
 def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scope: str = "subpath") -> list[str]:
@@ -425,6 +438,8 @@ def _extract_subpages(html: str, base_url: str, pattern: str | None = None, scop
             continue  # la page agenda elle-même
         if scope == "subpath" and not path.startswith(base_path + "/"):
             continue
+        if _TAXONOMY.search(p.path):
+            continue  # page de catégorie/tag/commune… (pas un event)
         clean = f"{p.scheme}://{p.netloc}{p.path}"
         out.add(clean)
     return sorted(out)
