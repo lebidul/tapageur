@@ -150,6 +150,28 @@ def test_events_summary_shape():
     assert s[0]["lieu"] == "Le Lieu" and s[0]["heure"] == "20h00"
 
 
+def test_events_summary_source_label():
+    """source_label réutilise validate._source_ref_display (en-tête de groupe)."""
+    from tapageur.schema import Event, Act
+
+    def _ev(kind, ref):
+        return Event(tapeur_email="t@b.fr", date_label="Mardi 10",
+                     date_iso="2026-11-10", times=["20h00"], venue="Le Lieu",
+                     city="Le Mans", price="10€",
+                     acts=[Act(genre="c", title=None, performer="X", style=None)],
+                     source_kind=kind, source_ref=ref)
+
+    web = app._events_summary([_ev("web", "https://musiquesmagiques.fr")])[0]
+    assert web["source_label"] == "https://musiquesmagiques.fr"
+    assert web["source"] == "https://musiquesmagiques.fr"  # champ brut conservé
+
+    pdf = app._events_summary([_ev("pdf", r"C:\x\affiche.pdf#page=3")])[0]
+    assert pdf["source_label"] == "affiche.pdf (p.3)"
+
+    txt = app._events_summary([_ev("text", "texte #2")])[0]
+    assert txt["source_label"] == "texte #2"
+
+
 def test_read_config_valid_and_invalid(tmp_path):
     good = tmp_path / "c.json"
     good.write_text('{"months": ["2026-11"], "formats": ["xlsx"]}', encoding="utf-8")
