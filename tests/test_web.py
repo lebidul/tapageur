@@ -777,3 +777,94 @@ def test_page_param_detects_markers():
     assert _page_param("paged=3") == 3
     assert _page_param("lang=en") is None
     assert _page_param("") is None
+
+
+# ---------- _collect_paginated_cards ----------
+
+def test_collect_paginated_cards_unions_pages():
+    """Page 1 -> events A + liens vers pages 2,3 ; pages 2,3 -> autres events."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    base = "https://site.fr/programme/"
+    p1 = f'''
+      <div><span>5 novembre 2026</span><a href="/event/a/">A</a></div>
+      <a class="page-numbers" href="{base}?e-page-h=2">2</a>
+      <a class="page-numbers" href="{base}?e-page-h=3">3</a>'''
+    p2 = '<div><span>6 novembre 2026</span><a href="/event/b/">B</a></div>'
+    p3 = '<div><span>7 novembre 2026</span><a href="/event/c/">C</a></div>'
+    pages = {f"{base}?e-page-h=2": p2, f"{base}?e-page-h=3": p3}
+    pairs = _collect_paginated_cards(p1, base, lambda u: pages[u], scope="domain")
+    cards = dict(pairs)
+    assert set(cards) == {"https://site.fr/event/a/", "https://site.fr/event/b/",
+                          "https://site.fr/event/c/"}
+    assert "5 novembre 2026" in cards["https://site.fr/event/a/"]
+    assert "6 novembre 2026" in cards["https://site.fr/event/b/"]
+    assert "7 novembre 2026" in cards["https://site.fr/event/c/"]
+
+
+def test_collect_paginated_cards_dedups_repeated_events():
+    """Un event présent sur 2 pages n'apparaît qu'une fois (1re occurrence)."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    base = "https://site.fr/programme/"
+    p1 = f'''<div><span>5 novembre 2026</span><a href="/event/a/">A</a></div>
+             <a class="page-numbers" href="{base}?page=2">2</a>'''
+    p2 = '<div><span>5 novembre 2026</span><a href="/event/a/">A again</a></div>'
+    pairs = _collect_paginated_cards(p1, base, lambda u: p2, scope="domain")
+    assert [u for u, _ in pairs] == ["https://site.fr/event/a/"]
+
+
+def test_collect_paginated_cards_next_only_crawl():
+    """Site « next-only » : chaque page ne lie que la suivante -> crawl en chaîne."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    base = "https://site.fr/programme/"
+    p1 = f'<a href="/event/a/">A</a><a class="next" href="{base}?paged=2">></a>'
+    p2 = f'<a href="/event/b/">B</a><a class="next" href="{base}?paged=3">></a>'
+    p3 = '<a href="/event/c/">C</a>'
+    pages = {f"{base}?paged=2": p2, f"{base}?paged=3": p3}
+    pairs = _collect_paginated_cards(p1, base, lambda u: pages[u], scope="domain")
+    assert {u for u, _ in pairs} == {"https://site.fr/event/a/",
+                                     "https://site.fr/event/b/",
+                                     "https://site.fr/event/c/"}
+
+
+def test_collect_paginated_cards_respects_cap():
+    """Au plus max_pages pages visitées (page 1 incluse) -> fetchs bornés."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    from urllib.parse import urlparse, parse_qs
+    base = "https://site.fr/programme/"
+    p1 = f'<a href="/event/e1/">E1</a><a class="next" href="{base}?paged=2">></a>'
+    calls = {"n": 0}
+    def counting_fetch(u):
+        calls["n"] += 1
+        n = int(parse_qs(urlparse(u).query)["paged"][0])
+        return f'<a href="/event/e{n}/">E{n}</a><a class="next" href="{base}?paged={n+1}">></a>'
+    pairs = _collect_paginated_cards(p1, base, counting_fetch, scope="domain", max_pages=3)
+    assert calls["n"] == 2            # page 1 (déjà en main) + 2 fetchs = 3 pages
+    assert len(pairs) == 3            # e1, e2, e3
+
+
+def test_collect_paginated_cards_tolerates_fetch_error():
+    """Un fetch de page paginée en erreur est ignoré ; les autres restent."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    base = "https://site.fr/programme/"
+    p1 = f'''<a href="/event/a/">A</a>
+             <a class="page-numbers" href="{base}?page=2">2</a>
+             <a class="page-numbers" href="{base}?page=3">3</a>'''
+    def fetch(u):
+        if u.endswith("page=2"):
+            raise RuntimeError("boom")
+        return '<a href="/event/c/">C</a>'
+    pairs = _collect_paginated_cards(p1, base, fetch, scope="domain")
+    urls = {u for u, _ in pairs}
+    assert "https://site.fr/event/a/" in urls   # page 1
+    assert "https://site.fr/event/c/" in urls   # page 3 (page 2 en erreur, ignorée)
+
+
+def test_collect_paginated_cards_no_pagination_single_page():
+    """Site non paginé : aucune page supplémentaire fetchée."""
+    from tapageur.connectors.web import _collect_paginated_cards
+    base = "https://site.fr/programme/"
+    p1 = '<div><span>5 novembre 2026</span><a href="/event/a/">A</a></div>'
+    calls = []
+    pairs = _collect_paginated_cards(p1, base, lambda u: calls.append(u) or "", scope="domain")
+    assert calls == []                                   # aucun fetch
+    assert [u for u, _ in pairs] == ["https://site.fr/event/a/"]

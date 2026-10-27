@@ -526,6 +526,68 @@ def _extract_pagination_urls(html: str, base_url: str) -> list[str]:
     return out
 
 
+def _page_key(url: str) -> tuple[str, str, str]:
+    """Clé de dédup d'une page d'agenda (host, path sans slash final, query)."""
+    p = urlparse(url)
+    return (p.netloc, p.path.rstrip("/"), p.query)
+
+
+def _collect_paginated_cards(
+    first_html: str,
+    base_url: str,
+    fetch,
+    pattern: str | None = None,
+    scope: str = "subpath",
+    max_pages: int = _MAX_AGENDA_PAGES,
+) -> list[tuple[str, str]]:
+    """Union des paires (URL d'event, texte de carte) sur toutes les pages d'un
+    agenda paginé (page 1 + pages 2..N découvertes via `_extract_pagination_urls`).
+
+    `fetch(url) -> html` est injecté (testable ; en prod `lambda u: _fetch(u,
+    needs_browser=...)`). Crawl borné : chaque page visitée au plus une fois, au
+    plus `max_pages` pages au total (donc <= max_pages-1 fetchs en plus de la
+    page 1 déjà en main). Chaque page passe par `_extract_subpages` puis
+    `_extract_card_snippets` — les cartes des pages 2..N portent LEUR date, ce que
+    le pré-filtre mois exploite. Dédoublonne par URL (1re occurrence gagne, ordre
+    de découverte préservé). Un fetch de page en erreur est loggé et ignoré."""
+    pairs: list[tuple[str, str]] = []
+    seen_urls: set[str] = set()
+
+    def _ingest(html: str) -> None:
+        urls = _extract_subpages(html, base_url, pattern=pattern, scope=scope)
+        for u, snip in _extract_card_snippets(html, base_url, urls):
+            if u not in seen_urls:
+                seen_urls.add(u)
+                pairs.append((u, snip))
+
+    visited: set[tuple[str, str, str]] = {_page_key(base_url)}
+    pending: list[str] = []
+
+    def _enqueue(html: str) -> None:
+        for pu in _extract_pagination_urls(html, base_url):
+            k = _page_key(pu)
+            if k not in visited:
+                visited.add(k)
+                pending.append(pu)
+
+    _ingest(first_html)
+    _enqueue(first_html)
+
+    n_fetched = 0
+    while pending and n_fetched < max_pages - 1:
+        pu = pending.pop(0)
+        try:
+            phtml = fetch(pu)
+        except Exception as e:
+            print(f"[web]   pagination {pu}: {e}")
+            continue
+        n_fetched += 1
+        _ingest(phtml)
+        _enqueue(phtml)
+
+    return pairs
+
+
 # Cache HTTP in-process pour éviter de re-fetcher la même URL entre 2 mois
 # cibles (cas du `collect --month 07 --month 08`). Vidé manuellement entre
 # runs si besoin via clear_fetch_cache(). Pas de TTL : valide tant que le
