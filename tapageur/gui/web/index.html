@@ -388,12 +388,19 @@ let elapsedTimer = null;
 // #elapsed et à l'horodatage [m:ss] préfixant chaque ligne de progression.
 let runStartedAt = null;
 
-// Temps écoulé formaté « m:ss » (depuis un nombre de millisecondes).
+// Temps écoulé formaté « mm:ss » (minutes paddées) depuis un nombre de ms.
 function fmtClock(ms) {
   const secs = Math.floor(ms / 1000);
   const m = Math.floor(secs / 60);
   const s = secs % 60;
-  return m + ':' + String(s).padStart(2, '0');
+  return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+}
+
+// Heure système « HH:MM:SS » (horloge murale) pour horodater le log.
+function wallClock() {
+  const d = new Date();
+  return [d.getHours(), d.getMinutes(), d.getSeconds()]
+    .map(n => String(n).padStart(2, '0')).join(':');
 }
 
 function startElapsed() {
@@ -414,10 +421,10 @@ function stopElapsed() {
 window.onProgress = function (msg) {
   const area = document.getElementById('progress');
   const line = document.createElement('div');
-  // Préfixe chaque ligne du temps écoulé depuis le début du run (repère
-  // temporel « [m:ss] » pendant l'extraction). Hors run : pas de préfixe.
-  const stamp = (runStartedAt !== null) ? '[' + fmtClock(Date.now() - runStartedAt) + '] ' : '';
-  line.textContent = stamp + msg;
+  // Préfixe : heure système [HH:MM:SS] + temps écoulé [mm:ss] depuis le début
+  // du run (hors run : juste l'heure système).
+  const elapsed = (runStartedAt !== null) ? ' [' + fmtClock(Date.now() - runStartedAt) + ']' : '';
+  line.textContent = '[' + wallClock() + ']' + elapsed + ' ' + msg;
   area.appendChild(line);
 };
 
