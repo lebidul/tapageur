@@ -193,11 +193,11 @@ exploitable → 0 event aujourd'hui).
 
 ---
 
-## 10. Identifier la source dans le log live / Résumé — ⚙️ log live FAIT (2026-10-26), Résumé à faire
+## 10. Identifier la source dans le log live / Résumé — ✅ FAIT (2026-10-27)
 
-**État :** le log live préfixe désormais la source (`<site> : N pages à
-récupérer` / `<site> — Page i/N : slug`, web.py). Reste à faire : grouper /
-titrer les events **par source dans le Résumé**.
+**État :** log live FAIT (2026-10-26, préfixe de source dans web.py) ; Résumé
+FAIT (2026-10-27) : les events sont groupés/titrés par source (en-tête lisible
+par source, events indentés dessous, ordre de première apparition préservé).
 
 **But :** savoir à quelle source se rapportent les infos affichées pendant
 l'extraction (log live) et dans le Résumé — au moins un en-tête en début de
